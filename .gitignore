@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+.simpleSfCli_out/
+
+# Deployment artifacts
+deploy.zip
+*.zip
+
+# Environment variables and secrets
+.env
+*.pem
+*.key
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Salesforce specific
+ApexTestCoverage.json
+
+# Temporary files
+tmp/
+temp/
