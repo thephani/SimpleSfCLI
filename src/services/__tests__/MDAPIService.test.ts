@@ -5,7 +5,7 @@ import { CommandArgsConfig } from '../../types/config.js';
 
 jest.mock('fs/promises');
 jest.mock('child_process');
-jest.mock('../../helper/xmlHelper');
+jest.mock('../../helper/xmlHelper.ts');
 
 describe('MDAPIService', () => {
   const mockConfig: CommandArgsConfig = {
