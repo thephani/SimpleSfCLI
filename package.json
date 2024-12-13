@@ -5,7 +5,7 @@
 	"type": "module",
 	"main": "dist/index.js",
 	"bin": {
-		"simpleSfCli": "./dist/cli.js"
+		"simpleSfCli": "dist/cli.js"
 	},
 	"scripts": {
 		"build": "tsc",
