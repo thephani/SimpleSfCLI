@@ -1,4 +1,4 @@
-import { XmlHelper } from '../xmlHelper.ts';
+import { XmlHelper } from '../xmlHelper';
 import builder from 'xmlbuilder';
 
 jest.mock('xmlbuilder');

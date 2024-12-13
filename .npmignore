@@ -1,0 +1,16 @@
+dist/** 
+node_modules
+.github
+.gitignore
+jest.config.js
+jest.setup.js
+
+LICENSE
+package-lock.json
+Readme.md
+tsconfig.json
+**/__tests__/**
+**/tests/**
+**/test/**
+*.test.*
+*.spec.*
