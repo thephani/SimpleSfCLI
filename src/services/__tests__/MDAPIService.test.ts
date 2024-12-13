@@ -1,101 +1,165 @@
-import { MDAPIService } from '../MDAPIService.js';
-import fs from 'fs/promises';
+import { MDAPIService } from '../MDAPIService';
+import fs from 'fs';
 import { execSync } from 'child_process';
-import { CommandArgsConfig } from '../../types/config.js';
+import { XmlHelper } from '../../helper/xmlHelper';
 
-jest.mock('fs/promises');
-jest.mock('child_process');
-jest.mock('../../helper/xmlHelper.ts');
+// Mock dependencies
+jest.mock('fs', () => ({
+  promises: {
+    mkdir: jest.fn(),
+    writeFile: jest.fn(),
+    copyFile: jest.fn(),
+    readFile: jest.fn()
+  },
+  existsSync: jest.fn()
+}));
+
+jest.mock('child_process', () => ({
+  execSync: jest.fn()
+}));
+
+jest.mock('../../helper/xmlHelper');
 
 describe('MDAPIService', () => {
-  const mockConfig: CommandArgsConfig = {
-    instanceUrl: 'https://test.salesforce.com',
-    accessToken: 'mock-token',
-    sfVersion: '56.0',
-    username: 'test@example.com',
-    clientId: 'test-client-id',
-    privateKey: 'test-key.pem',
-    source: 'force-app/main/default',
-    output: 'deploy.zip',
-    env: 'SANDBOX',
-    testLevel: 'NoTestRun' as const,
-    appVersion: '1.0.0',
-    appDescription: 'Test App',
-    cliVersion: '1.0.0',
-    cliOuputFolder: '.output',
-    coverageJson: 'coverage.json',
-    runTests: []
-  };
-
-  let service: MDAPIService;
+  let mdapiService: MDAPIService;
+  let mockConfig: any;
 
   beforeEach(() => {
-    service = new MDAPIService(mockConfig);
+    // Reset all mocks
     jest.clearAllMocks();
+    
+    mockConfig = {
+      sourceDir: 'force-app/main/default',
+      targetDir: 'mdapi',
+      excludeList: []
+    };
+
+    mdapiService = new MDAPIService(mockConfig);
   });
 
   describe('convertToMDAPI', () => {
-    beforeEach(() => {
+    it('should successfully convert SFDX source to MDAPI format', async () => {
+      // Mock git diff to return some changed files
       (execSync as jest.Mock).mockReturnValue(
-        'force-app/main/default/classes/TestClass.cls\n' +
-        'force-app/main/default/objects/Account/fields/CustomField.field-meta.xml'
+        'force-app/main/default/classes/TestClass.cls\nforce-app/main/default/objects/Account/fields/CustomField__c.field-meta.xml'
       );
+
+      // Mock XmlHelper methods
+      (XmlHelper.prototype.generateCustomObjectForFields as jest.Mock).mockResolvedValue(undefined);
+      (XmlHelper.prototype.createPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0" ?>');
+      (XmlHelper.prototype.generatePackageMember as jest.Mock).mockReturnValue({
+        members: ['TestMember']
+      });
+
+      // Mock file system operations
+      (fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest class TestClass {}');
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      const result = await mdapiService.convertToMDAPI('source', 'target');
+
+      // Verify directory creation
+      expect(fs.promises.mkdir).toHaveBeenCalledWith('target', { recursive: true });
+
+      // Verify package.xml was generated
+      expect(fs.promises.writeFile).toHaveBeenCalled();
+
+      // Verify files were copied
+      expect(fs.promises.copyFile).toHaveBeenCalled();
+
+      // Verify test classes were identified
+      expect(result).toContain('TestClass');
     });
 
-    it('should successfully convert SFDX to MDAPI format', async () => {
-      const result = await service.convertToMDAPI('source', 'target');
-      
-      expect(result).toBeDefined();
-      expect(execSync).toHaveBeenCalled();
-      expect(fs.mkdir).toHaveBeenCalled();
-    });
-
-    it('should handle no changed files', async () => {
+    it('should handle empty git diff with no changes', async () => {
       (execSync as jest.Mock).mockReturnValue('');
 
-      await expect(
-        service.convertToMDAPI('source', 'target')
-      ).rejects.toThrow('No changed files found');
-    });
-
-    it('should exclude specified metadata types', async () => {
-      const result = await service.convertToMDAPI(
-        'source',
-        'target',
-        ['ApexClass']
-      );
+      const result = await mdapiService.convertToMDAPI('source', 'target');
 
       expect(result).toEqual([]);
+      expect(fs.promises.writeFile).not.toHaveBeenCalled();
     });
-  });
 
-  describe('file processing', () => {
-    it('should generate correct member name for Apex class', async () => {
+    it('should handle custom field changes and generate custom objects', async () => {
+      (execSync as jest.Mock).mockReturnValue(
+        'force-app/main/default/objects/Account/fields/CustomField__c.field-meta.xml'
+      );
+
+      await mdapiService.convertToMDAPI('source', 'target');
+
+      expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalled();
+    });
+
+    it('should respect exclude list', async () => {
       (execSync as jest.Mock).mockReturnValue(
         'force-app/main/default/classes/TestClass.cls'
       );
 
-      await service.convertToMDAPI('source', 'target');
-      
-      // Verify package.xml includes correct member
-      expect(fs.writeFile).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining('TestClass')
-      );
+      await mdapiService.convertToMDAPI('source', 'target', ['ApexClass']);
+
+      // Verify package.xml was not generated for excluded type
+      expect(fs.promises.writeFile).not.toHaveBeenCalled();
     });
 
-    it('should handle custom fields correctly', async () => {
+    it('should handle errors during conversion', async () => {
+      (execSync as jest.Mock).mockImplementation(() => {
+        throw new Error('Git command failed');
+      });
+
+      await expect(mdapiService.convertToMDAPI('source', 'target'))
+        .rejects
+        .toThrow('MDAPI conversion failed');
+    });
+  });
+
+  describe('file handling', () => {
+    it('should correctly handle metadata files', async () => {
       (execSync as jest.Mock).mockReturnValue(
-        'force-app/main/default/objects/Account/fields/CustomField.field-meta.xml'
+        'force-app/main/default/classes/TestClass.cls'
+      );
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      await mdapiService.convertToMDAPI('source', 'target');
+
+      // Verify both main file and meta file were copied
+      expect(fs.promises.copyFile).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle .md-meta.xml files correctly', async () => {
+      (execSync as jest.Mock).mockReturnValue(
+        'force-app/main/default/documents/TestDoc.md-meta.xml'
       );
 
-      await service.convertToMDAPI('source', 'target');
-      
-      // Verify package.xml includes correct member
-      expect(fs.writeFile).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining('Account.CustomField')
+      await mdapiService.convertToMDAPI('source', 'target');
+
+      // Verify file was copied with correct name transformation
+      expect(fs.promises.copyFile).toHaveBeenCalledWith(
+        expect.stringContaining('TestDoc.md-meta.xml'),
+        expect.stringContaining('TestDoc.md')
       );
     });
+  });
+
+  describe('test class detection', () => {
+    it('should detect @isTest annotation', async () => {
+      (fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest class TestClass {}');
+      (execSync as jest.Mock).mockReturnValue(
+        'force-app/main/default/classes/TestClass.cls'
+      );
+
+      const result = await mdapiService.convertToMDAPI('source', 'target');
+
+      expect(result).toContain('TestClass');
     });
+
+    it('should detect testMethod keyword', async () => {
+      (fs.promises.readFile as jest.Mock).mockResolvedValue('class TestClass { testMethod static void test() {} }');
+      (execSync as jest.Mock).mockReturnValue(
+        'force-app/main/default/classes/TestClass.cls'
+      );
+
+      const result = await mdapiService.convertToMDAPI('source', 'target');
+
+      expect(result).toContain('TestClass');
+    });
+  });
 });
