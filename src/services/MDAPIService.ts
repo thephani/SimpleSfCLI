@@ -8,6 +8,7 @@ import { MetadataType } from 'types/index.js';
 import { MEMBERTYPE_REGEX, METADATA_TYPES } from '../helper/constants.js';
 import { XmlHelper } from '../helper/xmlHelper.js';
 import { CommandArgsConfig } from 'types/config.js';
+import { trace } from 'console';
 
 interface ChangedFilesResult {
 	groupedData: GroupedData;
@@ -44,6 +45,7 @@ export class MDAPIService extends BaseService {
 
 			// Generate custom objects for fields if needed
 			await this.generateCustomObjectForFields(groupedData);
+			console.log('finished generating custom objects');
 
 			const metadataTypes: MetadataType[] = [];
 			const excludedComponents: string[] = [];
@@ -51,6 +53,7 @@ export class MDAPIService extends BaseService {
 
 			// Copy files and their metadata
 			await this.processFilesForCopy(targetDir, restChangedFiles);
+			console.log('finished copying files');
 
 			// Process changed files for package.xml
 			await this.processChangedFilesForPackage(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
@@ -72,7 +75,8 @@ export class MDAPIService extends BaseService {
 			return runTests;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error during MDAPI conversion';
-			throw new Error(`MDAPI conversion failed: ${errorMessage}`);
+			console.trace(error);
+			throw new Error(`MDAPI conversion failed: ${errorMessage} ${trace}`);
 		}
 	}
 
