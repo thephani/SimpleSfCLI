@@ -20,7 +20,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
         
       - name: Run TypeScript compiler
-        run: npm run build
+        run: npm install && npm run build
         
       - name: Run tests
         run: npm test
