@@ -77,7 +77,7 @@ class CLI {
           
           const deployOptions: DeployOptions = {
             checkOnly: Boolean(this.program.opts().validateOnly),
-            testLevel: this.program.opts().testLevel,
+            testLevel: updatedConfig.testLevel,
             allowMissingFiles: false,
             rollbackOnError: true,
             singlePackage: true
