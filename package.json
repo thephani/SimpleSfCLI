@@ -1,9 +1,9 @@
 {
 	"name": "simple-sf-cli",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "A simplified Salesforce CLI plugin",
 	"type": "module",
-	"main": "dist/index.js",
+	"main": "dist/cli.js",
 	"bin": {
 		"simpleSfCli": "dist/cli.js"
 	},
@@ -21,13 +21,11 @@
 	"dependencies": {
 		"archiver": "^7.0.1",
 		"commander": "^11.0.0",
-		"fs-extra": "^11.0.0",
 		"jsonwebtoken": "^9.0.0",
 		"xmlbuilder": "^15.1.1"
 	},
 	"devDependencies": {
 		"@types/archiver": "^6.0.3",
-		"@types/fs-extra": "^11.0.0",
 		"@types/jest": "^29.5.14",
 		"@types/jsonwebtoken": "^9.0.0",
 		"@types/node": "^20.17.9",

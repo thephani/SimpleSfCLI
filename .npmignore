@@ -2,9 +2,9 @@ dist/**
 node_modules
 .github
 .gitignore
-jest.config.js
-jest.setup.js
-
+jest.*.js
+dist/cli.js
+coverage
 LICENSE
 package-lock.json
 Readme.md
