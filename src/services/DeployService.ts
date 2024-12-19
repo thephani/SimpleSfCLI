@@ -24,7 +24,7 @@ export class DeployService extends BaseService {
 	async initiateDeployment(zipPath: string, options: Partial<DeployOptions> = {}): Promise<string> {
 		const soapRequest = this.createDeployRequest(zipPath, options);
 
-		const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/${this.config.sfVersion}`, {
+		const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/62.0`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'text/xml',
@@ -34,6 +34,7 @@ export class DeployService extends BaseService {
 		});
 
 		if (!response.ok) {
+			console.error('Deployment failed:', response.status, await response.text());
 			throw new Error(`Deployment failed: ${response.status}`);
 		}
 

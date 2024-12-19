@@ -15,7 +15,7 @@ const config: CommandArgsConfig = {
   clientId: undefined,
   username: undefined,
   privateKey: undefined,
-  instanceUrl: undefined,
+  instanceUrl: 'https://test.salesforce.com',
   
   // Metadata types to exclude from deployment
   exclude: undefined,

@@ -77,7 +77,7 @@ class CLI {
           
           const deployOptions: DeployOptions = {
             checkOnly: Boolean(this.program.opts().validateOnly),
-            testLevel: this.program.opts().testLevel,
+            testLevel: updatedConfig.testLevel,
             allowMissingFiles: false,
             rollbackOnError: true,
             singlePackage: true
@@ -94,21 +94,23 @@ class CLI {
 
   private getUpdatedConfig(options: any): CommandArgsConfig {
     const updatedConfig = { ...this.config, ...options };
-    updatedConfig.instanceUrl = options.env?.toUpperCase() === 'PRODUCTION'
-      ? 'https://login.salesforce.com'
-      : 'https://test.salesforce.com';
+    
+    // Update instance URL and test level for production environment
+    if (options.env?.toUpperCase() === 'PRODUCTION') {
+      updatedConfig.instanceUrl = 'https://login.salesforce.com';
+      updatedConfig.testLevel = 'RunLocalTests';
+    }
 
     // Validate required fields
     this.validateConfig(updatedConfig);
 
     console.log('Using configuration:', updatedConfig);
-
     return updatedConfig;
   }
 
   private validateConfig(config: CommandArgsConfig): void {
     const requiredFields: (keyof CommandArgsConfig)[] = ['username', 'clientId', 'privateKey'];
-    const missingFields = requiredFields.filter(field => config[field] === field);
+    const missingFields = requiredFields.filter(field => !config[field]);
 
     if (missingFields.length > 0) {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
