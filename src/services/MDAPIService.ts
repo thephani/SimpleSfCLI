@@ -4,11 +4,10 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { BaseService } from './BaseService.js';
 import { GroupedData } from 'types/xml.type.js';
-import { MetadataType } from 'types/index.js';
-import { MEMBERTYPE_REGEX, METADATA_TYPES } from '../helper/constants.js';
+import { MetadataType } from 'types/inde.type.js';
 import { XmlHelper } from '../helper/xmlHelper.js';
-import { CommandArgsConfig } from 'types/config.js';
-import { trace } from 'console';
+import { CommandArgsConfig } from 'types/config.type.js';
+import { MEMBERTYPE_REGEX, METADATA_TYPES } from '../helper/constants.js';
 
 interface ChangedFilesResult {
 	groupedData: GroupedData;
@@ -26,86 +25,188 @@ export class MDAPIService extends BaseService {
 	/**
 	 * Convert SFDX source to MDAPI format
 	 */
-	async convertToMDAPI(sourceDir: string, targetDir: string, excludeList: string[] = []): Promise<string[]> {
+	async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
 		try {
-			console.log(`Starting conversion of SFDX source from ${sourceDir} to MDAPI format...`);
+			console.log(`🚀 Starting SFDX to MDAPI conversion...`);
 
-			// Ensure target directory exists
-			await this.ensureDirectoryExists(targetDir);
+			await this.initializeDirectories();
 
-			// Get changed files from git
-			const { groupedData, changedFiles, restChangedFiles } = await this.getChangedFiles();
-
-			console.log('Changed files:', changedFiles);
-
-			if (changedFiles.length === 0) {
-				console.log('No relevant files found in the Git diff. Exiting...');
-				return [];
-			}
-
-			// Generate custom objects for fields if needed
-			await this.generateCustomObjectForFields(groupedData);
-			console.log('finished generating custom objects');
-
-			const metadataTypes: MetadataType[] = [];
-			const excludedComponents: string[] = [];
 			const runTests: string[] = [];
+			await this.handleDeletedMetadata(excludeList);
+			await this.handleModifiedMetadata(excludeList, runTests);
 
-			// Copy files and their metadata
-			await this.processFilesForCopy(targetDir, restChangedFiles);
-			console.log('finished copying files');
-
-			// Process changed files for package.xml
-			await this.processChangedFilesForPackage(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
-
-			// Generate package.xml
-			if (metadataTypes.length > 0) {
-				await this.generatePackageXmlFile(metadataTypes, targetDir);
-			} else {
-				throw new Error('No metadata found for package.xml');
-			}
-
-			// Display excluded components if any
-			if (excludedComponents.length > 0) {
-				console.log('The following components were excluded:');
-				excludedComponents.forEach((type) => console.log(`- ${type}`));
-			}
-
-			console.log('Conversion to MDAPI format completed successfully.');
+			console.log('✅ Conversion completed successfully.');
 			return runTests;
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error during MDAPI conversion';
-			console.trace(error);
-			throw new Error(`MDAPI conversion failed: ${errorMessage} ${trace}`);
+			this.handleError('MDAPI conversion failed', error);
+			throw error;
 		}
 	}
 
 	/**
-	 * Ensure the target directory exists
+	 * Initialize and clean up directories
 	 */
-	private async ensureDirectoryExists(dir: string): Promise<void> {
+	private async initializeDirectories(): Promise<void> {
 		try {
-			await fs.promises.mkdir(dir, { recursive: true });
+			if (fs.existsSync(this.config.cliOuputFolder)) {
+				await fs.promises.rm(this.config.cliOuputFolder, { recursive: true, force: true });
+				console.log(`🗑️  Cleaned existing directory: ${this.config.cliOuputFolder}`);
+			}
+
+			await fs.promises.mkdir(this.config.cliOuputFolder, { recursive: true });
+			await fs.promises.mkdir(path.join(this.config.cliOuputFolder, 'destructiveChanges'), { recursive: true });
+			console.log(`📁 Created directories`);
 		} catch (error) {
-			throw new Error(`Failed to create directory ${dir}: ${error}`);
+			this.handleError('Failed to initialize directories', error);
 		}
 	}
 
 	/**
-	 * Get files changed in the latest Git commit
+	 * Handle deleted metadata files
+	 */
+	private async handleDeletedMetadata(excludeList: string[]): Promise<void> {
+		const deletedFiles = await this.getDeletedFiles();
+
+		if (deletedFiles.length === 0) {
+			console.log('ℹ️  No deleted files detected');
+			return;
+		}
+
+		console.log(`🗑️  Processing ${deletedFiles.length} deleted files...`);
+		const metadataTypes: MetadataType[] = [];
+		const excludedComponents: string[] = [];
+
+		await this.processChangedFilesForPackage(deletedFiles, excludeList, metadataTypes, excludedComponents, []);
+
+		if (metadataTypes.length === 0) {
+			return;
+		}
+
+		await this.generateDestructiveChanges(metadataTypes);
+	}
+
+	private async generateDestructiveChanges(metadataTypes: MetadataType[]): Promise<void> {
+		try {
+			const destructiveFolder = path.join(this.config.cliOuputFolder, 'destructiveChanges');
+
+			// Generate destructiveChanges.xml
+			const destructiveXml = this.xmlHelper.createPackageXml(metadataTypes);
+			const destructivePath = path.join(destructiveFolder, 'destructiveChanges.xml');
+
+			console.log('\n🗑️  Generated destructiveChanges.xml:');
+			console.log('----------------------------------');
+			console.log(destructiveXml);
+			console.log('----------------------------------\n');
+
+			await fs.promises.writeFile(destructivePath, destructiveXml);
+
+			// Generate empty package.xml
+			const emptyPackageXml = this.xmlHelper.createEmptyPackageXml();
+			const packagePath = path.join(destructiveFolder, 'package.xml');
+
+			console.log('\n📦 Generated empty package.xml:');
+			console.log('---------------------------');
+			console.log(emptyPackageXml);
+			console.log('---------------------------\n');
+
+			await fs.promises.writeFile(packagePath, emptyPackageXml);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('❌ Error generating destructive changes:', errorMessage);
+			throw new Error(`Failed to generate destructive changes: ${errorMessage}`);
+		}
+	}
+
+	/**
+	 * Handle modified metadata files
+	 */
+	private async handleModifiedMetadata(excludeList: string[], runTests: string[]): Promise<void> {
+		const { groupedData, changedFiles, restChangedFiles } = await this.getChangedFiles();
+
+		if (changedFiles.length === 0) {
+			console.log('ℹ️  No modified files detected');
+			return;
+		}
+
+		console.log(`📝 Processing ${changedFiles.length} modified files...`);
+
+		if (Object.keys(groupedData).length > 0) {
+			await this.generateCustomObjectForFields(groupedData);
+		}
+
+		await this.processFilesForCopy(restChangedFiles);
+
+		const metadataTypes: MetadataType[] = [];
+		const excludedComponents: string[] = [];
+
+		await this.processChangedFilesForPackage(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
+
+		if (metadataTypes.length === 0) {
+			throw new Error('No metadata found for package.xml');
+		}
+
+		await this.generatePackageXml(metadataTypes);
+		this.logExcludedComponents(excludedComponents);
+	}
+
+	/**
+	 * Get modified files from git
 	 */
 	private async getChangedFiles(): Promise<ChangedFilesResult> {
 		try {
-			const changedFiles = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' })
-				.split('\n')
-				.filter((file) => file.startsWith('force-app/main/default/') && file.trim() !== '');
-
+			const changedFiles = this.executeGitCommand('diff --diff-filter=AM --name-only HEAD~1 HEAD');
 			const groupedData = this.groupChangedFilesByObject(changedFiles);
 			const restChangedFiles = changedFiles.filter((path) => !path.includes('objects') && !path.includes('fields'));
 
 			return { groupedData, changedFiles, restChangedFiles };
 		} catch (error) {
-			throw new Error('Failed to get changed files from git');
+			this.handleError('Failed to get changed files', error);
+			return { groupedData: {}, changedFiles: [], restChangedFiles: [] };
+		}
+	}
+
+	/**
+	 * Get deleted files from git
+	 */
+	private async getDeletedFiles(): Promise<string[]> {
+		try {
+			return this.executeGitCommand('diff --diff-filter=D --name-only HEAD~1 HEAD');
+		} catch (error) {
+			this.handleError('Failed to get deleted files', error);
+			return [];
+		}
+	}
+
+	/**
+	 * Execute git command and filter results
+	 */
+	private executeGitCommand(command: string): string[] {
+		return execSync(`git ${command}`, { encoding: 'utf8' })
+			.split('\n')
+			.filter((file) => file.startsWith('force-app/main/default/') && file.trim() !== '');
+	}
+
+	/**
+	 * Process files for package.xml generation
+	 */
+	private async processChangedFilesForPackage(files: string[], excludeList: string[], metadataTypes: MetadataType[], excludedComponents: string[], runTests: string[]): Promise<void> {
+		for (const file of files) {
+			const type = this.getMetadataType(file);
+			if (!type || excludeList.includes(type)) {
+				if (type && !excludedComponents.includes(type)) {
+					excludedComponents.push(type);
+				}
+				continue;
+			}
+
+			const memberName = await this.generateMemberName(file);
+			if (memberName) {
+				this.addMemberToMetadataTypes(type, memberName, metadataTypes);
+			}
+
+			if (type === 'ApexClass' && (await this.isTestClass(file))) {
+				runTests.push(path.basename(file, '.cls'));
+			}
 		}
 	}
 
@@ -138,58 +239,55 @@ export class MDAPIService extends BaseService {
 	/**
 	 * Process files for copying to target directory
 	 */
-	private async processFilesForCopy(targetDir: string, files: string[]): Promise<void> {
+	private async processFilesForCopy(files: string[]): Promise<void> {
 		for (const file of files) {
-			await this.copyFileWithMetadata(file, targetDir);
+			console.log(`Copying file: ${file}`);
+			await this.copyFileWithMetadata(file, this.config.cliOuputFolder);
 		}
 	}
 
+
 	/**
-	 * Process changed files for package.xml generation
+	 * Log excluded components with proper formatting
 	 */
-	private async processChangedFilesForPackage(changedFiles: string[], excludeList: string[], metadataTypes: MetadataType[], excludedComponents: string[], runTests: string[]): Promise<void> {
-		for (const file of changedFiles) {
-			const relativePath = path.relative('force-app/main/default', file);
-			const folder = this.getMetadataFolder(relativePath);
+	private logExcludedComponents(excludedComponents: string[]): void {
+		if (excludedComponents.length === 0) {
+			return;
+		}
+
+		console.log('\n⚠️  Excluded Components:');
+		console.log('------------------------');
+		excludedComponents.forEach((component) => {
+			console.log(`  • ${component}`);
+		});
+		console.log('------------------------\n');
+	}
+
+	/**
+	 * Get metadata type from file path
+	 */
+	private getMetadataType(filePath: string): string | null {
+		try {
+			const relativePath = path.relative('force-app/main/default', filePath);
+
+			// Check for custom fields first
+			if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
+				return 'CustomField';
+			}
+
+			// Check other metadata types
+			const folder = Object.keys(METADATA_TYPES).find((folder) => relativePath.startsWith(folder));
 
 			if (!folder) {
-				console.log(`Skipping file: ${file} (unknown metadata type)`);
-				continue;
+				console.log(`⚠️  Unknown metadata type for file: ${filePath}`);
+				return null;
 			}
 
-			const type = METADATA_TYPES[folder];
-
-			if (excludeList.includes(type)) {
-				if (!excludedComponents.includes(type)) {
-					excludedComponents.push(type);
-				}
-				continue;
-			}
-
-			const memberName = this.generateMemberName(file);
-			if (memberName) {
-				this.addMemberToMetadataTypes(type, memberName, metadataTypes);
-			}
-
-			// Handle Apex test classes
-			if (type === 'ApexClass') {
-				const baseFileName = path.basename(file, '.cls');
-				if (await this.isTestClass(file)) {
-					runTests.push(baseFileName);
-				}
-			}
+			return METADATA_TYPES[folder];
+		} catch (error) {
+			console.error(`❌ Error determining metadata type for ${filePath}:`, error);
+			return null;
 		}
-	}
-
-	/**
-	 * Get metadata folder from file path
-	 */
-	private getMetadataFolder(relativePath: string): string | null {
-		if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
-			return 'fields';
-		}
-
-		return Object.keys(METADATA_TYPES).find((folder) => relativePath.startsWith(folder)) || null;
 	}
 
 	/**
@@ -237,10 +335,14 @@ export class MDAPIService extends BaseService {
 	/**
 	 * Generate package.xml file
 	 */
-	private async generatePackageXmlFile(metadataTypes: MetadataType[], targetDir: string): Promise<void> {
+	private async generatePackageXml(metadataTypes: MetadataType[]): Promise<void> {
 		const xmlHelper = new XmlHelper();
 		const packageXmlContent = xmlHelper.createPackageXml(metadataTypes);
-		const packageXmlPath = path.join(targetDir, 'package.xml');
+		console.log('\n📦 Generated package.xml:');
+		console.log('---------------------------');
+		console.log(packageXmlContent);
+		console.log('---------------------------\n');
+		const packageXmlPath = path.join(this.config.cliOuputFolder, 'package.xml');
 		await fs.promises.writeFile(packageXmlPath, packageXmlContent);
 	}
 
@@ -293,4 +395,16 @@ export class MDAPIService extends BaseService {
 			throw new Error(`Failed to generate custom objects: ${error}`);
 		}
 	}
+
+	/**
+	 * Handle errors consistently
+	 */
+	private handleError(message: string, error: unknown): void {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		console.error(`❌ ${message}: ${errorMessage}`);
+		if (error instanceof Error && error.stack) {
+			console.debug('Stack trace:', error.stack);
+		}
+	}
+	
 }

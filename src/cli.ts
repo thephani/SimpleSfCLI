@@ -3,8 +3,8 @@
 import { Command } from 'commander';
 import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
-import type { CommandArgsConfig } from './types/config.js';
-import type { DeployOptions } from './types/deployment.js';
+import type { CommandArgsConfig } from './types/config.type.js';
+import type { DeployOptions } from './types/deployment.type.js';
 
 class CLI {
   private program: Command;
@@ -84,8 +84,8 @@ class CLI {
           };
 
           console.log('Starting deployment with options:', deployOptions);
-          const result = await client.deploy(deployOptions);
-          console.log('Deployment completed:', result);
+          const result: any = await client.deploy(deployOptions);
+          console.log('Deployment completed:', result.id, result?.success);
         } catch (error) {
           this.handleError('Deployment failed', error);
         }

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MetadataType } from 'types';
+import { MetadataType } from 'types/inde.type';
 import { FieldProperties, GroupedData } from 'types/xml.type';
 
 import xmlbuilder from "xmlbuilder";
@@ -14,17 +14,34 @@ export class XmlHelper {
 		this.outputDirectory = outputDirectory;
 	}
 
+	public createEmptyPackageXml(version: string = '62.0'): string {
+		try {
+			const packageXml = xmlbuilder
+				.create('Package', { encoding: 'UTF-8' })
+				.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
+	
+			packageXml.ele('version', version);
+	
+			return packageXml.end({ pretty: true });
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			throw new Error(`Failed to create empty package.xml: ${errorMessage}`);
+		}
+	}
+
 	/**
 	 * Generates a package.xml file based on the provided metadata types and their members.
 	 */
 	public createPackageXml(metadataTypes: MetadataType[]): string {
 		try {
+			console.log('Creating package.xml with metadata types:', metadataTypes);
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
 			// Sort metadata types for consistency
 			const sortedTypes = [...metadataTypes].sort((a, b) => a.name.localeCompare(b.name));
 
 			sortedTypes.forEach(({ name, members }) => {
+				console.log(`Processing metadata type: ${name} with ${members.length} members ${members}`);
 				const types = packageXml.ele('types');
 
 				// Sort members for consistency
@@ -56,7 +73,7 @@ export class XmlHelper {
 			return null;
 		}
 
-		const [, objectName, fieldName] = match;
+		const [objectName, fieldName] = match;
 		return {
 			name: 'CustomField',
 			members: [`${objectName}.${fieldName}`],

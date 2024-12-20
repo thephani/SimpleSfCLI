@@ -1,4 +1,4 @@
-import { CommandArgsConfig } from "types/config";
+import { CommandArgsConfig } from "types/config.type";
 
 
 export abstract class BaseService {

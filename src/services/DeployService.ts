@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { BaseService } from './BaseService.js';
-import type { DeployOptions, DeployResult } from '../types/deployment.js';
+import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
 
 export class DeployService extends BaseService {
 	async quickDeploy(deploymentId: string): Promise<DeployResult> {
@@ -22,7 +22,7 @@ export class DeployService extends BaseService {
 	}
 
 	async initiateDeployment(zipPath: string, options: Partial<DeployOptions> = {}): Promise<string> {
-		const soapRequest = this.createDeployRequest(zipPath, options);
+		const soapRequest = await this.createDeployRequest(zipPath, options);
 
 		const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/62.0`, {
 			method: 'POST',
@@ -72,31 +72,33 @@ export class DeployService extends BaseService {
 		return data.deployResult;
 	}
 
-	private createDeployRequest(zipPath: string, options: Partial<DeployOptions>): string {
+	private async createDeployRequest(zipPath: string, options: Partial<DeployOptions>): Promise<string> {
+		console.log('zipPath', zipPath);
 		const zipContent = fs.readFileSync(zipPath);
 		const base64Zip = zipContent.toString('base64');
 
-		return `<?xml version="1.0" encoding="UTF-8"?>
-      <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:met="http://soap.sforce.com/2006/04/metadata">
-        <soapenv:Header>
-          <met:SessionHeader>
-            <met:sessionId>${this.config.accessToken}</met:sessionId>
-          </met:SessionHeader>
-        </soapenv:Header>
-        <soapenv:Body>
-          <met:deploy>
-            <met:ZipFile>${base64Zip}</met:ZipFile>
-            <met:DeployOptions>
-              <met:allowMissingFiles>false</met:allowMissingFiles>
-              <met:checkOnly>${options.checkOnly ?? false}</met:checkOnly>
-              <met:testLevel>${options.testLevel ?? 'NoTestRun'}</met:testLevel>
-              ${this.generateRunTestsXml(options)}
-              <met:rollbackOnError>true</met:rollbackOnError>
-              <met:singlePackage>true</met:singlePackage>
-            </met:DeployOptions>
-          </met:deploy>
-        </soapenv:Body>
-      </soapenv:Envelope>`;
+        return `<?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
+                             xmlns:met="http://soap.sforce.com/2006/04/metadata">
+                <soapenv:Header>
+                    <met:SessionHeader>
+                        <met:sessionId>${this.config.accessToken}</met:sessionId>
+                    </met:SessionHeader>
+                </soapenv:Header>
+                <soapenv:Body>
+                    <met:deploy>
+                        <met:ZipFile>${base64Zip}</met:ZipFile>
+                        <met:DeployOptions>
+                            <met:allowMissingFiles>false</met:allowMissingFiles>
+                            <met:checkOnly>${options.checkOnly ?? false}</met:checkOnly>
+                            <met:testLevel>${options.testLevel ?? 'NoTestRun'}</met:testLevel>
+                            ${this.generateRunTestsXml(options)}
+                            <met:rollbackOnError>true</met:rollbackOnError>
+                            <met:singlePackage>true</met:singlePackage>
+                        </met:DeployOptions>
+                    </met:deploy>
+                </soapenv:Body>
+            </soapenv:Envelope>`;
 	}
 
 	private generateRunTestsXml(options: Partial<DeployOptions>): string {

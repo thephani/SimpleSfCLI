@@ -1,4 +1,4 @@
-import type { CommandArgsConfig } from './types/config.js';
+import type { CommandArgsConfig } from './types/config.type.js';
 
 const config: CommandArgsConfig = {
   // Default source directory for SFDX format
