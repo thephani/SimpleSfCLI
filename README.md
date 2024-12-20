@@ -91,7 +91,12 @@ Options:
   -s, --source <sourceDir>       Path to the SFDX source directory, unless "force-app/main/default"
   -h, --help                     display help for command
 
+<<<<<<< HEAD
    '*' Required option
+=======
+   Note: * is a Required option
+
+>>>>>>> afb9ae8a0c95c384bdd93e4a9719eee79bce299a
 ```
 
 ### Exclude Specific Metadata Types
@@ -119,4 +124,8 @@ simple-sf-cli --source <sourceDir> --output <outputZip> --exclude NamedCredentia
 ---
 
 ## License
+<<<<<<< HEAD
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+=======
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+>>>>>>> afb9ae8a0c95c384bdd93e4a9719eee79bce299a
