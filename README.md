@@ -120,12 +120,9 @@ simple-sf-cli --source <sourceDir> --output <outputZip> --exclude NamedCredentia
 | `-s, --source <sourceDir>`   | Specifies the path to the SFDX source directory. Defaults to `force-app/main/default` if not provided. |
 | `-h, --help`                 | Displays detailed help for the command.                                                              |
 
-\* Required option
+Note: * is a Required option
 ---
 
 ## License
-<<<<<<< HEAD
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-=======
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
->>>>>>> afb9ae8a0c95c384bdd93e4a9719eee79bce299a
+
