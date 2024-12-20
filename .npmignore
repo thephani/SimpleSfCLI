@@ -1,15 +1,21 @@
 
-dist
 node_modules
 .github
 .gitignore
 jest.*.js
 coverage
+src
 LICENSE
 package-lock.json
-Readme.md
 **/__tests__/**
 **/tests/**
 **/test/**
 *.test.*
 *.spec.*
+
+src/
+tests/
+*.ts
+!*.d.ts
+tsconfig.json
+.gitignore

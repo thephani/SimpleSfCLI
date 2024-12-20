@@ -1,53 +1,50 @@
 {
 	"compilerOptions": {
-		// Project Settings
-		"target": "ES2020",
-		"module": "ES2020",
-		"lib": ["ES2020"],
-		"moduleResolution": "node",
-		"outDir": "./dist",
-		"rootDir": "./src",
-
-		// Type Checking
-		"strict": true,
-		"noImplicitAny": true,
-		"strictNullChecks": true,
-		"strictFunctionTypes": true,
-		"strictPropertyInitialization": true,
-		"noImplicitThis": true,
-		"alwaysStrict": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"noImplicitReturns": true,
-		"noFallthroughCasesInSwitch": true,
-		"allowUnreachableCode": false,
-
-		// Module Resolution
-		"baseUrl": "./src",
-		"paths": {
-			"*": ["*"]
-		},
-		"resolveJsonModule": true,
-		"allowSyntheticDefaultImports": true,
-		"esModuleInterop": true,
-
-		// Emit
-		"declaration": true,
-		"declarationMap": true,
-		"sourceMap": true,
-		"removeComments": false,
-		"preserveConstEnums": true,
-		// "importHelpers": true,
-
-		// Advanced
-		"forceConsistentCasingInFileNames": true,
-		"skipLibCheck": true,
-		"preserveSymlinks": true
+	  // Project Settings
+	  "target": "ES2018",
+	  "module": "CommonJS",
+	  "lib": ["ES2020"],
+	  "moduleResolution": "node",
+	  "outDir": "./dist",
+	  "rootDir": "./src",
+  
+	  // Remove these declaration-related options
+	  "declaration": false,        // Changed from true to false
+	  "declarationMap": false,     // Changed from true to false
+	  
+	  // Rest of your existing config...
+	  "strict": true,
+	  "noImplicitAny": true,
+	  "strictNullChecks": true,
+	  "strictFunctionTypes": true,
+	  "strictPropertyInitialization": true,
+	  "noImplicitThis": true,
+	  "alwaysStrict": true,
+	  "noUnusedLocals": true,
+	  "noUnusedParameters": true,
+	  "noImplicitReturns": true,
+	  "noFallthroughCasesInSwitch": true,
+	  "allowUnreachableCode": false,
+	  "baseUrl": "./src",
+	  "paths": {
+		"*": ["*"]
+	  },
+	  "resolveJsonModule": true,
+	  "allowSyntheticDefaultImports": true,
+	  "esModuleInterop": true,
+	  "sourceMap": true,
+	  "removeComments": true,
+	  "preserveConstEnums": true,
+	  "forceConsistentCasingInFileNames": true,
+	  "skipLibCheck": true
 	},
 	"include": ["src/**/*"],
-	"exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**", "**/__mocks__/**"],
-	"ts-node": {
-		"esm": true,
-		"experimentalSpecifierResolution": "node"
-	}
-}
+	"exclude": [
+	  "node_modules",
+	  "dist",
+	  "**/*.test.ts",
+	  "**/__tests__/**",
+	  "**/__mocks__/**",
+	  "**/*.spec.ts"
+	]
+  }
