@@ -43,13 +43,14 @@ describe('ArchiverService', () => {
 			},
 		});
 
-		// Create mock archiver
-		mockArchiver = {
-			on: jest.fn(),
-			pipe: jest.fn(),
-			directory: jest.fn(),
-			finalize: jest.fn(),
-		};
+		// Mock archiver
+        mockArchiver = {
+            on: jest.fn().mockReturnThis(),
+            pipe: jest.fn().mockReturnThis(),
+            directory: jest.fn().mockReturnThis(),
+            finalize: jest.fn().mockReturnThis(),
+            abort: jest.fn().mockReturnThis(),
+        } as any;
 
 		// Setup fs mock
 		(fs.createWriteStream as jest.Mock).mockReturnValue(mockWriteStream);
