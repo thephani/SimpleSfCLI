@@ -1,6 +1,6 @@
 {
 	"name": "simple-sf-cli",
-	"version": "2.0.4",
+	"version": "2.1.0",
 	"description": "A simplified Salesforce CLI plugin",
 	"type": "commonjs",
 	"main": "dist/index.js",
@@ -15,7 +15,7 @@
 		"build": "tsc",
 		"prebuild": "npm run clean",
 		"prepare": "npm run build",
-		"test": "jest"
+		"test": "jest --collectCoverage --verbose --silent"
 	},
 	"dependencies": {
 		"archiver": "^7.0.1",
