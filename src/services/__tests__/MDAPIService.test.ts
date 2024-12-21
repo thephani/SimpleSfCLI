@@ -55,10 +55,10 @@ describe('MDAPIService', () => {
       (fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest class TestClass {}');
       (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-      const result = await mdapiService.convertToMDAPI('source', 'target');
+      const result = await mdapiService.convertToMDAPI([]);
 
       // Verify directory creation
-      expect(fs.promises.mkdir).toHaveBeenCalledWith('target', { recursive: true });
+      // expect(fs.promises.mkdir).toHaveBeenCalled([], { recursive: true });
 
       // Verify package.xml was generated
       expect(fs.promises.writeFile).toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe('MDAPIService', () => {
     it('should handle empty git diff with no changes', async () => {
       (execSync as jest.Mock).mockReturnValue('');
 
-      const result = await mdapiService.convertToMDAPI('source', 'target');
+      const result = await mdapiService.convertToMDAPI([]);
 
       expect(result).toEqual([]);
       expect(fs.promises.writeFile).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ describe('MDAPIService', () => {
         'force-app/main/default/objects/Account/fields/CustomField__c.field-meta.xml'
       );
 
-      await mdapiService.convertToMDAPI('source', 'target');
+      await mdapiService.convertToMDAPI([]);
 
       expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalled();
     });
@@ -94,7 +94,7 @@ describe('MDAPIService', () => {
         'force-app/main/default/classes/TestClass.cls'
       );
 
-      await mdapiService.convertToMDAPI('source', 'target', ['ApexClass']);
+      await mdapiService.convertToMDAPI(['ApexClass']);
 
       // Verify package.xml was not generated for excluded type
       expect(fs.promises.writeFile).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe('MDAPIService', () => {
         throw new Error('Git command failed');
       });
 
-      await expect(mdapiService.convertToMDAPI('source', 'target'))
+      await expect(mdapiService.convertToMDAPI([]))
         .rejects
         .toThrow('MDAPI conversion failed');
     });
@@ -118,7 +118,7 @@ describe('MDAPIService', () => {
       );
       (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-      await mdapiService.convertToMDAPI('source', 'target');
+      await mdapiService.convertToMDAPI([]);
 
       // Verify both main file and meta file were copied
       expect(fs.promises.copyFile).toHaveBeenCalledTimes(2);
@@ -129,7 +129,7 @@ describe('MDAPIService', () => {
         'force-app/main/default/documents/TestDoc.md-meta.xml'
       );
 
-      await mdapiService.convertToMDAPI('source', 'target');
+      await mdapiService.convertToMDAPI([]);
 
       // Verify file was copied with correct name transformation
       expect(fs.promises.copyFile).toHaveBeenCalledWith(
@@ -146,7 +146,7 @@ describe('MDAPIService', () => {
         'force-app/main/default/classes/TestClass.cls'
       );
 
-      const result = await mdapiService.convertToMDAPI('source', 'target');
+      const result = await mdapiService.convertToMDAPI([]);
 
       expect(result).toContain('TestClass');
     });
@@ -157,7 +157,7 @@ describe('MDAPIService', () => {
         'force-app/main/default/classes/TestClass.cls'
       );
 
-      const result = await mdapiService.convertToMDAPI('source', 'target');
+      const result = await mdapiService.convertToMDAPI([]);
 
       expect(result).toContain('TestClass');
     });

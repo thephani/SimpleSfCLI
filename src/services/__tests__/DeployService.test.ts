@@ -1,7 +1,7 @@
 import { DeployService } from '../DeployService';
 import fs from 'fs';
-import type { CommandArgsConfig } from '../../types/config';
-import type { DeployOptions } from '../../types/deployment';
+import type { CommandArgsConfig } from '../../types/config.type';
+import type { DeployOptions } from '../../types/deployment.type';
 
 jest.mock('fs');
 

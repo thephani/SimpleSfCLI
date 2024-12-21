@@ -1,5 +1,5 @@
 
-import type { CommandArgsConfig } from '../../types/config';
+import type { CommandArgsConfig } from '../../types/config.type';
 import { AuthService } from '../AuthService';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';

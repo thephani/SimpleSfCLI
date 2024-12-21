@@ -1,7 +1,7 @@
 import { ArchiverService } from '../ArchiverService';
 import fs from 'fs';
 import archiver from 'archiver';
-import type { CommandArgsConfig } from '../../types/config';
+import type { CommandArgsConfig } from '../../types/config.type';
 import { Writable } from 'stream';
 
 // Mock fs and archiver

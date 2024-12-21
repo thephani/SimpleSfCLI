@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { MetadataType } from 'types/inde.type';
+import { MetadataType } from 'types/index.type';
 import { FieldProperties, GroupedData } from 'types/xml.type';
 
-import xmlbuilder from "xmlbuilder";
+import xmlbuilder from 'xmlbuilder';
 
 export class XmlHelper {
 	// private sourceDirectory: string;
@@ -16,12 +16,10 @@ export class XmlHelper {
 
 	public createEmptyPackageXml(version: string = '62.0'): string {
 		try {
-			const packageXml = xmlbuilder
-				.create('Package', { encoding: 'UTF-8' })
-				.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
-	
+			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
+
 			packageXml.ele('version', version);
-	
+
 			return packageXml.end({ pretty: true });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -41,7 +39,7 @@ export class XmlHelper {
 			const sortedTypes = [...metadataTypes].sort((a, b) => a.name.localeCompare(b.name));
 
 			sortedTypes.forEach(({ name, members }) => {
-				console.log(`Processing metadata type: ${name} with ${members.length} members ${members}`);
+				// console.log(`Processing metadata type: ${name} with ${members.length} members ${members}`);
 				const types = packageXml.ele('types');
 
 				// Sort members for consistency
@@ -73,10 +71,11 @@ export class XmlHelper {
 			return null;
 		}
 
-		const [objectName, fieldName] = match;
+		//1. first captured group (object name) 2. second captured group (field name)
+
 		return {
 			name: 'CustomField',
-			members: [`${objectName}.${fieldName}`],
+			members: [`${match[1]}.${match[2]}`],
 		};
 	}
 
@@ -89,6 +88,7 @@ export class XmlHelper {
 				console.log(`Processing object: ${objectName}`);
 
 				const fields = groupedData[objectName].fields;
+				// console.log(`Fields for ${objectName}: ${fields}`);
 				const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
 				fields.forEach((field) => {
@@ -97,15 +97,17 @@ export class XmlHelper {
 
 					const match = existingXmlContent.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
 					if (!match) {
-						console.error(`Invalid XML structure in file: ${sourceFilePath}`);
-						return;
+						throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
+						// return;
 					}
 
+					// console.log(`Processing field: ${field}`, match);
 					const customFieldContent = match[1];
 					const fieldProperties = this.extractFieldProperties(customFieldContent);
 
 					const fieldsNode = customObjectXml.ele('fields');
 					Object.entries(fieldProperties).forEach(([key, value]) => {
+						// console.log(`Adding field property: ${key} = ${value}`);
 						fieldsNode
 							.ele(key)
 							.raw(value as string)
@@ -148,7 +150,12 @@ export class XmlHelper {
 	 */
 	public isValidXml(xml: string): boolean {
 		try {
-			xmlbuilder.create(xml);
+			// Parse out the root element name and use that for creation
+			const rootMatch = xml.match(/<([^\s>/?]+)[\s>]/);
+			if (!rootMatch) return false;
+			
+			const rootElement = rootMatch[1];
+			xmlbuilder.create(rootElement);
 			return true;
 		} catch {
 			return false;
@@ -198,6 +205,7 @@ export class XmlHelper {
 
 			const outputPath = path.join(outputDir, `${objectName}.object`);
 			fs.writeFileSync(outputPath, updatedXml, 'utf-8');
+			// console.log(`Saved updated XML for ${objectName} to: ${outputPath}`);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			throw new Error(`Failed to save XML file for ${objectName}: ${errorMessage}`);
