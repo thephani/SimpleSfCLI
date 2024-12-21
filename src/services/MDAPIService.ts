@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { BaseService } from './BaseService.js';
 import { GroupedData } from 'types/xml.type.js';
-import { MetadataType } from 'types/inde.type.js';
+import { MetadataType } from 'types/index.type.js';
 import { XmlHelper } from '../helper/xmlHelper.js';
 import { CommandArgsConfig } from 'types/config.type.js';
 import { MEMBERTYPE_REGEX, METADATA_TYPES } from '../helper/constants.js';
@@ -55,7 +55,7 @@ export class MDAPIService extends BaseService {
 
 			await fs.promises.mkdir(this.config.cliOuputFolder, { recursive: true });
 			await fs.promises.mkdir(path.join(this.config.cliOuputFolder, 'destructiveChanges'), { recursive: true });
-			console.log(`📁 Created directories`);
+			console.log(`📁 Cleanedup directories`);
 		} catch (error) {
 			this.handleError('Failed to initialize directories', error);
 		}
@@ -124,8 +124,8 @@ export class MDAPIService extends BaseService {
 		const { groupedData, changedFiles, restChangedFiles } = await this.getChangedFiles();
 
 		if (changedFiles.length === 0) {
-			console.log('ℹ️  No modified files detected');
-			return;
+			console.log('ℹ️  No modified files detected. Exiting...');
+			process.exit(0);
 		}
 
 		console.log(`📝 Processing ${changedFiles.length} modified files...`);

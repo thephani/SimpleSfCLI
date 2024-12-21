@@ -1,7 +1,7 @@
 import { ArchiverService } from '../ArchiverService';
 import fs from 'fs';
 import archiver from 'archiver';
-import type { CommandArgsConfig } from '../../types/config';
+import type { CommandArgsConfig } from '../../types/config.type';
 import { Writable } from 'stream';
 
 // Mock fs and archiver
@@ -43,13 +43,14 @@ describe('ArchiverService', () => {
 			},
 		});
 
-		// Create mock archiver
-		mockArchiver = {
-			on: jest.fn(),
-			pipe: jest.fn(),
-			directory: jest.fn(),
-			finalize: jest.fn(),
-		};
+		// Mock archiver
+        mockArchiver = {
+            on: jest.fn().mockReturnThis(),
+            pipe: jest.fn().mockReturnThis(),
+            directory: jest.fn().mockReturnThis(),
+            finalize: jest.fn().mockReturnThis(),
+            abort: jest.fn().mockReturnThis(),
+        } as any;
 
 		// Setup fs mock
 		(fs.createWriteStream as jest.Mock).mockReturnValue(mockWriteStream);
