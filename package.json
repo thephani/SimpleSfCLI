@@ -11,6 +11,7 @@
 		"dist"
 	],
 	"scripts": {
+		"preinstall": "npm install",
 		"clean": "rimraf dist",
 		"build": "tsc",
 		"prebuild": "npm run clean",
