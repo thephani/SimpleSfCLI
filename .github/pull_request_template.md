@@ -20,5 +20,3 @@
 
 ## Additional Notes
 <!-- Add any additional information that reviewers should know -->
-## Description
-<!-- Provide a brief description of your changes -->
