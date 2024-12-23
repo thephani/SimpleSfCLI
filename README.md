@@ -1,6 +1,10 @@
 # 🚀 Simple SF CLI
-
 [![SimpleSfCli NPM Package CI/CD](https://github.com/thephani/SimpleSfCLI/actions/workflows/npm-package.yml/badge.svg)](https://github.com/thephani/SimpleSfCLI/actions/workflows/npm-package.yml)
+
+
+> We value your feedback! Please share your thoughts on how we can enhance your ci-cd with SimpleSfCli [SimpleSfCli User Feedback form](https://forms.gle/6K7nzE1Xrh5GVJvG7)
+
+
 
 ## Supercharge Your Salesforce Deployments in Just Seconds!
 
@@ -93,12 +97,8 @@ Options:
   -s, --source <sourceDir>       Path to the SFDX source directory, unless "force-app/main/default"
   -h, --help                     display help for command
 
-<<<<<<< HEAD
-   '*' Required option
-=======
    Note: * is a Required option
 
->>>>>>> afb9ae8a0c95c384bdd93e4a9719eee79bce299a
 ```
 
 ### Exclude Specific Metadata Types

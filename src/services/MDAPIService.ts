@@ -125,7 +125,7 @@ export class MDAPIService extends BaseService {
 
 		if (changedFiles.length === 0) {
 			console.log('ℹ️  No modified files detected. Exiting...');
-			process.exit(0);
+			return;
 		}
 
 		console.log(`📝 Processing ${changedFiles.length} modified files...`);
@@ -245,7 +245,6 @@ export class MDAPIService extends BaseService {
 			await this.copyFileWithMetadata(file, this.config.cliOuputFolder);
 		}
 	}
-
 
 	/**
 	 * Log excluded components with proper formatting
@@ -377,12 +376,14 @@ export class MDAPIService extends BaseService {
 	 */
 	private async isTestClass(filePath: string): Promise<boolean> {
 		try {
-			const content = await fs.promises.readFile(filePath, 'utf8');
-			return content.includes('@isTest') || content.includes('testMethod');
+			if (fs.existsSync(filePath)) {
+				const content = await fs.promises.readFile(filePath, 'utf8');
+				return content.includes('@isTest') || content.includes('testMethod');
+			}
 		} catch (error) {
 			console.error(`Error reading file ${filePath}:`, error);
-			return false;
 		}
+		return false;
 	}
 
 	/**
@@ -406,5 +407,4 @@ export class MDAPIService extends BaseService {
 			console.debug('Stack trace:', error.stack);
 		}
 	}
-	
 }
