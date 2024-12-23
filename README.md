@@ -2,13 +2,13 @@
 [![SimpleSfCli NPM Package CI/CD](https://github.com/thephani/SimpleSfCLI/actions/workflows/npm-package.yml/badge.svg)](https://github.com/thephani/SimpleSfCLI/actions/workflows/npm-package.yml)
 
 
-> We value your feedback! Please share your thoughts on how we can enhance your ci-cd with SimpleSfCli [SimpleSfCli User Feedback form](https://forms.gle/6K7nzE1Xrh5GVJvG7)
+> We value your feedback! Please share your thoughts on how we can enhance your ci-cd with [SimpleSfCli User Feedback form](https://forms.gle/6K7nzE1Xrh5GVJvG7)
 
 
 
 ## Supercharge Your Salesforce Deployments in Just Seconds!
 
-**Simple SF CLI** is a lightweight, 11.0 kB Node.js-powered command-line tool (unpacked size: 33.3 kB) crafted to streamline your Salesforce DX (SF) workflows. Convert, package, and deploy your SFDX projects to Salesforce in record-breaking 5-7 seconds—all without Salesforce CLI or plugins.
+**Simple SF CLI** is a lightweight, 18.0 kB Node.js-powered command-line tool (unpacked size: ~75kB) crafted to streamline your Salesforce DX (SF) workflows. Convert, package, and deploy your SFDX projects to Salesforce in record-breaking 5-7 seconds—all without Salesforce CLI or plugins.
 
 
 ## 🛠 Features That Stand Out
