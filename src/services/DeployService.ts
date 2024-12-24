@@ -63,7 +63,9 @@ export class DeployService extends BaseService {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
         // Create a new array with only the selected properties
         const failedTests = status.details.runTestResult?.failures.map(({ stackTrace }) => ({ stackTrace }));
-        console.table(failedTests);
+        if (failedTests?.length) {
+          console.table(failedTests);
+        }
         if (status.details?.componentFailures) {
           const failedComponenets = status.details?.componentFailures.map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
           console.table(failedComponenets);

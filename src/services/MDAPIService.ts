@@ -306,7 +306,7 @@ export class MDAPIService extends BaseService {
       '.workflow-meta.xml': '',
       '.standardValueSet-meta.xml': '',
       '.flow-meta.xml': '',
-	  'tab-meta.xml': ''
+      '.tab-meta.xml': '',
     };
 
     for (const [ext, replacement] of Object.entries(extensionMap)) {
