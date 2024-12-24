@@ -9,6 +9,9 @@ export const METADATA_TYPES: Record<string, string> = {
 	components: 'ApexComponent',
 	workflows: 'Workflow',
 	standardValueSets: 'StandardValueSet',
+	flowDefinitions: 'FlowDefinition',
+	flow: 'Flow',
+	tab: 'CustomTab'
 };
 
 export const MEMBERTYPE_REGEX = {
