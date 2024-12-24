@@ -62,9 +62,13 @@ export class DeployService extends BaseService {
       if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
         // Create a new array with only the selected properties
-        const failedTests = status.details.runTestResult?.failures.map(({stackTrace }) => ({ stackTrace }));
+        const failedTests = status.details.runTestResult?.failures.map(({ stackTrace }) => ({ stackTrace }));
         console.table(failedTests);
-      if(status.details?.componentFailures) console.table(status.details.componentFailures);
+        if (status.details?.componentFailures) {
+          const failedComponenets = status.details?.componentFailures.map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
+          console.table(failedComponenets);
+          // console.log('Failed Components:', status.details.componentFailures);
+        }
       }
 
       if (status.done) {
