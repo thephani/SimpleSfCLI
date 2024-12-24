@@ -307,6 +307,7 @@ export class MDAPIService extends BaseService {
       '.standardValueSet-meta.xml': '',
       '.flow-meta.xml': '',
       '.tab-meta.xml': '',
+      '.flexipage-meta.xml': '',
     };
 
     for (const [ext, replacement] of Object.entries(extensionMap)) {
