@@ -32,7 +32,7 @@ export class XmlHelper {
 	 */
 	public createPackageXml(metadataTypes: MetadataType[]): string {
 		try {
-			console.log('Creating package.xml with metadata types:', metadataTypes);
+			// console.log('Creating package.xml with metadata types:', metadataTypes);
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
 			// Sort metadata types for consistency
