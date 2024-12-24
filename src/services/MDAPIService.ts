@@ -241,7 +241,7 @@ export class MDAPIService extends BaseService {
 	 */
 	private async processFilesForCopy(files: string[]): Promise<void> {
 		for (const file of files) {
-			console.log(`Copying file: ${file}`);
+			// console.log(`Copying file: ${file}`);
 			await this.copyFileWithMetadata(file, this.config.cliOuputFolder);
 		}
 	}

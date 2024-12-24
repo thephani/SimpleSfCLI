@@ -67,9 +67,9 @@ export class SalesforceClient {
 
 			// Step 5: Poll for deployment status
 			console.log('⏳ Waiting for deployment completion...');
-			console.time('⏳ Deployment time');
+			console.time('⏳⏳ Deployment time ⏳⏳');
 			const mainDeployResult = await this.deployService.pollDeploymentStatus(mainDeployId);
-			console.timeEnd('⏳ Deployment time');
+			console.timeEnd('⏳⏳ Deployment time ⏳⏳');
 			if(mainDeployResult.status === 'Failed') process.exit(1);
 
 			// If there was a destructive deployment, wait for it too
