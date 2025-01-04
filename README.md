@@ -4,11 +4,24 @@
 
 > We value your feedback! Please share your thoughts on how we can enhance your ci-cd with [SimpleSfCli User Feedback form](https://forms.gle/6K7nzE1Xrh5GVJvG7)
 
-
-
 ## Supercharge Your Salesforce Deployments in Just Seconds!
 
 **Simple SF CLI** is a lightweight, 18.0 kB Node.js-powered command-line tool (unpacked size: ~75kB) crafted to streamline your Salesforce DX (SF) workflows. Convert, package, and deploy your SFDX projects to Salesforce in record-breaking 5-7 seconds—all without Salesforce CLI or plugins.
+
+> You do not need to install the Salesforce CLI (`sf cli`) to complete these steps or use the `simpleSfCli` plugin. This plugin is designed to simplify interactions with Salesforce without relying on the Salesforce CLI.
+
+# Prerequisites  
+
+Before using the `simpleSfCli` plugin, ensure you meet the following requirements:  
+
+- [ ] Create a Private Key and Self-Signed Digital Certificate  
+*Generate a private key and a self-signed digital certificate. This is essential for establishing a secure JWT-based connection with Salesforce.*  
+
+- [ ] Create a Custom Connected App  
+*Set up a connected app in your Salesforce instance and upload the digital certificate to it. This enables API-based authentication for your application.* 
+
+If you are not familiar with setting up the JWT flow for Salesforce authentication, please refer to Salesforce's guide:  
+[Create a Private Key and Self-Signed Digital Certificate](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_auth_key_and_cert.htm).  
 
 
 ## 🛠 Features That Stand Out
@@ -127,4 +140,3 @@ Note: * is a Required option
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
