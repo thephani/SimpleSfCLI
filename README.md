@@ -6,9 +6,13 @@
 
 ## Supercharge Your Salesforce Deployments in Just Seconds!
 
-**Simple SF CLI** is a lightweight, 18.0 kB Node.js-powered command-line tool (unpacked size: ~75kB) crafted to streamline your Salesforce DX (SF) workflows. Convert, package, and deploy your SFDX projects to Salesforce in record-breaking 5-7 seconds—all without Salesforce CLI or plugins.
+**Simple SF CLI** is a lightweight, 19 kb Node.js-powered command-line tool (unpacked size: ~81kb) crafted to streamline your Salesforce DX (SF) workflows. Convert, package, and deploy your SFDX projects to Salesforce in record-breaking 5-7 seconds—all without Salesforce CLI or plugins.
 
-> You do not need to install the Salesforce CLI (`sf cli`) to complete these steps or use the `simpleSfCli` plugin. This plugin is designed to simplify interactions with Salesforce without relying on the Salesforce CLI.
+## 🎯 Why Choose Simple SF CLI?
+- **No Salesforce CLI Required**: Say goodbye to additional dependencies and complex configurations.
+- **Zero Installation Overhead**: Use it directly with `npx` no local installations needed.
+- **Blazing Fast Setup**: Set up in 3-5 seconds, making it perfect for CI/CD pipelines.
+- **Built from Scratch**: With just 4 dependencies, fully customized for reliability and speed.
 
 # Prerequisites  
 
@@ -23,6 +27,7 @@ Before using the `simpleSfCli` plugin, ensure you meet the following requirement
 If you are not familiar with setting up the JWT flow for Salesforce authentication, please refer to Salesforce's guide:  
 [Create a Private Key and Self-Signed Digital Certificate](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_auth_key_and_cert.htm).  
 
+> You do not need to install the Salesforce CLI (`sf cli`) to complete these steps or use the `simpleSfCli` plugin. This plugin is designed to simplify interactions with Salesforce without relying on the Salesforce CLI.
 
 ## 🛠 Features That Stand Out
 
@@ -31,12 +36,6 @@ If you are not familiar with setting up the JWT flow for Salesforce authenticati
 - ✂️ Selective Deployments: Exclude specific metadata components with ease.
 - 🤝 CI/CD Ready: Integrates smoothly with tools like GitHub Actions, Bitbucket, and more.
 - 📑 Comprehensive Logs: Detailed error tracking for hassle-free debugging.
-
-## 🎯 Why Choose Simple SF CLI?
-- No Salesforce CLI Required: Say goodbye to additional dependencies and complex configurations.
-- Zero Installation Overhead: Use it directly with npx—no local installations needed.
-- Blazing Fast Setup: Set up in 3-5 seconds, making it perfect for CI/CD pipelines.
-- Built from Scratch: Fully customized for reliability and speed.
 
 
 ## ⚡ Get Started in Seconds!
