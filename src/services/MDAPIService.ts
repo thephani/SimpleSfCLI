@@ -154,8 +154,18 @@ export class MDAPIService extends BaseService {
   /**
    * Get modified files from git
    */
+
   private async getChangedFiles(): Promise<ChangedFilesResult> {
     try {
+      // Get the current commit hash from GitHub Actions (or local context)
+    // const currentCommitHash = process.env.GITHUB_SHA || (await this.executeGitCommand('git rev-parse HEAD'));
+
+    // Get the parent commit hash
+    // const parentCommitHash = await this.executeGitCommand(`git rev-parse ${currentCommitHash}^`);
+
+    // Get the changed files between the current and previous commits
+    // const changedFiles = await this.executeGitCommand(`diff --diff-filter=AM --name-only ${parentCommitHash} ${currentCommitHash}`);
+    
       const changedFiles = this.executeGitCommand('diff --diff-filter=AM --name-only HEAD~1 HEAD');
       const groupedData = this.groupChangedFilesByObject(changedFiles);
       const restChangedFiles = changedFiles.filter((path) => !path.includes('objects') && !path.includes('fields'));

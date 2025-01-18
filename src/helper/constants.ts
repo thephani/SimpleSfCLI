@@ -14,6 +14,21 @@ export const METADATA_TYPES: Record<string, string> = {
 	flow: 'Flow',
 	tab: 'CustomTab',
 	flexipages: 'FlexiPage',
+	profiles: 'Profile',
+};
+
+export const METADATA_EXTENSIONS: Record<string, string> = {
+	'.cls': '',                            // ApexClass
+	'.trigger': '',                        // ApexTrigger
+	'.page': '',                           // ApexPage
+	'.component': '',                      // ApexComponent
+	'.md-meta.xml': '',                    // CustomMetadata
+	'.workflow-meta.xml': '',              // Workflow
+	'.standardValueSet-meta.xml': '',      // StandardValueSet
+	'.flow-meta.xml': '',                  // Flow
+	'.tab-meta.xml': '',                   // CustomTab
+	'.flexipage-meta.xml': '',             // FlexiPage
+	'.profile-meta.xml': '',               // Profile
 };
 
 export const MEMBERTYPE_REGEX = {
