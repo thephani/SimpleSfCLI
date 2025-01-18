@@ -110,6 +110,12 @@ describe('MDAPIService', () => {
 			const type = (service as any).getMetadataType(filePath);
 			expect(type).toBeNull();
 		});
+
+		it('should identify Profile type', () => {
+			const filePath = 'force-app/main/default/profiles/Admin.profile-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('Profile');
+		});
 	});
 
 	describe('isTestClass', () => {

@@ -125,7 +125,7 @@ export class MDAPIService extends BaseService {
 
     if (changedFiles.length === 0) {
       console.log('ℹ️  No modified files detected. Exiting...');
-      return;
+      // return;
     }
 
     console.log(`📝 Processing ${changedFiles.length} modified files...`);
