@@ -7,7 +7,7 @@ import { GroupedData } from 'types/xml.type.js';
 import { MetadataType } from 'types/index.type.js';
 import { XmlHelper } from '../helper/xmlHelper.js';
 import { CommandArgsConfig } from 'types/config.type.js';
-import { MEMBERTYPE_REGEX, METADATA_TYPES } from '../helper/constants.js';
+import { MEMBERTYPE_REGEX, METADATA_EXTENSIONS, METADATA_TYPES } from '../helper/constants.js';
 
 interface ChangedFilesResult {
   groupedData: GroupedData;
@@ -154,8 +154,18 @@ export class MDAPIService extends BaseService {
   /**
    * Get modified files from git
    */
+
   private async getChangedFiles(): Promise<ChangedFilesResult> {
     try {
+      // Get the current commit hash from GitHub Actions (or local context)
+    // const currentCommitHash = process.env.GITHUB_SHA || (await this.executeGitCommand('git rev-parse HEAD'));
+
+    // Get the parent commit hash
+    // const parentCommitHash = await this.executeGitCommand(`git rev-parse ${currentCommitHash}^`);
+
+    // Get the changed files between the current and previous commits
+    // const changedFiles = await this.executeGitCommand(`diff --diff-filter=AM --name-only ${parentCommitHash} ${currentCommitHash}`);
+    
       const changedFiles = this.executeGitCommand('diff --diff-filter=AM --name-only HEAD~1 HEAD');
       const groupedData = this.groupChangedFilesByObject(changedFiles);
       const restChangedFiles = changedFiles.filter((path) => !path.includes('objects') && !path.includes('fields'));
@@ -297,20 +307,7 @@ export class MDAPIService extends BaseService {
   private generateMemberName(file: string): string | null {
     const baseFileName = path.basename(file);
 
-    const extensionMap: Record<string, string> = {
-      '.cls': '',
-      '.trigger': '',
-      '.page': '',
-      '.component': '',
-      '.md-meta.xml': '',
-      '.workflow-meta.xml': '',
-      '.standardValueSet-meta.xml': '',
-      '.flow-meta.xml': '',
-      '.tab-meta.xml': '',
-      '.flexipage-meta.xml': '',
-    };
-
-    for (const [ext, replacement] of Object.entries(extensionMap)) {
+    for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {
       if (file.endsWith(ext)) {
         return baseFileName.replace(ext, replacement);
       }

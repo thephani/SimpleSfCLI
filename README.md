@@ -108,6 +108,7 @@ Options:
   -e, --exclude <types...>        List of metadata types to exclude, e.g.,NamedCredential, Profile
   -s, --source <sourceDir>       Path to the SFDX source directory, unless "force-app/main/default"
   -h, --help                     display help for command
+  -t, --testLevel <testLevel> NoTestRun,RunSpecifiedTests,RunLocalTests,RunLocalTests
 
    Note: * is a Required option
 
