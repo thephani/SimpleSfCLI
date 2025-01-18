@@ -3,8 +3,12 @@ name: SimpleSfCli NPM Package CI/CD
 
 on:
   pull_request:
+    paths:
+      - 'src/**'    # Only trigger on changes to files in src directory
     branches: [ main ]
   push:
+    paths:
+      - 'src/**'    # Only trigger on changes to files in src directory 
     branches: [ main ]
 
 jobs:
