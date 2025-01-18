@@ -1,6 +1,10 @@
 # .github/workflows/npm-publish.yml
 name: SimpleSfCli NPM Package CI/CD
 
+defaults:
+  run:
+    working-directory: src
+
 on:
   pull_request:
     branches: [ main ]
