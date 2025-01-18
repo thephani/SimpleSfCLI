@@ -116,6 +116,12 @@ describe('MDAPIService', () => {
 			const type = (service as any).getMetadataType(filePath);
 			expect(type).toBe('Profile');
 		});
+
+		it('should identify ConversationMessageDefinition type', () => {
+			const filePath = 'force-app/main/default/conversationMessageDefinitions/test.ConversationMessageDefinition-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('ConversationMessageDefinition');
+		});
 	});
 
 	describe('isTestClass', () => {

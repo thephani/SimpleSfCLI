@@ -15,6 +15,7 @@ export const METADATA_TYPES: Record<string, string> = {
 	tab: 'CustomTab',
 	flexipages: 'FlexiPage',
 	profiles: 'Profile',
+	conversationMessageDefinitions: 'ConversationMessageDefinition',
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
@@ -29,6 +30,7 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.tab-meta.xml': '',                   // CustomTab
 	'.flexipage-meta.xml': '',             // FlexiPage
 	'.profile-meta.xml': '',               // Profile
+	'.conversationMessageDefinition-meta.xml': '', // ConversationMessageDefinition
 };
 
 export const MEMBERTYPE_REGEX = {

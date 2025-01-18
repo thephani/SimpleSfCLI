@@ -34,7 +34,7 @@ export class SalesforceClient {
 			const runTests = await this.mdapiService.convertToMDAPI(this.config.exclude);
 
 			// Step 3: Handle main deployment
-			console.log('📦 Preparing main deployment package...');
+			console.log('📦 Preparing deployment package...');
 			await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
 
 			const deploymentOptions = { ...options, runTests };

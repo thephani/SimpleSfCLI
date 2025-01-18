@@ -27,7 +27,7 @@ export class MDAPIService extends BaseService {
    */
   async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
     try {
-      console.log(`🚀 Starting SFDX to MDAPI conversion...`);
+      console.log(`🚀 Starting MDAPI conversion...`);
 
       await this.initializeDirectories();
 
@@ -125,7 +125,7 @@ export class MDAPIService extends BaseService {
 
     if (changedFiles.length === 0) {
       console.log('ℹ️  No modified files detected. Exiting...');
-      // return;
+      return;
     }
 
     console.log(`📝 Processing ${changedFiles.length} modified files...`);
@@ -211,7 +211,7 @@ export class MDAPIService extends BaseService {
         continue;
       }
 
-      const memberName = await this.generateMemberName(file);
+      const memberName = this.generateMemberName(file);
       if (memberName) {
         this.addMemberToMetadataTypes(type, memberName, metadataTypes);
       }
