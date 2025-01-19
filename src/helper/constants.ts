@@ -3,34 +3,34 @@ export const OUTPUT_DIR = '.simpleSfCli_out';
 // https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_tab.htm
 export const METADATA_TYPES: Record<string, string> = {
 	classes: 'ApexClass',
-	triggers: 'ApexTrigger',
-	pages: 'ApexPage',
-	fields: 'CustomField',
-	customMetadata: 'CustomMetadata',
 	components: 'ApexComponent',
-	workflows: 'Workflow',
-	standardValueSets: 'StandardValueSet',
-	flowDefinitions: 'FlowDefinition',
-	flow: 'Flow',
-	tab: 'CustomTab',
-	flexipages: 'FlexiPage',
-	profiles: 'Profile',
 	conversationMessageDefinitions: 'ConversationMessageDefinition',
+	customMetadata: 'CustomMetadata',
+	fields: 'CustomField',
+	flexipages: 'FlexiPage',
+	flow: 'Flow',
+	flowDefinitions: 'FlowDefinition',
+	pages: 'ApexPage',
+	profiles: 'Profile',
+	standardValueSets: 'StandardValueSet',
+	tab: 'CustomTab',
+	triggers: 'ApexTrigger',
+	workflows: 'Workflow',
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.cls': '',                            // ApexClass
-	'.trigger': '',                        // ApexTrigger
-	'.page': '',                           // ApexPage
 	'.component': '',                      // ApexComponent
-	'.md-meta.xml': '',                    // CustomMetadata
-	'.workflow-meta.xml': '',              // Workflow
-	'.standardValueSet-meta.xml': '',      // StandardValueSet
-	'.flow-meta.xml': '',                  // Flow
-	'.tab-meta.xml': '',                   // CustomTab
-	'.flexipage-meta.xml': '',             // FlexiPage
-	'.profile-meta.xml': '',               // Profile
 	'.conversationMessageDefinition-meta.xml': '', // ConversationMessageDefinition
+	'.flexipage-meta.xml': '',             // FlexiPage
+	'.flow-meta.xml': '',                  // Flow
+	'.md-meta.xml': '',                    // CustomMetadata
+	'.page': '',                           // ApexPage
+	'.profile-meta.xml': '',               // Profile
+	'.standardValueSet-meta.xml': '',      // StandardValueSet
+	'.tab-meta.xml': '',                   // CustomTab
+	'.trigger': '',                        // ApexTrigger
+	'.workflow-meta.xml': '',              // Workflow
 };
 
 export const MEMBERTYPE_REGEX = {
