@@ -1,338 +1,366 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple SF CLI - Documentation</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Simple SF CLI - Documentation</title>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #1f2937;
-            background-color: #f3f4f6;
-        }
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+				line-height: 1.6;
+				color: #1f2937;
+				background-color: #f3f4f6;
+			}
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 0 1rem;
+			}
 
-        .hero {
-            background: linear-gradient(to right, #7C3AED, #5B21B6);
-            color: white;
-            padding: 4rem 0;
-            text-align: center;
-            margin-bottom: 2rem;
-        }
+			.hero {
+				background: linear-gradient(to right, #7c3aed, #5b21b6);
+				color: white;
+				padding: 4rem 0;
+				text-align: center;
+				margin-bottom: 2rem;
+			}
 
-        .hero h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
+			.hero h1 {
+				font-size: 3rem;
+				margin-bottom: 1rem;
+			}
 
-        .badge {
-            display: inline-block;
-            background-color: rgba(255, 255, 255, 0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            margin-top: 1rem;
-        }
+			.badge {
+				display: inline-block;
+				background-color: rgba(255, 255, 255, 0.1);
+				padding: 0.5rem 1rem;
+				border-radius: 9999px;
+				margin-top: 1rem;
+			}
 
-        .badge a {
-            color: white;
-            text-decoration: none;
-        }
+			.badge a {
+				color: white;
+				text-decoration: none;
+			}
 
-        /* Content Sections */
-        .content-section {
-            background: white;
-            border-radius: 8px;
-            padding: 2rem;
-            margin: 2rem 0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
+			/* Content Sections */
+			.content-section {
+				background: white;
+				border-radius: 8px;
+				padding: 2rem;
+				margin: 2rem 0;
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+			}
 
-        h2 {
-            color: #7C3AED;
-            margin-bottom: 1rem;
-            font-size: 1.875rem;
-        }
+			h2 {
+				color: #7c3aed;
+				margin-bottom: 1rem;
+				font-size: 1.875rem;
+			}
 
-        /* Features Grid */
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
+			/* Features Grid */
+			.features {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+				gap: 2rem;
+				margin: 2rem 0;
+			}
 
-        .feature {
-            padding: 1.5rem;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
+			.feature {
+				padding: 1.5rem;
+				background: #f8fafc;
+				border-radius: 8px;
+			}
 
-        /* Components Grid */
-        .component-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 0.75rem;
-            margin: 1rem 0;
-        }
+			/* Components Grid */
+			.component-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+				gap: 0.75rem;
+				margin: 1rem 0;
+			}
 
-        .component-item {
-            padding: 0.5rem;
-            background: #f8fafc;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            text-align: center;
-            border: 1px solid rgba(0,0,0,0.1);
-            transition: all 0.2s ease;
-        }
+			.component-item {
+				padding: 0.5rem;
+				background: #f8fafc;
+				border-radius: 4px;
+				font-size: 0.9rem;
+				text-align: center;
+				border: 1px solid rgba(0, 0, 0, 0.1);
+				transition: all 0.2s ease;
+			}
 
-        .component-item:hover {
-            background: #7C3AED;
-            color: white;
-            transform: translateY(-1px);
-        }
+			.component-item:hover {
+				background: #7c3aed;
+				color: white;
+				transform: translateY(-1px);
+			}
 
-        /* Tabs */
-        .tabs {
-            margin-top: 2rem;
-        }
+			/* Tabs */
+			.tabs {
+				margin-top: 2rem;
+			}
 
-        .tab-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
+			.tab-buttons {
+				display: flex;
+				gap: 1rem;
+				margin-bottom: 1rem;
+			}
 
-        .tab-button {
-            padding: 0.5rem 1rem;
-            background-color: #f3f4f6;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
+			.tab-button {
+				padding: 0.5rem 1rem;
+				background-color: #f3f4f6;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				font-size: 1rem;
+				transition: all 0.3s ease;
+			}
 
-        .tab-button:hover {
-            background-color: #9333EA;
-            color: white;
-        }
+			.tab-button:hover {
+				background-color: #9333ea;
+				color: white;
+			}
 
-        .tab-button.active {
-            background-color: #7C3AED;
-            color: white;
-        }
+			.tab-button.active {
+				background-color: #7c3aed;
+				color: white;
+			}
 
-        .tab-content {
-            display: none;
-        }
+			.tab-content {
+				display: none;
+			}
 
-        .tab-content.active {
-            display: block;
-        }
+			.tab-content.active {
+				display: block;
+			}
 
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-            font-size: 0.9rem;
-        }
+			/* Tables */
+			table {
+				width: 100%;
+				border-collapse: collapse;
+				margin: 1rem 0;
+				font-size: 0.9rem;
+			}
 
-        th, td {
-            padding: 0.5rem;
-            text-align: left;
-            border-bottom: 1px solid #f3f4f6;
-        }
+			th,
+			td {
+				padding: 0.5rem;
+				text-align: left;
+				border-bottom: 1px solid #f3f4f6;
+			}
 
-        th {
-            background-color: #f3f4f6;
-            font-weight: 600;
-        }
+			th {
+				background-color: #f3f4f6;
+				font-weight: 600;
+			}
 
-        td code {
-            display: inline;
-            padding: 0.2rem 0.4rem;
-            margin: 0;
-            font-size: 0.85rem;
-            background-color: #f8fafc;
-            color: #7C3AED;
-            border-radius: 3px;
-        }
+			td code {
+				display: inline;
+				padding: 0.2rem 0.4rem;
+				margin: 0;
+				font-size: 0.85rem;
+				background-color: #f8fafc;
+				color: #7c3aed;
+				border-radius: 3px;
+			}
 
-        tr:hover {
-            background-color: #f8fafc;
-        }
+			tr:hover {
+				background-color: #f8fafc;
+			}
 
-        /* Code Blocks */
-        code {
-            background-color: #1a1a1a;
-            color: #ffffff;
-            padding: 1rem;
-            border-radius: 6px;
-            display: block;
-            overflow-x: auto;
-            margin: 1rem 0;
-            font-family: 'Courier New', Courier, monospace;
-        }
+			/* Code Blocks */
+			code {
+				background-color: #1a1a1a;
+				color: #ffffff;
+				padding: 1rem;
+				border-radius: 6px;
+				display: block;
+				overflow-x: auto;
+				margin: 1rem 0;
+				font-family: 'Courier New', Courier, monospace;
+			}
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2rem;
-            }
-            
-            .content-section {
-                padding: 1.5rem;
-            }
-            
-            .tab-buttons {
-                flex-wrap: wrap;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Hero Section -->
-    <div class="hero">
-        <div class="container">
-            <h1>🚀 Simple SF CLI</h1>
-            <p>Supercharge Your Salesforce Deployments in Just Seconds!</p>
-            <div class="badge">
-                <a href="https://github.com/thephani/SimpleSfCLI/actions/workflows/npm-package.yml">
-                    SimpleSfCli NPM Package CI/CD
-                </a>
-            </div>
-        </div>
-    </div>
+			/* Responsive Design */
+			@media (max-width: 768px) {
+				.hero h1 {
+					font-size: 2rem;
+				}
 
-    <div class="container">
-        <!-- Features Section -->
-        <div class="content-section">
-            <h2>Why Choose Simple SF CLI?</h2>
-            <div class="features">
-                <div class="feature">
-                    <h3>No Salesforce CLI Required</h3>
-                    <p>Say goodbye to additional dependencies and complex configurations.</p>
-                </div>
-                <div class="feature">
-                    <h3>Zero Installation Overhead</h3>
-                    <p>Use it directly with npx - no local installations needed.</p>
-                </div>
-                <div class="feature">
-                    <h3>Blazing Fast Setup</h3>
-                    <p>Set up in 3-5 seconds, making it perfect for CI/CD pipelines.</p>
-                </div>
-                <div class="feature">
-                    <h3>Built from Scratch</h3>
-                    <p>With just 4 dependencies, fully customized for reliability and speed.</p>
-                </div>
-            </div>
-        </div>
+				.content-section {
+					padding: 1.5rem;
+				}
 
-        <!-- Documentation Tabs -->
-        <div class="content-section">
-            <h2>Documentation</h2>
-            <div class="tabs">
-                <div class="tab-buttons">
-                    <button class="tab-button active" onclick="showTab('quickstart')">Quick Start</button>
-                    <button class="tab-button" onclick="showTab('components')">Supported Components</button>
-                    <button class="tab-button" onclick="showTab('options')">Command Options</button>
-                </div>
-                
-                <div id="quickstart" class="tab-content active">
-                    <h3>Option 1: Zero Installation (Recommended)</h3>
-                    <code>npx simple-sf-cli \
-    --username myUser@example.com \
-    --clientId myClientId \
-    --privateKey ./server.key \
-    --env PRODUCTION</code>
+				.tab-buttons {
+					flex-wrap: wrap;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Hero Section -->
+		<div class="hero">
+			<div class="container">
+				<h1>🚀 Simple SF CLI</h1>
+				<p>Supercharge Your Salesforce Deployments in Just Seconds!</p>
+				<div class="badge">
+					<a href="https://www.npmjs.com/package/simple-sf-cli" target="_blank"> Simple-Sf-Cli NPM Package</a>
+				</div>
+			</div>
+		</div>
 
-                    <h3>Option 2: Traditional Installation</h3>
-                    <code>npm install -g simple-sf-cli</code>
-                </div>
-                
-                <div id="components" class="tab-content">
-                    <div class="component-grid">
-                        <div class="component-item">ApexClass</div>
-                        <div class="component-item">ApexTrigger</div>
-                        <div class="component-item">ApexPage</div>
-                        <div class="component-item">CustomField</div>
-                        <div class="component-item">CustomMetadata</div>
-                        <div class="component-item">ApexComponent</div>
-                        <div class="component-item">Workflow</div>
-                        <div class="component-item">StandardValueSet</div>
-                        <div class="component-item">CustomObject</div>
-                        <div class="component-item">ValidationRule</div>
-                        <div class="component-item">Layout</div>
-                        <div class="component-item">CustomTab</div>
-                        <div class="component-item">PermissionSet</div>
-                        <div class="component-item">Flow</div>
-                        <div class="component-item">EmailTemplate</div>
-                        <div class="component-item">RecordType</div>
-                    </div>
-                </div>
-                
-                <div id="options" class="tab-content">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Option</th>
-                                <th>Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>-u, --username*</code></td>
-                                <td>Salesforce username</td>
-                            </tr>
-                            <tr>
-                                <td><code>-c, --clientId*</code></td>
-                                <td>Salesforce client ID</td>
-                            </tr>
-                            <tr>
-                                <td><code>-k, --privateKey*</code></td>
-                                <td>Path to Salesforce private key</td>
-                            </tr>
-                            <tr>
-                                <td><code>-e, --env*</code></td>
-                                <td>Production or Sandbox [Default]</td>
-                            </tr>
-                            <tr>
-                                <td><code>-e, --exclude</code></td>
-                                <td>List of metadata types to exclude</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p><em>Note: * indicates required options</em></p>
-                </div>
-            </div>
-        </div>
+		<div class="container">
+			<!-- Features Section -->
+			<div class="content-section">
+				<h2>Why Choose Simple SF CLI?</h2>
+				<div class="features">
+					<div class="feature">
+						<h3>No Salesforce CLI Required</h3>
+						<p>Say goodbye to additional dependencies and complex configurations.</p>
+					</div>
+					<div class="feature">
+						<h3>Zero Installation Overhead</h3>
+						<p>Use it directly with npx - no local installations needed.</p>
+					</div>
+					<div class="feature">
+						<h3>Blazing Fast Setup</h3>
+						<p>Set up in 3-5 seconds, making it perfect for CI/CD pipelines.</p>
+					</div>
+					<div class="feature">
+						<h3>Built from Scratch</h3>
+						<p>With just 4 dependencies, fully customized for reliability and speed.</p>
+					</div>
+				</div>
+			</div>
 
-        <!-- CI/CD Section -->
-        <div class="content-section">
-            <h2>CI/CD Pipeline Configuration</h2>
-            <div class="tabs">
-                <div class="tab-buttons">
-                    <button class="tab-button active" onclick="showConfig('github')">GitHub Actions</button>
-                    <button class="tab-button" onclick="showConfig('bitbucket')">Bitbucket Pipelines</button>
-                </div>
-                
-                <div id="github-config" class="tab-content active">
-                    <h3>GitHub Actions Configuration</h3>
-                    <pre><code class="language-yaml">name: SimpleSfCli CI
+			<!-- Documentation Tabs -->
+			<div class="content-section">
+				<h2>Documentation</h2>
+				<div class="tabs">
+					<div class="tab-buttons">
+						<button class="tab-button active" onclick="showTab('quickstart')">Quick Start</button>
+						<button class="tab-button" onclick="showTab('components')">Supported Components</button>
+						<button class="tab-button" onclick="showTab('options')">Command Options</button>
+					</div>
+
+					<div id="quickstart" class="tab-content active">
+						<h3>Option 1: Zero Installation (Recommended)</h3>
+						<code>
+							npx simple-sf-cli \ <br />
+							--source $CLI_SOURCE \<br />
+							--exclude $CLI_EXCLUDE \<br />
+							--clientId $CLIENT_ID \<br />
+							--privateKey $PRIVATE_KEY \<br />
+							--username $USER_NAME \<br />
+							--validateOnly true \<br />
+							--env PRODUCTION
+						</code>
+
+						<h3>Option 2: Traditional Installation</h3>
+						<code>npm install -g simple-sf-cli</code>
+					</div>
+
+					<div id="components" class="tab-content">
+						<div class="component-grid">
+							<div class="component-item">ApexClass</div>
+							<div class="component-item">ApexComponent</div>
+							<div class="component-item">ApexPage</div>
+							<div class="component-item">ApexTrigger</div>
+							<div class="component-item">ConversationMessageDefinition</div>
+							<div class="component-item">CustomField</div>
+							<div class="component-item">CustomMetadata</div>
+							<div class="component-item">CustomObject</div>
+							<div class="component-item">CustomTab</div>
+							<div class="component-item">EmailTemplate</div>
+							<div class="component-item">FlexiPage</div>
+							<div class="component-item">Flow</div>
+							<div class="component-item">FlowDefinition</div>
+							<div class="component-item">Layout</div>
+							<div class="component-item">PermissionSet</div>
+							<div class="component-item">Profile</div>
+							<div class="component-item">RecordType</div>
+							<div class="component-item">StandardValueSet</div>
+							<div class="component-item">ValidationRule</div>
+							<div class="component-item">Workflow</div>
+						</div>
+					</div>
+
+					<div id="options" class="tab-content">
+						<table>
+							<caption>
+								Note: * indicates required options
+							</caption>
+							<thead>
+								<tr>
+									<th>Option</th>
+									<th>Description</th>
+									<th>Example</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td><code>--source*</code></td>
+									<td>Source directory for metadata</td>
+									<td><code>./src/metadata</code></td>
+								</tr>
+								<tr>
+									<td><code>--exclude</code></td>
+									<td>List of metadata types to exclude</td>
+									<td><code>ApexClass, Workflow</code></td>
+								</tr>
+								<tr>
+									<td><code>--clientId*</code></td>
+									<td>Salesforce client ID</td>
+									<td><code>3MVG9XXXXXXXXX</code></td>
+								</tr>
+								<tr>
+									<td><code>--privateKey*</code></td>
+									<td>Path to Salesforce private key</td>
+									<td><code>./keys/private.key</code></td>
+								</tr>
+								<tr>
+									<td><code>--username*</code></td>
+									<td>Salesforce username</td>
+									<td><code>user@example.com</code></td>
+								</tr>
+								<tr>
+									<td><code>--validateOnly</code></td>
+									<td>Run validation only (true/false)</td>
+									<td><code>true</code></td>
+								</tr>
+								<tr>
+									<td><code>--env*</code></td>
+									<td>Environment type (e.g., PRODUCTION, SANDBOX)</td>
+									<td><code>PRODUCTION</code></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+
+			<!-- CI/CD Section -->
+			<div class="content-section">
+				<h2>CI/CD Pipeline Configuration</h2>
+				<div class="tabs">
+					<div class="tab-buttons">
+						<button class="tab-button active" onclick="showConfig('github')">GitHub Actions</button>
+						<button class="tab-button" onclick="showConfig('bitbucket')">Bitbucket Pipelines</button>
+						<button class="tab-button" onclick="showConfig('jenkins')">Jenkis</button>
+						<button class="tab-button" onclick="showConfig('gitlab')">Gitlab</button>
+					</div>
+
+					<div id="github-config" class="tab-content active">
+						<h3>GitHub Actions Configuration</h3>
+						<pre><code class="language-yaml">name: SimpleSfCli CI
 
 on:
   push:
@@ -343,78 +371,99 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
+    - uses: actions/checkout@v4
       with:
-        node-version: '16'
+        ref: ${{github.event.pull_request.head.sha}}
+        fetch-depth: 2
+    - run: git checkout HEAD^
         
     - name: Deploy to Salesforce
       run: |
-        npx simple-sf-cli \
-          --username ${{ secrets.SF_USERNAME }} \
-          --clientId ${{ secrets.SF_CLIENT_ID }} \
-          --privateKey ${{ secrets.SF_PRIVATE_KEY }} \
-          --env ${{ secrets.SF_ENVIRONMENT }}</code></pre>
-                </div>
-                
-                <div id="bitbucket-config" class="tab-content">
-                    <h3>Bitbucket Pipelines Configuration</h3>
-                    <pre><code class="language-yaml">pipelines:
-  default:
-    - step:
-        name: Deploy to Salesforce
-        image: node:16
-        script:
-          - npx simple-sf-cli \
-              --username $SF_USERNAME \
-              --clientId $SF_CLIENT_ID \
-              --privateKey $SF_PRIVATE_KEY \
-              --env $SF_ENVIRONMENT
-        artifacts:
-          - deployment-logs/**</code></pre>
-                </div>
-            </div>
-        </div>
-    </div>
+        - npx simple-sf-cli \
+          --source ${{secrets.SOURCE}} \
+          --exclude ${{secrets.EXCLUDE}} \
+          --clientId ${{secrets.CLIENT_ID}} \
+          --privateKey ${{secrets.PRIVATE_KEY}} \
+          --username ${{secrets.USER_NAME}} \
+          --validateOnly ${{secrets.VALIDATION}}
+        </code>
+    </pre>
+					</div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-yaml.min.js"></script>
-    <script>
-        // Tab switcher for documentation and CI/CD sections
-        function switchTab(tabContainer, activeButton, activeContent) {
-            // Update button states within the container
-            tabContainer.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('active');
-            });
-            activeButton.classList.add('active');
+					<div id="bitbucket-config" class="tab-content">
+						<h3>Bitbucket Pipelines Configuration</h3>
+						<pre><code class="language-yaml">
+image:
+  name: node
 
-            // Update content visibility within the container
-            tabContainer.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            activeContent.classList.add('active');
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: "Validate PR with SF CLI"
+          script:
+            - npx simple-sf-cli \
+            --source $CLI_SOURCE \
+            --exclude $CLI_EXCLUDE \
+            --clientId $CLIENT_ID \
+            --privateKey $PRIVATE_KEY \
+            --username $USER_NAME \
+            --validateOnly true
+                    </code></pre>
+					</div>
 
-            // Trigger Prism to highlight the code again
-            Prism.highlightAll();
-        }
+					<div id="jenkins-config" class="tab-content">
+						<h3>Jenkins Pipelines Configuration</h3>
+						<pre><code class="language-yaml">
+                        COMING SOON
+                    </code></pre>
+					</div>
+					<div id="gitlab-config" class="tab-content">
+						<h3>Gitlab Pipelines Configuration</h3>
+						<pre><code class="language-yaml">
+                        COMING SOON
+                    </code></pre>
+					</div>
+				</div>
+			</div>
+		</div>
 
-        function showTab(tabName) {
-            const tabContainer = event.target.closest('.tabs');
-            const activeButton = event.target;
-            const activeContent = document.getElementById(tabName);
-            switchTab(tabContainer, activeButton, activeContent);
-        }
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-yaml.min.js"></script>
+		<script>
+			// Tab switcher for documentation and CI/CD sections
+			function switchTab(tabContainer, activeButton, activeContent) {
+				// Update button states within the container
+				tabContainer.querySelectorAll('.tab-button').forEach(button => {
+					button.classList.remove('active');
+				});
+				activeButton.classList.add('active');
 
-        function showConfig(platform) {
-            const tabContainer = event.target.closest('.tabs');
-            const activeButton = event.target;
-            const activeContent = document.getElementById(platform + '-config');
-            switchTab(tabContainer, activeButton, activeContent);
-        }
-    </script>
-</body>
+				// Update content visibility within the container
+				tabContainer.querySelectorAll('.tab-content').forEach(content => {
+					content.classList.remove('active');
+				});
+				activeContent.classList.add('active');
+
+				// Trigger Prism to highlight the code again
+				Prism.highlightAll();
+			}
+
+			function showTab(tabName) {
+				const tabContainer = event.target.closest('.tabs');
+				const activeButton = event.target;
+				const activeContent = document.getElementById(tabName);
+				switchTab(tabContainer, activeButton, activeContent);
+			}
+
+			function showConfig(platform) {
+				const tabContainer = event.target.closest('.tabs');
+				const activeButton = event.target;
+				const activeContent = document.getElementById(platform + '-config');
+				switchTab(tabContainer, activeButton, activeContent);
+			}
+		</script>
+	</body>
 </html>
