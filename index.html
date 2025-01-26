@@ -296,55 +296,63 @@
 					</div>
 
 					<div id="options" class="tab-content">
-						<table>
-							<caption>
-								Note: * indicates required options
-							</caption>
-							<thead>
-								<tr>
-									<th>Option</th>
-									<th>Description</th>
-									<th>Example</th>
-								</tr>
-							</thead>
-							<tbody>
-								<tr>
-									<td><code>--source*</code></td>
-									<td>Source directory for metadata</td>
-									<td><code>./src/metadata</code></td>
-								</tr>
-								<tr>
-									<td><code>--exclude</code></td>
-									<td>List of metadata types to exclude</td>
-									<td><code>ApexClass, Workflow</code></td>
-								</tr>
-								<tr>
-									<td><code>--clientId*</code></td>
-									<td>Salesforce client ID</td>
-									<td><code>3MVG9XXXXXXXXX</code></td>
-								</tr>
-								<tr>
-									<td><code>--privateKey*</code></td>
-									<td>Path to Salesforce private key</td>
-									<td><code>./keys/private.key</code></td>
-								</tr>
-								<tr>
-									<td><code>--username*</code></td>
-									<td>Salesforce username</td>
-									<td><code>user@example.com</code></td>
-								</tr>
-								<tr>
-									<td><code>--validateOnly</code></td>
-									<td>Run validation only (true/false)</td>
-									<td><code>true</code></td>
-								</tr>
-								<tr>
-									<td><code>--env*</code></td>
-									<td>Environment type (e.g., PRODUCTION, SANDBOX)</td>
-									<td><code>PRODUCTION</code></td>
-								</tr>
-							</tbody>
-						</table>
+						Here's the updated options in the requested table format:
+
+
+<table>
+  <caption>
+    Note: * indicates required options
+  </caption>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Description</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--username*</code></td>
+      <td>Salesforce username</td>
+      <td><code>user@example.com or user@example.com.sandbox</code></td>
+    </tr>
+    <tr>
+      <td><code>--clientId*</code></td>
+      <td>Salesforce client ID</td>
+      <td><code>3MVG9XXXXXXXXX</code></td>
+    </tr>
+    <tr>
+      <td><code>--privateKey*</code></td>
+      <td>Path to Salesforce private key</td>
+      <td><code>./keys/private.key</code></td>
+    </tr>
+    <tr>
+      <td><code>--env*</code></td>
+      <td>Environment type (e.g., SANDBOX [default], PRODUCTION)</td>
+      <td><code>PRODUCTION</code></td>
+    </tr>
+    <tr>
+      <td><code>--source</code></td>
+      <td>Path to the SFDX source directory</td>
+      <td><code>force-app/main/default</code></td>
+    </tr>
+    <tr>
+      <td><code>--validateOnly</code></td>
+      <td>Validates without metadata deployment</td>
+      <td><code>true</code></td>
+    </tr>
+    <tr>
+      <td><code>--exclude</code></td>
+      <td>List of metadata types to exclude</td>
+      <td><code>ApexClass, Workflow</code></td>
+    </tr>
+    <tr>
+      <td><code>--testLevel</code></td>
+      <td>Specifies which tests are run as part of a deployment</td>
+      <td><code>NoTestRun,RunLocalTests etc</code></td>
+    </tr>
+  </tbody>
+</table>
 					</div>
 				</div>
 			</div>
