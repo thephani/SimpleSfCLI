@@ -48,19 +48,11 @@ Watch as your deployment completes in record time.
 ## 📦 Package Details
 | Detail                | Value   |
 |-----------------------|---------|
-| Package Size          | 11.0 kB |
-| Unpacked Size         | 33.3 kB |
+| Package Size          | 19.1 kB |
+| Unpacked Size         | 78.3 kB |
 
 ## 📦 Supported Components
-Version 0.7.1 of Simple SF CLI supports the following components:
-- ApexClass
-- ApexTrigger
-- ApexPage
-- CustomField
-- CustomMetadata
-- ApexComponent
-- Workflow
-- StandardValueSet
+[Link Here](https://thephani.github.io/SimpleSfCLI/)
 
 
 Elevate your Salesforce deployment game with `Simple SF CLI` — the ultimate tool for developers on the move.
@@ -109,6 +101,7 @@ Options:
   -s, --source <sourceDir>       Path to the SFDX source directory, unless "force-app/main/default"
   -h, --help                     display help for command
   -t, --testLevel <testLevel> NoTestRun,RunSpecifiedTests,RunLocalTests,RunLocalTests
+  -v, --validateOnly <true> Validates the metadata without deployment
 
    Note: * is a Required option
 

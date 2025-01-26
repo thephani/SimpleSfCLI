@@ -54,12 +54,15 @@ export class DeployService extends BaseService {
 
     while (attempt < maxAttempts) {
       const status = await this.getDeploymentStatus(deployId);
-      if (status.numberComponentsDeployed === 0) console.log('Pending Deployment');
+      // console.table(status.details.componentFailures);
+      if (status.numberComponentsDeployed === 0) console.log('Pending Deployment. ');
+      
       else console.log(`Deploying Components: ${status.numberComponentsDeployed} / ${status.numberComponentsTotal}`);
       if (status.numberTestsTotal > 0) {
         console.log(`Running Test Status: ${status.numberTestsCompleted} / ${status.numberTestsTotal}`);
       }
-      if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) {
+      // if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) { // status.details?.componentFailures.length > 0
+      if(status.status === 'Failed') {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
         // Create a new array with only the selected properties
         const failedTests = status.details.runTestResult?.failures.map(({ stackTrace }) => ({ stackTrace }));
@@ -91,7 +94,6 @@ export class DeployService extends BaseService {
   }
 
   private async createDeployRequest(zipPath: string, options: Partial<DeployOptions>): Promise<string> {
-    console.log('zipPath', zipPath);
     const zipContent = fs.readFileSync(zipPath);
     const base64Zip = zipContent.toString('base64');
 

@@ -16,6 +16,7 @@ export const METADATA_TYPES: Record<string, string> = {
 	tab: 'CustomTab',
 	triggers: 'ApexTrigger',
 	workflows: 'Workflow',
+	lwc: 'LightningComponentBundle',
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
@@ -31,6 +32,10 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.tab-meta.xml': '',                   // CustomTab
 	'.trigger': '',                        // ApexTrigger
 	'.workflow-meta.xml': '',              // Workflow
+	'.html': '',                           // LightningComponentBundle
+	'.js': '',                             // LightningComponentBundle
+	'.js-meta.xml': '',					   // LightningComponentBundle
+	'.css': '',                            // LightningComponentBundle
 };
 
 export const MEMBERTYPE_REGEX = {
