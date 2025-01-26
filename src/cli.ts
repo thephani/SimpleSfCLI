@@ -78,7 +78,7 @@ class CLI {
 
 					// Initialize deployment
 					const result: any = await client.deploy(deployOptions);
-					console.log('Deployment completed:', result.id, result?.success);
+					console.log('Deployment completed:', result.id);
 				} catch (error) {
 					this.handleError('Deployment failed', error);
 				}
@@ -97,7 +97,8 @@ class CLI {
 		// Validate required fields
 		this.validateConfig(updatedConfig);
 
-		console.log('Using configuration:', updatedConfig);
+		console.log('Username :', updatedConfig.username);
+		// console.log('Using configuration:', updatedConfig);
 		return updatedConfig;
 	}
 

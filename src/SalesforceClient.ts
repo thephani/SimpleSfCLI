@@ -30,17 +30,35 @@ export class SalesforceClient {
 			await this.authService.authenticate();
 
 			// Step 2: Convert to MDAPI format
-			console.log('🔄 Converting to MDAPI format...');
+			// console.log('🔄 Converting to MDAPI format...');
 			const runTests = await this.mdapiService.convertToMDAPI(this.config.exclude);
 
-			// Step 3: Handle main deployment
-			console.log('📦 Preparing deployment package...');
-			await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
+			const files = await fs.promises.readdir(this.config.cliOuputFolder);
+			const hasPackageXml = files.some(file => file === 'package.xml');
+			console
 
+			// Step 3: Handle main deployment
 			const deploymentOptions = { ...options, runTests };
-			console.log('🚀 Initiating deployment...');
-			const mainDeployId = await this.deployService.initiateDeployment(this.config.output, deploymentOptions);
-			console.log('📝 Main deployment initiated with ID:', mainDeployId);
+			let mainDeployId: string;
+
+			if (hasPackageXml) {
+				console.log('📦 Preparing deployment package...', this.config.output);
+				await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
+
+
+				console.log('🚀 Initiating deployment...');
+				mainDeployId = await this.deployService.initiateDeployment(this.config.output, deploymentOptions);
+				console.log('📝 Main deployment initiated with ID:', mainDeployId);
+
+				// Step 5: Poll for deployment status
+				console.log('⏳ Waiting for deployment completion...');
+				console.time('⏳⏳ Deployment time ⏳⏳');
+				const mainDeployResult = await this.deployService.pollDeploymentStatus(mainDeployId);
+				console.log('📊 Main deployment result:', mainDeployResult.status);
+				console.timeEnd('⏳⏳ Deployment time ⏳⏳');
+
+				return mainDeployResult;
+			}
 
 			// Step 4: Handle destructive changes
 			const destructivePath = path.join(this.config.cliOuputFolder, 'destructiveChanges', 'destructiveChanges.xml');
@@ -52,7 +70,6 @@ export class SalesforceClient {
 
 				try {
 					const destructiveZipPath = path.join(this.config.cliOuputFolder, 'destructive-package.zip');
-
 					await this.archiverService.zipDirectory(path.join(this.config.cliOuputFolder, 'destructiveChanges'), destructiveZipPath);
 
 					destructiveDeployId = await this.deployService.initiateDeployment(destructiveZipPath, deploymentOptions);
@@ -65,25 +82,21 @@ export class SalesforceClient {
 				console.log('ℹ️  No destructive changes found');
 			}
 
-			// Step 5: Poll for deployment status
-			console.log('⏳ Waiting for deployment completion...');
-			console.time('⏳⏳ Deployment time ⏳⏳');
-			const mainDeployResult = await this.deployService.pollDeploymentStatus(mainDeployId);
-			console.timeEnd('⏳⏳ Deployment time ⏳⏳');
-			if(mainDeployResult.status === 'Failed') process.exit(1);
+
+			// if (mainDeployResult.status === 'Failed') process.exit(1);
 
 			// If there was a destructive deployment, wait for it too
 			if (destructiveDeployId) {
 				console.log('⏳ Waiting for destructive changes deployment...');
 				try {
 					const destructiveResult = await this.deployService.pollDeploymentStatus(destructiveDeployId);
-					console.log('📊 Destructive changes deployment result:', destructiveResult.status);
+					// console.log('📊 Destructive changes deployment result:', destructiveResult.status);
+					return destructiveResult;
 				} catch (error) {
 					console.error('❌ Error in destructive changes deployment:', error);
 				}
 			}
-
-			return mainDeployResult;
+			throw new Error('Deployment failed: Missing required condition.');
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			console.error('❌ Deployment failed:', errorMessage);

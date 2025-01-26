@@ -1,9 +1,9 @@
 {
 	"name": "simple-sf-cli",
-	"version": "2.1.9",
+	"version": "2.2.0",
 	"description": "A simplified Salesforce CLI plugin",
 	"type": "commonjs",
-	"main": "dist/index.js",
+	"main": "dist/cli.js",
 	"bin": {
 		"simpleSfCli": "./dist/cli.js"
 	},
