@@ -17,6 +17,7 @@ export const METADATA_TYPES: Record<string, string> = {
 	triggers: 'ApexTrigger',
 	workflows: 'Workflow',
 	lwc: 'LightningComponentBundle',
+	groups: 'Group',
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
@@ -36,6 +37,7 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.js': '',                             // LightningComponentBundle
 	'.js-meta.xml': '',					   // LightningComponentBundle
 	'.css': '',                            // LightningComponentBundle
+	'.group-meta.xml': '',                 // Group
 };
 
 export const MEMBERTYPE_REGEX = {
