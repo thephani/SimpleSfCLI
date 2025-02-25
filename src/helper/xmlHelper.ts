@@ -72,7 +72,6 @@ export class XmlHelper {
 		}
 
 		//1. first captured group (object name) 2. second captured group (field name)
-
 		return {
 			name: 'CustomField',
 			members: [`${match[1]}.${match[2]}`],
@@ -97,7 +96,7 @@ export class XmlHelper {
 
 					const match = existingXmlContent.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
 					if (!match) {
-						throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
+						throw new Error(`Invalid Field Elements in file: ${sourceFilePath}`);
 						// return;
 					}
 
@@ -144,30 +143,6 @@ export class XmlHelper {
 			throw new Error(`Failed to create custom field XML: ${errorMessage}`);
 		}
 	}
-
-	/**
-	 * Validates if a string is valid XML.
-	 */
-	public isValidXml(xml: string): boolean {
-		try {
-			// Parse out the root element name and use that for creation
-			const rootMatch = xml.match(/<([^\s>/?]+)[\s>]/);
-			if (!rootMatch) return false;
-			
-			const rootElement = rootMatch[1];
-			xmlbuilder.create(rootElement);
-			return true;
-		} catch {
-			return false;
-		}
-	}
-
-	/**
-	 * Sets the source directory for XML operations.
-	 */
-	// public setSourceDirectory(directory: string): void {
-	// 	// this.sourceDirectory = directory;
-	// }
 
 	/**
 	 * Sets the output directory for XML operations.

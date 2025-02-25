@@ -152,18 +152,6 @@ describe('XmlHelper', () => {
 		});
 	});
 
-	describe('isValidXml', () => {
-		it('should return true for valid XML', () => {
-			const validXml = '<?xml version="1.0"?><root><child>value</child></root>';
-			expect(xmlHelper.isValidXml(validXml)).toBe(true);
-		});
-
-		it('should return false for invalid XML', () => {
-			const invalidXml = 'text';
-			expect(xmlHelper.isValidXml(invalidXml)).toBe(false);
-		});
-	});
-
 	describe('setOutputDirectory', () => {
 		it('should update output directory', () => {
 			const newDir = './new_output_dir';
