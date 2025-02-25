@@ -18,6 +18,8 @@ export const METADATA_TYPES: Record<string, string> = {
 	workflows: 'Workflow',
 	lwc: 'LightningComponentBundle',
 	groups: 'Group',
+	objects: 'CustomObject',
+	layouts: 'Layout',
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
@@ -38,6 +40,8 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.js-meta.xml': '',					   // LightningComponentBundle
 	'.css': '',                            // LightningComponentBundle
 	'.group-meta.xml': '',                 // Group
+	'.object-meta.xml': '',                         // CustomObject
+	'.layout-meta.xml': '',                         // Layout
 };
 
 export const MEMBERTYPE_REGEX = {
