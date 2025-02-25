@@ -3,6 +3,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import { XmlHelper } from '../../helper/xmlHelper';
 import { CommandArgsConfig } from '../../types/config.type';
+import path from 'path';
 
 jest.mock('../../helper/xmlHelper');
 jest.mock('fs');
@@ -57,7 +58,7 @@ describe('MDAPIService', () => {
 		afterAll(() => {
 			jest.clearAllMocks();
 		});
-		
+
 		it('should successfully convert SFDX to MDAPI format', async () => {
 
 			const mockChangedFiles = ['force-app/main/default/classes/TestClass.cls', 'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'].join('\n');
@@ -92,7 +93,7 @@ describe('MDAPIService', () => {
 		afterAll(() => {
 			jest.clearAllMocks();
 		});
-		
+
 		it('should identify CustomField type', () => {
 			const filePath = 'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml';
 			const type = (service as any).getMetadataType(filePath);
@@ -128,6 +129,13 @@ describe('MDAPIService', () => {
 			const type = (service as any).getMetadataType(filePath);
 			expect(type).toBe('LightningComponentBundle');
 		});
+
+		it('should identify Group', () => {
+			const filePath = 'force-app/main/default/groups/sandbox-users.group-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('Group');
+		});
+
 	});
 
 	describe('isTestClass', () => {
@@ -157,8 +165,17 @@ describe('MDAPIService', () => {
 		it('should copy file and its metadata', async () => {
 			(fs.existsSync as jest.Mock).mockReturnValue(true);
 
-			await (service as any).copyFileWithMetadata(sourceFile, targetDir);
+			await (service as any).getMemberName(sourceFile, targetDir);
+			const items = fs.readdirSync(targetDir);
+			console.log('items', items);
 
+			items?.map((item) => {
+				const fullPath = path.join(targetDir, item);
+				return {
+					name: item,
+					type: fs.statSync(fullPath).isDirectory() ? 'folder' : 'file',
+				};
+			});
 			expect(fs.promises.mkdir).toHaveBeenCalled();
 			expect(fs.promises.copyFile).toHaveBeenCalledTimes(2);
 		});
@@ -176,7 +193,7 @@ describe('MDAPIService', () => {
 	// 	afterAll(() => {
 	// 		jest.clearAllMocks();
 	// 	});
-		
+
 	// 	it('should handle grouped data correctly', async () => {
 	// 		const groupedData = {
 	// 			Account: {
@@ -205,48 +222,48 @@ describe('MDAPIService', () => {
 	describe('getChangedFiles', () => {
 		beforeEach(() => {
 			jest.resetAllMocks();
-		  });
-		
+		});
+
 		it('should return grouped and filtered files', async () => {
 			const mockChangedFiles = [
-			  'force-app/main/default/classes/TestClass.cls',
-			  'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
+				'force-app/main/default/classes/TestClass.cls',
+				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
 			].join('\n');
-		
+
 			(execSync as jest.Mock).mockReturnValueOnce(mockChangedFiles);
-		
+
 			const result = await (service as any).getGitFiles();
-		
+
 			expect(result).toEqual([
 				'force-app/main/default/classes/TestClass.cls',
 				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
-			  ]);
-		  });
-		
-		  it('should handle git command errors', async () => {
+			]);
+		});
+
+		it('should handle git command errors', async () => {
 			(execSync as jest.Mock).mockImplementation(() => {
-			  throw new Error('Git command failed');
+				throw new Error('Git command failed');
 			});
-		
+
 			const result = await (service as any).getGitFiles();
-		
+
 			expect(result).toEqual([]);
-		  });
+		});
 	});
 
 	describe('getDeletedFiles', () => {
 		afterAll(() => {
 			jest.clearAllMocks();
 		});
-		
-		
+
+
 		it('should handle git command errors', async () => {
 			(execSync as jest.Mock).mockImplementation(() => {
 				throw new Error('Git command failed');
 			});
-	
+
 			const result = await (service as any).getGitFiles();
-	
+
 			expect(result).toHaveLength(0);
 		});
 		it('should handle multiple deleted files', async () => {
@@ -254,9 +271,9 @@ describe('MDAPIService', () => {
 				'force-app/main/default/classes/DeletedClass1.cls',
 				'force-app/main/default/classes/DeletedClass2.cls'
 			].join('\n'));
-	
+
 			const result = await (service as any).getGitFiles();
-			
+
 			expect(result).toHaveLength(2);
 			expect(result).toContain('force-app/main/default/classes/DeletedClass1.cls');
 			expect(result).toContain('force-app/main/default/classes/DeletedClass2.cls');
@@ -267,13 +284,13 @@ describe('MDAPIService', () => {
 			(execSync as jest.Mock).mockReturnValue(
 				'force-app/main/default/classes/DeletedClass.cls\n'
 			);
-	
+
 			const result = await (service as any).getGitFiles();
-			
+
 			expect(result).toHaveLength(1);
 			expect(result[0]).toBe('force-app/main/default/classes/DeletedClass.cls');
 		});
-	
-		
+
+
 	});
 });

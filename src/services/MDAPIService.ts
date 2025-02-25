@@ -81,7 +81,7 @@ export class MDAPIService extends BaseService {
 
     const metadataTypes: MetadataType[] = [];
     const excludedComponents: string[] = [];
-    
+
     await this.processMetadataFiles(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
 
     if (!metadataTypes.length) {
