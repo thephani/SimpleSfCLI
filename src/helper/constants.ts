@@ -17,9 +17,10 @@ export const METADATA_TYPES: Record<string, string> = {
 	triggers: 'ApexTrigger',
 	workflows: 'Workflow',
 	lwc: 'LightningComponentBundle',
+	layouts: 'Layout',
 	groups: 'Group',
 	objects: 'CustomObject',
-	layouts: 'Layout',
+	
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
