@@ -118,11 +118,83 @@ describe('MDAPIService', () => {
 			expect(type).toBe('Profile');
 		});
 
-		it('should identify ConversationMessageDefinition type', () => {
+	it('should identify ConversationMessageDefinition type', () => {
 			const filePath = 'force-app/main/default/conversationMessageDefinitions/test.ConversationMessageDefinition-meta.xml';
 			const type = (service as any).getMetadataType(filePath);
-			expect(type).toBe('ConversationMessageDefinition');
-		});
+		expect(type).toBe('ConversationMessageDefinition');
+	});
+
+	it('should identify Bot type', () => {
+		const filePath = 'force-app/main/default/bots/MyBot.bot';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('Bot');
+	});
+
+	it('should identify LightningMessageChannel type', () => {
+		const filePath = 'force-app/main/default/messageChannels/MyChannel.messageChannel-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('LightningMessageChannel');
+	});
+
+	it('should identify AuraDefinitionBundle type', () => {
+		const filePath = 'force-app/main/default/aura/MyAura/MyAura.cmp';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('AuraDefinitionBundle');
+	});
+
+	it('should identify StaticResource type', () => {
+		const filePath = 'force-app/main/default/staticresources/siteLogo.resource';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('StaticResource');
+	});
+
+	it('should identify Report type', () => {
+		const filePath = 'force-app/main/default/reports/Sales/Monthly_Revenue.report-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('Report');
+	});
+
+	it('should identify Dashboard type', () => {
+		const filePath = 'force-app/main/default/dashboards/Exec/Overview.dashboard-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('Dashboard');
+	});
+
+	it('should identify Document type', () => {
+		const filePath = 'force-app/main/default/documents/Logos/Branding.document-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('Document');
+	});
+
+	it('should identify EmailTemplate type', () => {
+		const filePath = 'force-app/main/default/email/Customer/Welcome.email-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('EmailTemplate');
+	});
+
+	it('should identify PermissionSet type', () => {
+		const filePath = 'force-app/main/default/permissionsets/PS_View.permissionset-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('PermissionSet');
+	});
+
+	it('should identify NamedCredential type', () => {
+		const filePath = 'force-app/main/default/namedCredentials/MyNC.namedCredential-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('NamedCredential');
+	});
+
+	it('should identify RemoteSiteSetting type', () => {
+		const filePath = 'force-app/main/default/remoteSiteSettings/Ext.remoteSite-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('RemoteSiteSetting');
+	});
+
+	it('should identify Settings type', () => {
+		const filePath = 'force-app/main/default/settings/Account.settings-meta.xml';
+		const type = (service as any).getMetadataType(filePath);
+		expect(type).toBe('Settings');
+	});
 
 		it('should identify LWC', () => {
 			const filePath = 'force-app/main/default/lwc/test/test.html';
@@ -130,12 +202,114 @@ describe('MDAPIService', () => {
 			expect(type).toBe('LightningComponentBundle');
 		});
 
-		it('should identify Group', () => {
+	it('should identify Group', () => {
 			const filePath = 'force-app/main/default/groups/sandbox-users.group-meta.xml';
 			const type = (service as any).getMetadataType(filePath);
 			expect(type).toBe('Group');
 		});
 
+		it('should block unknown inferred type not in allowlist', () => {
+			const filePath = 'force-app/main/default/myUnknownFolder/Thing.myUnknown-meta.xml';
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+			(fs.readFileSync as unknown as jest.Mock).mockReturnValue('<SomeNewType xmlns="http://soap.sforce.com/2006/04/metadata"/>');
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBeNull();
+		});
+
+		it('should block explicitly unsupported types by denylist', () => {
+			const filePath = 'force-app/main/default/deny/UnsupportedExampleType.my-meta.xml';
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+			(fs.readFileSync as unknown as jest.Mock).mockReturnValue('<UnsupportedExampleType xmlns="http://soap.sforce.com/2006/04/metadata"/>');
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBeNull();
+		});
+
+		it('should identify RecordType type', () => {
+			const filePath = 'force-app/main/default/objects/Account/recordTypes/B2B.recordType-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('RecordType');
+		});
+
+		it('should identify ListView type', () => {
+			const filePath = 'force-app/main/default/objects/Account/listViews/All_Customers.listView-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('ListView');
+		});
+
+		it('should identify FieldSet type', () => {
+			const filePath = 'force-app/main/default/objects/Account/fieldSets/FS_Default.fieldSet-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('FieldSet');
+		});
+
+		it('should identify CompactLayout type', () => {
+			const filePath = 'force-app/main/default/objects/Account/compactLayouts/Mobile.compactLayout-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('CompactLayout');
+		});
+
+		it('should identify ValidationRule type', () => {
+			const filePath = 'force-app/main/default/objects/Account/validationRules/Required.validationRule-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('ValidationRule');
+		});
+
+		it('should identify WebLink type', () => {
+			const filePath = 'force-app/main/default/objects/Account/webLinks/Portal.webLink-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('WebLink');
+		});
+
+		it('should identify BusinessProcess type', () => {
+			const filePath = 'force-app/main/default/objects/Case/businessProcesses/Support.businessProcess-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('BusinessProcess');
+		});
+
+	});
+
+	describe('getMemberName', () => {
+		it('should build member for RecordType as Object.Name', () => {
+			const filePath = 'force-app/main/default/objects/Account/recordTypes/B2B.recordType-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Account.B2B');
+		});
+
+		it('should build member for ListView as Object.Name', () => {
+			const filePath = 'force-app/main/default/objects/Account/listViews/All_Customers.listView-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Account.All_Customers');
+		});
+
+		it('should build member for ValidationRule as Object.Name', () => {
+			const filePath = 'force-app/main/default/objects/Account/validationRules/Required.validationRule-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Account.Required');
+		});
+
+		it('should build member for WebLink as Object.Name', () => {
+			const filePath = 'force-app/main/default/objects/Account/webLinks/Portal.webLink-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Account.Portal');
+		});
+
+		it('should build member for folder-based Report as Folder/Name', () => {
+			const filePath = 'force-app/main/default/reports/Sales/Monthly_Revenue.report-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Sales/Monthly_Revenue');
+		});
+
+		it('should build member for EmailTemplate as Folder/Name', () => {
+			const filePath = 'force-app/main/default/email/Customer/Welcome.email-meta.xml';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('Customer/Welcome');
+		});
+
+		it('should build member for StaticResource from base name', () => {
+			const filePath = 'force-app/main/default/staticresources/siteLogo.resource';
+			const name = (service as any).getMemberName(filePath);
+			expect(name).toBe('siteLogo');
+		});
 	});
 
 	describe('isTestClass', () => {

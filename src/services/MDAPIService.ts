@@ -6,29 +6,27 @@ import { GroupedData } from 'types/xml.type.js';
 import { MetadataType } from 'types/index.type.js';
 import { XmlHelper } from '../helper/xmlHelper.js';
 import { CommandArgsConfig } from 'types/config.type.js';
-import { MEMBERTYPE_REGEX, METADATA_EXTENSIONS, METADATA_TYPES } from '../helper/constants.js';
+import { MEMBERTYPE_REGEX, METADATA_EXTENSIONS, METADATA_TYPES, SUPPORTED_METADATA_TYPES, UNSUPPORTED_METADATA_TYPES } from '../helper/constants.js';
 
 export class MDAPIService extends BaseService {
   private xmlHelper: XmlHelper;
 
   constructor(config: CommandArgsConfig) {
     super(config);
-    this.xmlHelper = new XmlHelper();
+    this.xmlHelper = new XmlHelper(config.cliOuputFolder);
   }
 
   async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
     try {
-      // console.log('🚀 Starting MDAPI conversion...');
       await this.initializeDirectories();
 
       const runTests: string[] = [];
       await this.processDeletedMetadata(excludeList);
       await this.processModifiedMetadata(excludeList, runTests);
 
-      // console.log('✅ Conversion completed successfully.');
       return runTests;
     } catch (error) {
-      this.logError('MDAPI conversion failed', error);
+      this.handleError('MDAPI conversion failed', error);
       throw error;
     }
   }
@@ -43,7 +41,6 @@ export class MDAPIService extends BaseService {
 
     await fs.promises.mkdir(cliOuputFolder, { recursive: true });
     await fs.promises.mkdir(path.join(cliOuputFolder, 'destructiveChanges'), { recursive: true });
-    // console.log(`📁 Cleanedup directories`);
   }
 
   private async processDeletedMetadata(excludeList: string[]): Promise<void> {
@@ -56,6 +53,7 @@ export class MDAPIService extends BaseService {
     const metadataTypes: MetadataType[] = [];
     const excludedComponents: string[] = [];
     console.log(`🗑️  Processing ${deletedFiles.length} deleted files...`);
+
     await this.processMetadataFiles(deletedFiles, excludeList, metadataTypes, excludedComponents, []);
 
     if (metadataTypes.length) {
@@ -65,18 +63,19 @@ export class MDAPIService extends BaseService {
 
   private async processModifiedMetadata(excludeList: string[], runTests: string[]): Promise<void> {
     const changedFiles = await this.getGitFiles('AM');
+    console.log(`🔄  Processing ${changedFiles.length} modified files...`, changedFiles);
     if (!changedFiles.length) {
-      console.log('if no deleted files detected, exit here');
+      console.log('No modified files detected');
       return;
     }
 
     const { fieldData, otherFiles } = this.categorizeFiles(changedFiles);
 
+    // Use xmlHelper to generate custom object for fields
     if (Object.keys(fieldData).length) {
       this.xmlHelper.generateCustomObjectForFields(fieldData);
     }
 
-    console.log(`Copying file: ${otherFiles}`);
     await this.copyFiles(otherFiles);
 
     const metadataTypes: MetadataType[] = [];
@@ -98,7 +97,7 @@ export class MDAPIService extends BaseService {
         .split('\n')
         .filter(file => file.startsWith('force-app/main/default/') && file.trim());
     } catch (error) {
-      this.logError(`Failed to get git files with filter ${filter}`, error);
+      this.handleError(`Failed to get git files with filter ${filter}`, error);
       return [];
     }
   }
@@ -126,6 +125,7 @@ export class MDAPIService extends BaseService {
 
   private async copyFiles(files: string[]): Promise<void> {
     for (const file of files) {
+      console.log('Copying file:', file);
       await this.copyFileWithMetadata(file);
     }
   }
@@ -135,6 +135,11 @@ export class MDAPIService extends BaseService {
 
     if (file.includes('/lwc/')) {
       await this.copyLWCComponent(relativePath);
+      return;
+    }
+
+    if (file.includes('/aura/')) {
+      await this.copyAuraComponent(relativePath);
       return;
     }
 
@@ -148,6 +153,23 @@ export class MDAPIService extends BaseService {
 
     for (const file of files) {
       const sourcePath = path.join(componentDir, file);
+      const targetPath = path.join(
+        this.config.cliOuputFolder,
+        path.relative(this.config.source, sourcePath)
+      );
+
+      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+      await fs.promises.copyFile(sourcePath, targetPath);
+    }
+  }
+
+  private async copyAuraComponent(relativePath: string): Promise<void> {
+    const bundleFolder = relativePath.split('/')[1];
+    const bundleDir = `${this.config.source}/aura/${bundleFolder}`;
+    const files = await fs.promises.readdir(bundleDir);
+
+    for (const file of files) {
+      const sourcePath = path.join(bundleDir, file);
       const targetPath = path.join(
         this.config.cliOuputFolder,
         path.relative(this.config.source, sourcePath)
@@ -180,6 +202,7 @@ export class MDAPIService extends BaseService {
   private async generateDestructivePackages(types: MetadataType[]): Promise<void> {
     const destructiveDir = path.join(this.config.cliOuputFolder, 'destructiveChanges');
 
+    // Use xmlHelper's createPackageXml method
     const destructiveXml = this.xmlHelper.createPackageXml(types);
     await fs.promises.writeFile(
       path.join(destructiveDir, 'destructiveChanges.xml'),
@@ -191,8 +214,8 @@ export class MDAPIService extends BaseService {
     console.log(destructiveXml);
     console.log('----------------------------------\n');
 
-
-    const emptyXml = this.xmlHelper.createEmptyPackageXml();
+    // Use xmlHelper's createEmptyPackageXml method
+    const emptyXml = this.xmlHelper.createPackageXml(); // Defaults to empty package
     await fs.promises.writeFile(
       path.join(destructiveDir, 'package.xml'),
       emptyXml
@@ -200,14 +223,18 @@ export class MDAPIService extends BaseService {
   }
 
   private async processMetadataFiles(files: string[], excludeList: string[], types: MetadataType[], excluded: string[], runTests: string[]): Promise<void> {
+    // console.log('Processing metadata files...', files);
     for (const file of files) {
+      console.log('Processing Metadata file:', file);
       const type = this.getMetadataType(file);
+      console.log('Metadata Type:', type);
       if (!type || excludeList?.includes(type)) {
         if (type && !excluded.includes(type)) {
           excluded.push(type);
         }
         continue;
       }
+
 
       const memberName = this.getMemberName(file);
       if (memberName) {
@@ -222,28 +249,80 @@ export class MDAPIService extends BaseService {
 
   private getMetadataType(file: string): string | null {
     const relativePath = path.relative('force-app/main/default', file);
+    console.log('Relative Path:', relativePath);
 
-    if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
-      return 'CustomField';
-    }
+    // Object child metadata patterns
+    if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) return 'CustomField';
+    if (relativePath.match(MEMBERTYPE_REGEX.RECORD_TYPE)) return 'RecordType';
+    if (relativePath.match(MEMBERTYPE_REGEX.LIST_VIEW)) return 'ListView';
+    if (relativePath.match(MEMBERTYPE_REGEX.FIELD_SET)) return 'FieldSet';
+    if (relativePath.match(MEMBERTYPE_REGEX.COMPACT_LAYOUT)) return 'CompactLayout';
+    if (relativePath.match(MEMBERTYPE_REGEX.VALIDATION_RULE)) return 'ValidationRule';
+    if (relativePath.match(MEMBERTYPE_REGEX.WEB_LINK)) return 'WebLink';
+    if (relativePath.match(MEMBERTYPE_REGEX.BUSINESS_PROCESS)) return 'BusinessProcess';
+    if (relativePath.match(MEMBERTYPE_REGEX.SHARING_REASON)) return 'SharingReason';
 
     const folder = Object.keys(METADATA_TYPES)
       .find(folder => relativePath.startsWith(folder));
 
-    return folder ? METADATA_TYPES[folder] : null;
+    let derived: string | null = null;
+    if (folder) derived = METADATA_TYPES[folder];
+    if (!derived) derived = this.inferTypeFromMetaXml(file);
+
+    if (!derived) return null;
+    if (UNSUPPORTED_METADATA_TYPES.has(derived)) return null;
+    if (!SUPPORTED_METADATA_TYPES.has(derived)) return null;
+    return derived;
   }
 
   private getMemberName(file: string): string | null {
     const fileName = path.basename(file);
+    const relativePath = path.relative('force-app/main/default', file);
+
+    // Object child metadata: return ObjectName.MemberName
+    const objectChildPatterns: Array<{ regex: RegExp }> = [
+      { regex: MEMBERTYPE_REGEX.CUSTOM_FIELD },
+      { regex: MEMBERTYPE_REGEX.RECORD_TYPE },
+      { regex: MEMBERTYPE_REGEX.LIST_VIEW },
+      { regex: MEMBERTYPE_REGEX.FIELD_SET },
+      { regex: MEMBERTYPE_REGEX.COMPACT_LAYOUT },
+      { regex: MEMBERTYPE_REGEX.VALIDATION_RULE },
+      { regex: MEMBERTYPE_REGEX.WEB_LINK },
+      { regex: MEMBERTYPE_REGEX.BUSINESS_PROCESS },
+      { regex: MEMBERTYPE_REGEX.SHARING_REASON },
+    ];
+    for (const { regex } of objectChildPatterns) {
+      const m = relativePath.match(regex);
+      if (m) return `${m[1]}.${m[2]}`;
+    }
+
+    // Folder-based types where member should include folder path (Folder/Member)
+    const folderBased = ['reports', 'dashboards', 'documents', 'email'];
+    const folder = folderBased.find(f => relativePath.startsWith(f + '/'));
+    if (folder) {
+      const parts = relativePath.split('/');
+      // parts: [folder, subfolder, filename]
+      if (parts.length >= 3) {
+        const subfolder = parts[1];
+        const base = this.stripKnownExtensions(path.basename(relativePath));
+        return `${subfolder}/${base}`;
+      }
+    }
 
     for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {
-      if (file.endsWith(ext)) {
-        return fileName.replace(ext, replacement);
-      }
+      if (file.endsWith(ext)) return fileName.replace(ext, replacement);
     }
 
     const packageMember = this.xmlHelper.generatePackageMember(file);
     return packageMember?.members?.[0] || null;
+  }
+
+  private stripKnownExtensions(name: string): string {
+    for (const ext of Object.keys(METADATA_EXTENSIONS)) {
+      if (name.endsWith(ext)) return name.slice(0, -ext.length);
+    }
+    // Fallback to remove common meta suffixes
+    return name.replace(/-meta\.xml$/, '').replace(/\.[^.]+$/, '');
   }
 
   private addMember(type: string, name: string, types: MetadataType[]): void {
@@ -267,17 +346,43 @@ export class MDAPIService extends BaseService {
   }
 
   private async generatePackageXml(types: MetadataType[]): Promise<void> {
+    // Use xmlHelper's createPackageXml method
     const packageXml = this.xmlHelper.createPackageXml(types);
     await fs.promises.writeFile(
       path.join(this.config.cliOuputFolder, 'package.xml'),
       packageXml
     );
+
     console.log('\n📦 Generated package.xml:');
     console.log('---------------------------');
     console.log(packageXml);
     console.log('---------------------------\n');
   }
 
+  private inferTypeFromMetaXml(file: string): string | null {
+    try {
+      let metaPath = file;
+      if (!file.endsWith('-meta.xml')) {
+        const candidate = `${file}-meta.xml`;
+        if (fs.existsSync(candidate)) metaPath = candidate;
+      }
+
+      if (!metaPath.endsWith('-meta.xml')) return null;
+
+      const content = fs.readFileSync(metaPath, 'utf8');
+      const root = content.match(/<([A-Za-z0-9_:-]+)[\s>]/);
+      if (root && root[1]) {
+        // Remove namespace prefixes like met:Type
+        const type = root[1].includes(':') ? root[1].split(':')[1] : root[1];
+        return type;
+      }
+    } catch (e) {
+      // ignore and return null
+    }
+    return null;
+  }
+
+  // Logging method for excluded components
   private logExcludedComponents(components: string[]): void {
     if (!components.length) return;
 
@@ -287,9 +392,11 @@ export class MDAPIService extends BaseService {
     console.log('------------------------\n');
   }
 
-  private logError(message: string, error: unknown): void {
+  // Error handling method
+  private handleError(message: string, error: unknown): void {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`❌ ${message}: ${errorMessage}`);
+
     if (error instanceof Error && error.stack) {
       console.debug('Stack trace:', error.stack);
     }

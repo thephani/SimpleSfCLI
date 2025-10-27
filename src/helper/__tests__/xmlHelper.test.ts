@@ -53,14 +53,14 @@ describe('XmlHelper', () => {
 			expect(result).toContain('CustomField');
 			expect(result.indexOf('TestClass1')).toBeLessThan(result.indexOf('TestClass2'));
 			expect(result.indexOf('Field1')).toBeLessThan(result.indexOf('Field2'));
-			expect(result).toContain('<version>58.0</version>');
+            expect(result).toContain('<version>62.0</version>');
 		});
 
 		it('should handle empty metadata types array', () => {
 			const result = xmlHelper.createPackageXml([]);
 
 			expect(result).toContain('<Package');
-			expect(result).toContain('<version>58.0</version>');
+            expect(result).toContain('<version>62.0</version>');
 			expect(result).not.toContain('<types>');
 		});
 	});
