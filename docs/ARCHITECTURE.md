@@ -19,8 +19,9 @@
 
 - `src/core/services/ToonImporter.ts`
   - Orchestrates SFDX -> TOON conversion.
+  - Converts each metadata XML file into a TOON document (XML object form).
+  - Renames XML files to TOON naming (`Admin.profile-meta.xml` -> `Admin,profile-meta.toon`).
   - Copies source assets.
-  - Computes asset and component hashes.
   - Writes TOON index.
 
 - `src/core/services/ChangePlanner.ts`

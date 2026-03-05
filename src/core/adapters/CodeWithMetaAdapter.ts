@@ -4,7 +4,8 @@ import { DEFAULT_API_VERSION } from '../../constants/metadata';
 import { MetadataAdapter, EmitContext, ImportResult } from '../types/adapter';
 import { ToonComponent } from '../types/toon';
 import { copyFileWithDirs, ensureDir } from '../utils/fs';
-import { sanitizePathSegment, extractApiVersion, wrapMetadataXml } from '../utils/xml';
+import { extractApiVersion, wrapMetadataXml } from '../utils/xml';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 interface CodeWithMetaConfig {
   metadataType: string;
@@ -43,7 +44,7 @@ export class CodeWithMetaAdapter implements MetadataAdapter {
 
   isPrimarySfdxFile(relativePath: string): boolean {
     const normalized = relativePath.replace(/\\/g, '/');
-    return normalized.startsWith(`${this.sfdxFolder}/`) && normalized.endsWith(this.bodyExtension);
+    return normalized.startsWith(`${this.sfdxFolder}/`) && normalized.endsWith(this.metaExtension);
   }
 
   async importFromSfdx(sourceRoot: string, relativePath: string): Promise<ImportResult | null> {
@@ -53,17 +54,30 @@ export class CodeWithMetaAdapter implements MetadataAdapter {
 
     const normalized = relativePath.replace(/\\/g, '/');
     const fileName = path.basename(normalized);
-    const fullName = fileName.slice(0, -this.bodyExtension.length);
-    const safeName = sanitizePathSegment(fullName);
-    const sourcePath = path.join(sourceRoot, normalized);
-    const metaPath = path.join(sourceRoot, this.sfdxFolder, `${fullName}${this.metaExtension}`);
+    const fullName = fileName.slice(0, -this.metaExtension.length);
+    const sourcePath = path.join(sourceRoot, this.sfdxFolder, `${fullName}${this.bodyExtension}`);
+    const metaFileName = `${fullName}${this.metaExtension}`;
+    const metaPath = path.join(sourceRoot, normalized);
 
     let metaXml = '';
     if (fs.existsSync(metaPath)) {
       metaXml = await fs.promises.readFile(metaPath, 'utf8');
     }
+    if (!metaXml) {
+      metaXml = this.createDefaultMetaXml({
+        toonVersion: '1.0',
+        id: `${this.metadataType}:${fullName}`,
+        metadataType: this.metadataType,
+        fullName,
+        apiVersion: DEFAULT_API_VERSION,
+        kind: 'atomic',
+        spec: {},
+        hash: '',
+      });
+    }
 
     const apiVersion = metaXml ? extractApiVersion(metaXml) : DEFAULT_API_VERSION;
+    const toonPayload = parseXmlToToonPayload(metaXml);
 
     return {
       component: {
@@ -78,14 +92,17 @@ export class CodeWithMetaAdapter implements MetadataAdapter {
           bodyFile: `${fullName}${this.bodyExtension}`,
         },
       },
-      toonFilePath: `${this.toonFolder}/${safeName}/component.toon`,
-      assets: [
-        {
-          from: sourcePath,
-          to: `${this.toonFolder}/${safeName}/${fullName}${this.bodyExtension}`,
-          role: 'source',
-        },
-      ],
+      toonFilePath: `${this.toonFolder}/${toToonFileName(metaFileName)}`,
+      toonPayload,
+      assets: fs.existsSync(sourcePath)
+        ? [
+            {
+              from: sourcePath,
+              to: `${this.toonFolder}/${fullName}${this.bodyExtension}`,
+              role: 'source',
+            },
+          ]
+        : [],
     };
   }
 
@@ -115,4 +132,8 @@ export class CodeWithMetaAdapter implements MetadataAdapter {
     const inner = `  <apiVersion>${component.apiVersion || DEFAULT_API_VERSION}</apiVersion>\n${statusLine}`.trimEnd();
     return wrapMetadataXml(this.rootTag, inner);
   }
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }

@@ -9,6 +9,7 @@ export interface AssetCopy {
 export interface ImportResult {
   component: ToonComponentDraft;
   toonFilePath: string;
+  toonPayload?: unknown;
   assets: AssetCopy[];
 }
 

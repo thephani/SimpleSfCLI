@@ -1,6 +1,6 @@
 import { AdapterRegistry } from '../adapters/AdapterRegistry';
 import { DeploymentPlan, PlannedComponent } from '../types/plan';
-import { ToonComponent } from '../types/toon';
+import { ToonComponentSummary, ToonIndex } from '../types/toon';
 import { gitDiffNameStatus } from '../utils/git';
 import { ToonRepository } from './ToonRepository';
 
@@ -21,6 +21,9 @@ export class ChangePlanner {
     const repository = new ToonRepository(options.toonRoot);
     const entries = gitDiffNameStatus(options.fromRef, options.toRef, options.toonRoot);
 
+    const fromIndex = this.safeLoadIndex(repository, options.fromRef);
+    const toIndex = this.safeLoadIndex(repository, options.toRef);
+
     const adds = new Map<string, PlannedComponent>();
     const modifies = new Map<string, PlannedComponent>();
     const deletes = new Map<string, PlannedComponent>();
@@ -28,20 +31,24 @@ export class ChangePlanner {
     for (const entry of entries) {
       if (entry.status === 'R') {
         if (entry.oldPath) {
-          await this.processPathChange('D', entry.oldPath, repository, options.fromRef, options.toRef, adds, modifies, deletes);
+          this.collectDelete(entry.oldPath, repository, fromIndex, deletes);
         }
         if (entry.newPath) {
-          await this.processPathChange('A', entry.newPath, repository, options.fromRef, options.toRef, adds, modifies, deletes);
+          this.collectAddOrModify('A', entry.newPath, repository, toIndex, adds, modifies, deletes);
         }
         continue;
       }
 
-      const effectivePath = entry.newPath || entry.oldPath;
-      if (!effectivePath) {
+      const changedPath = entry.newPath || entry.oldPath;
+      if (!changedPath) {
         continue;
       }
 
-      await this.processPathChange(entry.status, effectivePath, repository, options.fromRef, options.toRef, adds, modifies, deletes);
+      if (entry.status === 'D') {
+        this.collectDelete(changedPath, repository, fromIndex, deletes);
+      } else {
+        this.collectAddOrModify(entry.status, changedPath, repository, toIndex, adds, modifies, deletes);
+      }
     }
 
     for (const id of adds.keys()) {
@@ -70,45 +77,49 @@ export class ChangePlanner {
     };
   }
 
-  private processPathChange(
-    gitStatus: string,
-    changedRepoPath: string,
-    repository: ToonRepository,
-    fromRef: string,
-    toRef: string,
-    adds: Map<string, PlannedComponent>,
-    modifies: Map<string, PlannedComponent>,
-    deletes: Map<string, PlannedComponent>
-  ): Promise<void> {
-    return this.processPathChangeInternal(gitStatus, changedRepoPath, repository, fromRef, toRef, adds, modifies, deletes);
+  private safeLoadIndex(repository: ToonRepository, ref: string): ToonIndex {
+    try {
+      return repository.loadIndexFromGitRef(ref);
+    } catch {
+      return {
+        generatedAt: new Date().toISOString(),
+        componentCount: 0,
+        components: [],
+      };
+    }
   }
 
-  private async processPathChangeInternal(
-    gitStatus: string,
-    changedRepoPath: string,
+  private collectDelete(
+    changedPath: string,
     repository: ToonRepository,
-    fromRef: string,
-    toRef: string,
+    fromIndex: ToonIndex,
+    deletes: Map<string, PlannedComponent>
+  ): void {
+    const component = repository.resolveComponentByChangedPath(fromIndex, changedPath);
+    if (!component) {
+      return;
+    }
+
+    deletes.set(component.id, this.toPlannedComponent(component, 'delete'));
+  }
+
+  private collectAddOrModify(
+    status: string,
+    changedPath: string,
+    repository: ToonRepository,
+    toIndex: ToonIndex,
     adds: Map<string, PlannedComponent>,
     modifies: Map<string, PlannedComponent>,
     deletes: Map<string, PlannedComponent>
-  ): Promise<void> {
-    const toonFilePath = repository.inferComponentToonFilePath(changedRepoPath);
-    if (!toonFilePath) {
+  ): void {
+    const component = repository.resolveComponentByChangedPath(toIndex, changedPath);
+    if (!component) {
       return;
     }
 
-    const isComponentFile = changedRepoPath.endsWith('.toon');
-
-    if (gitStatus === 'D' && isComponentFile) {
-      const component = await repository.loadComponentFromGitRef(fromRef, toonFilePath);
-      deletes.set(component.id, this.toPlannedComponent(component, toonFilePath, 'delete'));
-      return;
-    }
-
-    const changeType = gitStatus === 'A' && isComponentFile ? 'add' : 'modify';
-    const component = await repository.loadComponentFromGitRef(toRef, toonFilePath);
-    const planned = this.toPlannedComponent(component, toonFilePath, changeType);
+    const isToonFile = changedPath.endsWith('.toon');
+    const changeType = status === 'A' && isToonFile ? 'add' : 'modify';
+    const planned = this.toPlannedComponent(component, changeType);
 
     if (changeType === 'add') {
       adds.set(component.id, planned);
@@ -120,12 +131,12 @@ export class ChangePlanner {
     }
   }
 
-  private toPlannedComponent(component: ToonComponent, toonFilePath: string, changeType: 'add' | 'modify' | 'delete'): PlannedComponent {
+  private toPlannedComponent(component: ToonComponentSummary, changeType: 'add' | 'modify' | 'delete'): PlannedComponent {
     return {
       id: component.id,
       metadataType: component.metadataType,
       fullName: component.fullName,
-      toonFilePath: toonFilePath.replace(/\\/g, '/'),
+      toonFilePath: component.toonFilePath.replace(/\\/g, '/'),
       changeType,
     };
   }

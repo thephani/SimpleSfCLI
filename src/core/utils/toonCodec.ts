@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 import { ensureDir } from './fs';
 
 interface ToonModule {
@@ -12,7 +13,8 @@ let modulePromise: Promise<ToonModule> | null = null;
 async function getToonModule(): Promise<ToonModule> {
   if (!modulePromise) {
     const dynamicImporter = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<ToonModule>;
-    modulePromise = dynamicImporter('@toon-format/toon');
+    const bridgeFileUrl = pathToFileURL(path.join(__dirname, '_toonBridge.mjs')).href;
+    modulePromise = dynamicImporter(bridgeFileUrl);
   }
 
   return modulePromise;

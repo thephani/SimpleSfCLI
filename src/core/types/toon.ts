@@ -25,6 +25,11 @@ export interface ToonComponentSummary {
   id: string;
   metadataType: string;
   fullName: string;
+  apiVersion: string;
+  kind: ToonKind;
+  parentId?: string;
+  assets?: ToonAsset[];
+  spec?: Record<string, unknown>;
   toonFilePath: string;
 }
 

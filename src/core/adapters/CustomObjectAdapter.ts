@@ -3,6 +3,7 @@ import path from 'path';
 import { MetadataAdapter, EmitContext, ImportResult } from '../types/adapter';
 import { ToonComponent } from '../types/toon';
 import { extractApiVersion, extractXmlInner, sanitizePathSegment } from '../utils/xml';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 const CUSTOM_OBJECT_REGEX = /^objects\/([^/]+)\/\1\.object-meta\.xml$/;
 
@@ -23,6 +24,7 @@ export class CustomObjectAdapter implements MetadataAdapter {
 
     const objectName = match[1];
     const xml = await fs.promises.readFile(path.join(sourceRoot, normalized), 'utf8');
+    const toonPayload = parseXmlToToonPayload(xml);
 
     return {
       component: {
@@ -36,7 +38,8 @@ export class CustomObjectAdapter implements MetadataAdapter {
           xml,
         },
       },
-      toonFilePath: `objects/${sanitizePathSegment(objectName)}/object.toon`,
+      toonFilePath: `objects/${sanitizePathSegment(objectName)}/${toToonFileName(`${objectName}.object-meta.xml`)}`,
+      toonPayload,
       assets: [],
     };
   }
@@ -55,4 +58,8 @@ export class CustomObjectAdapter implements MetadataAdapter {
   toPackageMember(component: Pick<ToonComponent, 'metadataType' | 'fullName'>): { type: string; member: string } | null {
     return { type: this.metadataType, member: component.fullName };
   }
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }

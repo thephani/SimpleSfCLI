@@ -6,7 +6,7 @@ import { ToonValidator } from '../core/services/ToonValidator';
 export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
-    .description('Validate TOON files and hashes')
+    .description('Validate TOON files and index mappings')
     .option('-t, --toon-root <toonRoot>', 'TOON repository root', defaults.toonRoot)
     .action(async (options: { toonRoot: string }) => {
       const validator = new ToonValidator();

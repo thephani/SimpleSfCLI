@@ -5,6 +5,7 @@ import { ToonComponent } from '../types/toon';
 import { copyFileWithDirs, ensureDir } from '../utils/fs';
 import { extractApiVersion, sanitizePathSegment, wrapMetadataXml } from '../utils/xml';
 import { DEFAULT_API_VERSION } from '../../constants/metadata';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 const AURA_META_REGEX = /^aura\/([^/]+)\/\1\.[^/]+-meta\.xml$/;
 
@@ -29,6 +30,7 @@ export class AuraBundleAdapter implements MetadataAdapter {
     const entries = await fs.promises.readdir(bundleDir);
     const metaFileName = path.basename(relativePath);
     const metaXml = await fs.promises.readFile(path.join(sourceRoot, normalized), 'utf8');
+    const toonPayload = parseXmlToToonPayload(metaXml);
 
     const assets = entries
       .filter((entry) => !entry.endsWith('-meta.xml'))
@@ -51,7 +53,8 @@ export class AuraBundleAdapter implements MetadataAdapter {
           metaFileName,
         },
       },
-      toonFilePath: `aura/${safeName}/bundle.toon`,
+      toonFilePath: `aura/${safeName}/${toToonFileName(metaFileName)}`,
+      toonPayload,
       assets,
     };
   }
@@ -83,4 +86,8 @@ export class AuraBundleAdapter implements MetadataAdapter {
     const inner = `  <apiVersion>${apiVersion || DEFAULT_API_VERSION}</apiVersion>`;
     return wrapMetadataXml('AuraDefinitionBundle', inner);
   }
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }

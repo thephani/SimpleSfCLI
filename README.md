@@ -15,7 +15,7 @@
 
 ```bash
 simpleSfCli import   # SFDX -> TOON
-simpleSfCli validate # Validate TOON documents + hashes
+simpleSfCli validate # Validate TOON documents + index
 simpleSfCli plan     # Git diff -> deployment plan
 simpleSfCli build    # Plan -> MDAPI files + zips
 simpleSfCli deploy   # Plan + build + deploy
@@ -37,20 +37,20 @@ toon/
   _index/
     components.json
   apexClasses/
-    InvoiceService/
-      component.toon
-      InvoiceService.cls
+    InvoiceService,cls-meta.toon
+    InvoiceService.cls
   objects/
     Invoice__c/
-      object.toon
+      Invoice__c,object-meta.toon
       fields/
-        Amount__c.toon
+        Amount__c,field-meta.toon
   flows/
-    Invoice_Approval/
-      component.toon
+    Invoice_Approval,flow-meta.toon
+  profiles/
+    Admin,profile-meta.toon
   lwc/
     invoiceTable/
-      bundle.toon
+      invoiceTable,js-meta.toon
       invoiceTable.js
       invoiceTable.html
 ```

@@ -21,6 +21,7 @@
 		"@toon-format/toon": "^2.1.0",
 		"archiver": "^7.0.1",
 		"commander": "^11.0.0",
+		"fast-xml-parser": "^5.4.2",
 		"jsonwebtoken": "^9.0.0",
 		"xmlbuilder": "^15.1.1"
 	},

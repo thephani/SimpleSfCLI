@@ -4,14 +4,14 @@ import { DEFAULT_API_VERSION } from '../../constants/metadata';
 import { MetadataAdapter, EmitContext, ImportResult } from '../types/adapter';
 import { ToonComponent } from '../types/toon';
 import { ensureDir } from '../utils/fs';
-import { extractApiVersion, sanitizePathSegment } from '../utils/xml';
+import { extractApiVersion } from '../utils/xml';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 interface XmlFileAdapterConfig {
   metadataType: string;
   sfdxFolder: string;
   toonFolder: string;
   extension: string;
-  directoryStyle?: boolean;
 }
 
 export class XmlFileAdapter implements MetadataAdapter {
@@ -23,14 +23,11 @@ export class XmlFileAdapter implements MetadataAdapter {
 
   private readonly extension: string;
 
-  private readonly directoryStyle: boolean;
-
   constructor(config: XmlFileAdapterConfig) {
     this.metadataType = config.metadataType;
     this.sfdxFolder = config.sfdxFolder;
     this.toonFolder = config.toonFolder;
     this.extension = config.extension;
-    this.directoryStyle = Boolean(config.directoryStyle);
   }
 
   isPrimarySfdxFile(relativePath: string): boolean {
@@ -47,8 +44,9 @@ export class XmlFileAdapter implements MetadataAdapter {
     const sourcePath = path.join(sourceRoot, normalized);
     const fileName = path.basename(normalized);
     const fullName = fileName.slice(0, -this.extension.length);
-    const safeName = sanitizePathSegment(fullName);
     const xml = await fs.promises.readFile(sourcePath, 'utf8');
+    const toonFileName = toToonFileName(fileName);
+    const toonPayload = parseXmlToToonPayload(xml);
 
     return {
       component: {
@@ -62,9 +60,8 @@ export class XmlFileAdapter implements MetadataAdapter {
           xml,
         },
       },
-      toonFilePath: this.directoryStyle
-        ? `${this.toonFolder}/${safeName}/component.toon`
-        : `${this.toonFolder}/${safeName}.toon`,
+      toonFilePath: `${this.toonFolder}/${toonFileName}`,
+      toonPayload,
       assets: [],
     };
   }
@@ -84,4 +81,8 @@ export class XmlFileAdapter implements MetadataAdapter {
   toPackageMember(component: Pick<ToonComponent, 'metadataType' | 'fullName'>): { type: string; member: string } | null {
     return { type: this.metadataType, member: component.fullName };
   }
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }

@@ -5,6 +5,7 @@ import { ToonComponent } from '../types/toon';
 import { copyFileWithDirs, ensureDir } from '../utils/fs';
 import { extractApiVersion, sanitizePathSegment, wrapMetadataXml } from '../utils/xml';
 import { DEFAULT_API_VERSION } from '../../constants/metadata';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 const LWC_META_REGEX = /^lwc\/([^/]+)\/\1\.js-meta\.xml$/;
 
@@ -29,6 +30,7 @@ export class LwcBundleAdapter implements MetadataAdapter {
     const entries = await fs.promises.readdir(bundleDir);
     const metaPath = path.join(bundleDir, `${bundleName}.js-meta.xml`);
     const metaXml = await fs.promises.readFile(metaPath, 'utf8');
+    const toonPayload = parseXmlToToonPayload(metaXml);
 
     const assets = entries
       .filter((entry) => !entry.endsWith('-meta.xml'))
@@ -51,7 +53,8 @@ export class LwcBundleAdapter implements MetadataAdapter {
           metaFileName: `${bundleName}.js-meta.xml`,
         },
       },
-      toonFilePath: `lwc/${safeName}/bundle.toon`,
+      toonFilePath: `lwc/${safeName}/${toToonFileName(`${bundleName}.js-meta.xml`)}`,
+      toonPayload,
       assets,
     };
   }
@@ -79,4 +82,8 @@ export class LwcBundleAdapter implements MetadataAdapter {
     const inner = `  <apiVersion>${apiVersion || DEFAULT_API_VERSION}</apiVersion>\n  <masterLabel>${bundleName}</masterLabel>\n  <isExposed>false</isExposed>`;
     return wrapMetadataXml('LightningComponentBundle', inner);
   }
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }

@@ -52,7 +52,6 @@ export class AdapterRegistry {
         sfdxFolder: 'flow',
         toonFolder: 'flows',
         extension: '.flow-meta.xml',
-        directoryStyle: true,
       }),
       new XmlFileAdapter({
         metadataType: 'Layout',

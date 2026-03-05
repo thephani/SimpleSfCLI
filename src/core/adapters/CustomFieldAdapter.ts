@@ -3,6 +3,7 @@ import path from 'path';
 import { MetadataAdapter, EmitContext, ImportResult } from '../types/adapter';
 import { ToonComponent } from '../types/toon';
 import { extractApiVersion, extractXmlInner, sanitizePathSegment } from '../utils/xml';
+import { parseXmlToToonPayload } from '../utils/xmlToToon';
 
 const CUSTOM_FIELD_REGEX = /^objects\/([^/]+)\/fields\/([^/]+)\.field-meta\.xml$/;
 
@@ -25,6 +26,7 @@ export class CustomFieldAdapter implements MetadataAdapter {
     const fieldName = match[2];
     const fullName = `${objectName}.${fieldName}`;
     const xml = await fs.promises.readFile(path.join(sourceRoot, normalized), 'utf8');
+    const toonPayload = parseXmlToToonPayload(xml);
 
     return {
       component: {
@@ -41,7 +43,8 @@ export class CustomFieldAdapter implements MetadataAdapter {
           fieldName,
         },
       },
-      toonFilePath: `objects/${sanitizePathSegment(objectName)}/fields/${sanitizePathSegment(fieldName)}.toon`,
+      toonFilePath: `objects/${sanitizePathSegment(objectName)}/fields/${toToonFileName(`${fieldName}.field-meta.xml`)}`,
+      toonPayload,
       assets: [],
     };
   }
@@ -71,4 +74,8 @@ function indentXml(xml: string, spaces: number): string {
     .split('\n')
     .map((line) => `${pad}${line}`)
     .join('\n');
+}
+
+function toToonFileName(xmlFileName: string): string {
+  return xmlFileName.replace(/\.xml$/i, '.toon');
 }
