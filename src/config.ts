@@ -1,43 +1,26 @@
-import type { CommandArgsConfig } from './types/config.type.js';
+import {
+  BUILD_ROOT,
+  DEFAULT_API_VERSION,
+  DEFAULT_MAIN_ZIP,
+  DEFAULT_PLAN_PATH,
+  DEFAULT_SOURCE_ROOT,
+  DEFAULT_TOON_ROOT,
+} from './constants/metadata';
 
-const config: CommandArgsConfig = {
-  // Default source directory for SFDX format
-  source: 'force-app/main/default',
-  
-  // Output file for deployment
-  output: 'deploy.zip',
-  
-  // Default environment
-  env: 'SANDBOX',
-  
-  // Authentication tokens and credentials (initialized as undefined)
-  accessToken: undefined,
-  clientId: undefined,
-  username: undefined,
-  privateKey: undefined,
-  instanceUrl: 'https://test.salesforce.com',
-  
-  // Metadata types to exclude from deployment
-  exclude: undefined,
-  
-  // Application information
-  appVersion: '0.5.1',
-  appDescription: 'Deploy your metadata in seconds',
-  
-  // Salesforce API version
-  sfVersion: 'v60.0',
-  
-  // CLI information
-  cliVersion: '0.6.0',
-  cliOuputFolder: '.simpleSfCli_out',
-  
-  // Deployment options
-  quickDeployId: undefined,
-  testLevel: 'NoTestRun',
-  
-  // Test coverage configuration
-  coverageJson: './ApexTestCoverage.json',
-  runTests: []
+export const defaults = {
+  sourceRoot: DEFAULT_SOURCE_ROOT,
+  toonRoot: DEFAULT_TOON_ROOT,
+  apiVersion: DEFAULT_API_VERSION,
+  fromRef: 'HEAD~1',
+  toRef: 'HEAD',
+  planPath: DEFAULT_PLAN_PATH,
+  buildRoot: BUILD_ROOT,
+  outputZip: DEFAULT_MAIN_ZIP,
+  env: 'SANDBOX' as 'SANDBOX' | 'PRODUCTION',
+  sfVersion: 'v62.0',
+  testLevel: 'NoTestRun' as 'NoTestRun' | 'RunSpecifiedTests' | 'RunLocalTests' | 'RunAllTestsInOrg',
 };
 
-export default config;
+export function defaultInstanceUrl(env: 'SANDBOX' | 'PRODUCTION'): string {
+  return env === 'PRODUCTION' ? 'https://login.salesforce.com' : 'https://test.salesforce.com';
+}

@@ -1,10 +1,9 @@
-import { CommandArgsConfig } from "types/config.type";
+import { DeployAuthConfig } from '../core/types/deploy';
 
+export abstract class BaseSalesforceService {
+  protected readonly config: DeployAuthConfig;
 
-export abstract class BaseService {
-  protected config: CommandArgsConfig;
-
-  constructor(config: CommandArgsConfig) {
+  constructor(config: DeployAuthConfig) {
     this.config = config;
   }
 
@@ -18,7 +17,8 @@ export abstract class BaseService {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const body = await response.text();
+      throw new Error(`HTTP ${response.status}: ${body}`);
     }
 
     return response;

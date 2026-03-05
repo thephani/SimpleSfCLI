@@ -1,45 +1,42 @@
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
-import { BaseService } from './BaseService.js';
+import { DeployAuthConfig } from '../core/types/deploy';
+import { BaseSalesforceService } from './BaseSalesforceService';
 
-export class AuthService extends BaseService {
-	async authenticate(): Promise<void> {
-		try {
-			const privateKeyContents = fs.readFileSync(this.config.privateKey!, 'utf-8');
-			const jwtToken = this.createJwtToken(privateKeyContents);
-			await this.getAccessToken(jwtToken);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
-			throw new Error(`Authentication error: ${errorMessage}`);
-		}
-	}
+export class AuthService extends BaseSalesforceService {
+  constructor(config: DeployAuthConfig) {
+    super(config);
+  }
 
-	private createJwtToken(privateKey: string): string {
-		return jwt.sign(
-			{
-				iss: this.config.clientId,
-				sub: this.config.username,
-				aud: this.config.instanceUrl,
-				exp: Math.floor(Date.now() / 1000) + 60,
-			},
-			privateKey,
-			{ algorithm: 'RS256' }
-		);
-	}
+  async authenticate(): Promise<void> {
+    const privateKey = await fs.promises.readFile(this.config.privateKey, 'utf8');
+    const token = this.createJwtToken(privateKey);
 
-	private async getAccessToken(jwtToken: string): Promise<void> {
-		const response = await fetch(`${this.config.instanceUrl}/services/oauth2/token`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwtToken}`,
-		});
+    const response = await fetch(`${this.config.instanceUrl}/services/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${token}`,
+    });
 
-		if (!response.ok) {
-			throw new Error(`Authentication failed: ${response.status}`);
-		}
+    if (!response.ok) {
+      throw new Error(`Authentication failed (${response.status}): ${await response.text()}`);
+    }
 
-		const { access_token, instance_url } = (await response.json()) as { access_token: string; instance_url: string };
-		this.config.accessToken = access_token;
-		this.config.instanceUrl = instance_url;
-	}
+    const data = (await response.json()) as { access_token: string; instance_url: string };
+    this.config.accessToken = data.access_token;
+    this.config.instanceUrl = data.instance_url;
+  }
+
+  private createJwtToken(privateKey: string): string {
+    return jwt.sign(
+      {
+        iss: this.config.clientId,
+        sub: this.config.username,
+        aud: this.config.instanceUrl,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      privateKey,
+      { algorithm: 'RS256' }
+    );
+  }
 }

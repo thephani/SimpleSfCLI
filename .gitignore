@@ -5,6 +5,7 @@ converage/
 
 # Build output
 dist/
+lib/
 build/
 .simpleSfCli_out/
 
@@ -44,3 +45,4 @@ ApexTestCoverage.json
 # Temporary files
 tmp/
 temp/
+.npm-cache/
