@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { AdapterRegistry } from '../adapters/AdapterRegistry';
 import { BuildArtifacts, DeploymentPlan, PlannedComponent } from '../types/plan';
-import { ToonComponent, ToonComponentSummary } from '../types/toon';
+import { ToonComponent } from '../types/toon';
 import { buildEmptyPackageXml, buildPackageXml } from '../utils/packageXml';
 import { cleanDir, ensureDir, writeJsonFile } from '../utils/fs';
 import { ToonRepository } from './ToonRepository';
@@ -50,13 +50,10 @@ export class MdapiCompiler {
     };
 
     const repository = new ToonRepository(plan.toonRoot);
-    const index = await repository.loadIndex();
-    const componentById = new Map(index.components.map((component) => [component.id, component]));
-
     const changedComponents = [...plan.adds, ...plan.modifies];
 
     for (const plannedComponent of changedComponents) {
-      await this.emitComponent(repository, componentById, plannedComponent, context);
+      await this.emitComponent(repository, plannedComponent, context);
     }
 
     await this.flushCustomObjects(context);
@@ -88,29 +85,24 @@ export class MdapiCompiler {
 
   private async emitComponent(
     repository: ToonRepository,
-    componentById: Map<string, ToonComponentSummary>,
     plannedComponent: PlannedComponent,
     context: EmitContext
   ): Promise<void> {
-    const indexComponent = componentById.get(plannedComponent.id);
-    if (!indexComponent) {
-      throw new Error(`Component ${plannedComponent.id} not found in TOON index`);
-    }
-
-    const payload = await repository.loadToonPayloadFromFs(indexComponent.toonFilePath);
+    const summary = await repository.loadComponentSummaryFromFs(plannedComponent.toonFilePath);
+    const payload = await repository.loadToonPayloadFromFs(plannedComponent.toonFilePath);
     const xml = buildXmlFromToonPayload(payload);
 
     const component: ToonComponent = {
       toonVersion: '1.0',
-      id: indexComponent.id,
-      metadataType: indexComponent.metadataType,
-      fullName: indexComponent.fullName,
-      apiVersion: indexComponent.apiVersion,
-      kind: indexComponent.kind,
-      parentId: indexComponent.parentId,
-      assets: indexComponent.assets,
+      id: summary.id,
+      metadataType: summary.metadataType,
+      fullName: summary.fullName,
+      apiVersion: summary.apiVersion,
+      kind: summary.kind,
+      parentId: summary.parentId,
+      assets: summary.assets,
       spec: {
-        ...(indexComponent.spec || {}),
+        ...(summary.spec || {}),
       },
       hash: '',
     };
@@ -127,7 +119,7 @@ export class MdapiCompiler {
       throw new Error(`No adapter registered for metadata type ${component.metadataType}`);
     }
 
-    await adapter.emitMdapi(component, indexComponent.toonFilePath, context);
+    await adapter.emitMdapi(component, plannedComponent.toonFilePath, context);
   }
 
   private async flushCustomObjects(context: EmitContext): Promise<void> {

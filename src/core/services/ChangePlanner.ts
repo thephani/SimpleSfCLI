@@ -1,7 +1,7 @@
 import { AdapterRegistry } from '../adapters/AdapterRegistry';
 import { DeploymentPlan, PlannedComponent } from '../types/plan';
-import { ToonComponentSummary, ToonIndex } from '../types/toon';
-import { gitDiffNameStatus } from '../utils/git';
+import { ToonComponentSummary } from '../types/toon';
+import { gitDiffNameStatus, WORKTREE_REF } from '../utils/git';
 import { ToonRepository } from './ToonRepository';
 
 export interface ChangePlannerOptions {
@@ -21,9 +21,6 @@ export class ChangePlanner {
     const repository = new ToonRepository(options.toonRoot);
     const entries = gitDiffNameStatus(options.fromRef, options.toRef, options.toonRoot);
 
-    const fromIndex = this.safeLoadIndex(repository, options.fromRef);
-    const toIndex = this.safeLoadIndex(repository, options.toRef);
-
     const adds = new Map<string, PlannedComponent>();
     const modifies = new Map<string, PlannedComponent>();
     const deletes = new Map<string, PlannedComponent>();
@@ -31,10 +28,10 @@ export class ChangePlanner {
     for (const entry of entries) {
       if (entry.status === 'R') {
         if (entry.oldPath) {
-          this.collectDelete(entry.oldPath, repository, fromIndex, deletes);
+          await this.collectDelete(repository, options.fromRef, entry.oldPath, deletes);
         }
         if (entry.newPath) {
-          this.collectAddOrModify('A', entry.newPath, repository, toIndex, adds, modifies, deletes);
+          await this.collectAddOrModify(repository, options.toRef, 'A', entry.newPath, adds, modifies, deletes);
         }
         continue;
       }
@@ -45,9 +42,9 @@ export class ChangePlanner {
       }
 
       if (entry.status === 'D') {
-        this.collectDelete(changedPath, repository, fromIndex, deletes);
+        await this.collectDelete(repository, options.fromRef, changedPath, deletes);
       } else {
-        this.collectAddOrModify(entry.status, changedPath, repository, toIndex, adds, modifies, deletes);
+        await this.collectAddOrModify(repository, options.toRef, entry.status, changedPath, adds, modifies, deletes);
       }
     }
 
@@ -77,57 +74,61 @@ export class ChangePlanner {
     };
   }
 
-  private safeLoadIndex(repository: ToonRepository, ref: string): ToonIndex {
-    try {
-      return repository.loadIndexFromGitRef(ref);
-    } catch {
-      return {
-        generatedAt: new Date().toISOString(),
-        componentCount: 0,
-        components: [],
-      };
-    }
-  }
-
-  private collectDelete(
-    changedPath: string,
+  private async collectDelete(
     repository: ToonRepository,
-    fromIndex: ToonIndex,
+    fromRef: string,
+    changedPath: string,
     deletes: Map<string, PlannedComponent>
-  ): void {
-    const component = repository.resolveComponentByChangedPath(fromIndex, changedPath);
-    if (!component) {
+  ): Promise<void> {
+    const summary = await this.resolveComponent(repository, fromRef, changedPath);
+    if (!summary) {
       return;
     }
 
-    deletes.set(component.id, this.toPlannedComponent(component, 'delete'));
+    deletes.set(summary.id, this.toPlannedComponent(summary, 'delete'));
   }
 
-  private collectAddOrModify(
+  private async collectAddOrModify(
+    repository: ToonRepository,
+    toRef: string,
     status: string,
     changedPath: string,
-    repository: ToonRepository,
-    toIndex: ToonIndex,
     adds: Map<string, PlannedComponent>,
     modifies: Map<string, PlannedComponent>,
     deletes: Map<string, PlannedComponent>
-  ): void {
-    const component = repository.resolveComponentByChangedPath(toIndex, changedPath);
-    if (!component) {
+  ): Promise<void> {
+    const summary = await this.resolveComponent(repository, toRef, changedPath);
+    if (!summary) {
       return;
     }
 
     const isToonFile = changedPath.endsWith('.toon');
     const changeType = status === 'A' && isToonFile ? 'add' : 'modify';
-    const planned = this.toPlannedComponent(component, changeType);
+    const planned = this.toPlannedComponent(summary, changeType);
 
     if (changeType === 'add') {
-      adds.set(component.id, planned);
+      adds.set(summary.id, planned);
       return;
     }
 
-    if (!adds.has(component.id) && !deletes.has(component.id)) {
-      modifies.set(component.id, planned);
+    if (!adds.has(summary.id) && !deletes.has(summary.id)) {
+      modifies.set(summary.id, planned);
+    }
+  }
+
+  private async resolveComponent(repository: ToonRepository, ref: string, changedPath: string): Promise<ToonComponentSummary | null> {
+    const toonFilePath = repository.inferComponentToonFilePath(changedPath);
+    if (!toonFilePath) {
+      return null;
+    }
+
+    try {
+      if (ref === WORKTREE_REF) {
+        return await repository.loadComponentSummaryFromFs(toonFilePath);
+      }
+      return await repository.loadComponentSummaryFromGitRef(ref, toonFilePath);
+    } catch {
+      return null;
     }
   }
 

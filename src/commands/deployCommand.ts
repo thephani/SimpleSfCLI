@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { defaults, defaultInstanceUrl } from '../config';
 import { DeployWorkflowService } from '../core/services/DeployWorkflowService';
 import { DeployAuthConfig, DeployOptions } from '../core/types/deploy';
+import { WORKTREE_REF } from '../core/utils/git';
 
 export function registerDeployCommand(program: Command): void {
   program
@@ -20,10 +21,13 @@ export function registerDeployCommand(program: Command): void {
     .option('-t, --toon-root <toonRoot>', 'TOON repository root', defaults.toonRoot)
     .option('--from-ref <fromRef>', 'Git reference start', defaults.fromRef)
     .option('--to-ref <toRef>', 'Git reference end', defaults.toRef)
+    .option('--working-tree', 'Diff HEAD against current working tree (includes uncommitted changes)', false)
     .option('-p, --plan <planPath>', 'Output plan path', defaults.planPath)
     .option('-b, --build-root <buildRoot>', 'Build output root', defaults.buildRoot)
     .option('-o, --out <outputZip>', 'Main deploy zip path', defaults.outputZip)
     .action(async (options: DeployCommandOptions) => {
+      const fromRef = options.workingTree ? 'HEAD' : options.fromRef;
+      const toRef = options.workingTree ? WORKTREE_REF : options.toRef;
       const normalizedEnv = options.env.toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
       const auth: DeployAuthConfig = {
         username: options.username,
@@ -49,8 +53,8 @@ export function registerDeployCommand(program: Command): void {
       const workflow = new DeployWorkflowService();
       const result = await workflow.run({
         toonRoot: options.toonRoot,
-        fromRef: options.fromRef,
-        toRef: options.toRef,
+        fromRef,
+        toRef,
         planPath: path.resolve(options.plan),
         buildRoot: path.resolve(options.buildRoot),
         outputZip: path.resolve(options.out),
@@ -96,6 +100,7 @@ interface DeployCommandOptions {
   toonRoot: string;
   fromRef: string;
   toRef: string;
+  workingTree: boolean;
   plan: string;
   buildRoot: string;
   out: string;

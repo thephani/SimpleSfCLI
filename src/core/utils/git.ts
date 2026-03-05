@@ -6,8 +6,12 @@ export interface GitDiffEntry {
   newPath?: string;
 }
 
+export const WORKTREE_REF = 'WORKTREE';
+
 export function gitDiffNameStatus(fromRef: string, toRef: string, scopePath: string): GitDiffEntry[] {
-  const command = `git diff --name-status --find-renames=40% ${fromRef} ${toRef} -- ${scopePath}`;
+  const command = toRef === WORKTREE_REF
+    ? `git diff --name-status --find-renames=40% ${fromRef} -- ${scopePath}`
+    : `git diff --name-status --find-renames=40% ${fromRef} ${toRef} -- ${scopePath}`;
   const output = execSync(command, { encoding: 'utf8' }).trim();
 
   if (!output) {
@@ -41,6 +45,10 @@ export function gitDiffNameStatus(fromRef: string, toRef: string, scopePath: str
 }
 
 export function gitShow(ref: string, relativePath: string): string {
+  if (ref === WORKTREE_REF) {
+    throw new Error(`gitShow does not support ${WORKTREE_REF}`);
+  }
+
   const escapedPath = relativePath.replace(/"/g, '\\"');
   const command = `git show ${ref}:"${escapedPath}"`;
   return execSync(command, { encoding: 'utf8' });

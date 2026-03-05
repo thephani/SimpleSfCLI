@@ -32,9 +32,3 @@ export interface ToonComponentSummary {
   spec?: Record<string, unknown>;
   toonFilePath: string;
 }
-
-export interface ToonIndex {
-  generatedAt: string;
-  componentCount: number;
-  components: ToonComponentSummary[];
-}

@@ -81,12 +81,13 @@ export class ToonRepository {
 
   async loadComponentSummaryFromFs(toonFilePath: string): Promise<ToonComponentSummary> {
     const payload = await this.loadToonPayloadFromFs(toonFilePath);
-    return this.createSummaryFromPayload(toonFilePath, payload, true);
+    const summary = this.createSummaryFromPayload(toonFilePath, payload);
+    return this.hydrateAssets(summary);
   }
 
   async loadComponentSummaryFromGitRef(ref: string, toonFilePath: string): Promise<ToonComponentSummary> {
     const payload = await this.loadToonPayloadFromGitRef(ref, toonFilePath);
-    return this.createSummaryFromPayload(toonFilePath, payload, false);
+    return this.createSummaryFromPayload(toonFilePath, payload);
   }
 
   inferComponentToonFilePath(changedPath: string): string | null {
@@ -124,12 +125,37 @@ export class ToonRepository {
   }
 
   private toRelativeToToonRoot(changedPath: string): string | null {
-    const normalized = changedPath.replace(/\\/g, '/');
-    if (!normalized.startsWith(`${this.toonRoot}/`)) {
-      return null;
+    const normalizedPath = normalizePath(changedPath);
+
+    for (const root of this.getToonRootCandidates()) {
+      if (normalizedPath.startsWith(`${root}/`)) {
+        return normalizedPath.slice(root.length + 1);
+      }
     }
 
-    return normalized.slice(this.toonRoot.length + 1);
+    return null;
+  }
+
+  private getToonRootCandidates(): string[] {
+    const candidates = new Set<string>();
+    const rawRoot = normalizePath(this.toonRoot);
+    if (rawRoot) {
+      candidates.add(rawRoot);
+    }
+
+    if (path.isAbsolute(this.toonRoot)) {
+      const cwdRelative = normalizePath(path.relative(process.cwd(), this.toonRoot));
+      if (cwdRelative) {
+        candidates.add(cwdRelative);
+      }
+    }
+
+    const baseName = normalizePath(path.basename(this.toonRoot));
+    if (baseName) {
+      candidates.add(baseName);
+    }
+
+    return [...candidates];
   }
 
   private resolveAuraToonFromFs(bundleName: string): string | null {
@@ -194,7 +220,7 @@ export class ToonRepository {
     return undefined;
   }
 
-  private createSummaryFromPayload(toonFilePath: string, payload: unknown, includeAssets: boolean): ToonComponentSummary {
+  private createSummaryFromPayload(toonFilePath: string, payload: unknown): ToonComponentSummary {
     const rootTag = this.findRootTag(payload);
     const metadataType = ROOT_TAG_TO_METADATA_TYPE[rootTag];
 
@@ -209,7 +235,7 @@ export class ToonRepository {
 
     const id = `${metadataType}:${fullName}`;
 
-    const summary: ToonComponentSummary = {
+    return {
       id,
       metadataType,
       fullName,
@@ -219,13 +245,6 @@ export class ToonRepository {
       toonFilePath,
       spec: this.deriveSpec(metadataType, fullName, toonFilePath),
     };
-
-    if (includeAssets) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      throwIfUsedSync();
-    }
-
-    return summary;
   }
 
   async hydrateAssets(summary: ToonComponentSummary): Promise<ToonComponentSummary> {
@@ -322,6 +341,6 @@ export class ToonRepository {
   }
 }
 
-function throwIfUsedSync(): never {
-  throw new Error('Internal error: synchronous asset hydration is not supported');
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+$/, '');
 }

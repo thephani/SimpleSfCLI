@@ -9,7 +9,7 @@ export function registerImportCommand(program: Command): void {
     .description('Convert SFDX metadata to TOON format')
     .option('-s, --source <sourceRoot>', 'SFDX source root', defaults.sourceRoot)
     .option('-t, --toon-root <toonRoot>', 'TOON repository root', defaults.toonRoot)
-    .option('--clean', 'Clean the TOON root before import', false)
+    .option('--clean', 'Legacy flag (no-op). Import never deletes existing TOON files', false)
     .action(async (options: { source: string; toonRoot: string; clean: boolean }) => {
       const importer = new ToonImporter();
       const summary = await importer.run({
@@ -20,6 +20,5 @@ export function registerImportCommand(program: Command): void {
 
       console.log(`Imported components: ${summary.importedCount}`);
       console.log(`Skipped files: ${summary.skippedCount}`);
-      console.log(`Index written to: ${summary.indexPath}`);
     });
 }

@@ -1,9 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { AdapterRegistry } from '../adapters/AdapterRegistry';
-import { ToonRepository } from './ToonRepository';
-import { ToonAsset, ToonComponent, ToonComponentDraft, ToonComponentSummary } from '../types/toon';
-import { cleanDir, copyFileWithDirs, ensureDir, listFilesRecursive } from '../utils/fs';
+import { ToonAsset, ToonComponent, ToonComponentDraft } from '../types/toon';
+import { copyFileWithDirs, ensureDir, listFilesRecursive } from '../utils/fs';
 import { sha256 } from '../utils/hash';
 import { stableStringify } from '../utils/stableStringify';
 import { writeToonFile } from '../utils/toonCodec';
@@ -17,7 +16,6 @@ export interface ImportOptions {
 export interface ImportResultSummary {
   importedCount: number;
   skippedCount: number;
-  indexPath: string;
 }
 
 export class ToonImporter {
@@ -32,11 +30,8 @@ export class ToonImporter {
       throw new Error(`Source directory does not exist: ${options.sourceRoot}`);
     }
 
-    if (options.clean) {
-      await cleanDir(options.toonRoot);
-    } else {
-      await ensureDir(options.toonRoot);
-    }
+    // Import is always merge/overwrite-only; never delete existing TOON files.
+    await ensureDir(options.toonRoot);
 
     const files = await listFilesRecursive(options.sourceRoot);
     const relativeFiles = files
@@ -44,7 +39,6 @@ export class ToonImporter {
       .sort((a, b) => a.localeCompare(b));
 
     const importedIds = new Set<string>();
-    const indexedComponents: ToonComponentSummary[] = [];
     let importedCount = 0;
     let skippedCount = 0;
 
@@ -83,29 +77,12 @@ export class ToonImporter {
       const component = this.createComponent(importResult.component, toonAssets);
       const toonPayload = importResult.toonPayload ?? component;
       await writeToonFile(path.join(options.toonRoot, importResult.toonFilePath), toonPayload);
-
-      indexedComponents.push({
-        id: component.id,
-        metadataType: component.metadataType,
-        fullName: component.fullName,
-        apiVersion: component.apiVersion,
-        kind: component.kind,
-        parentId: component.parentId,
-        assets: component.assets,
-        spec: stripXmlSpec(component.spec),
-        toonFilePath: importResult.toonFilePath,
-      });
       importedCount += 1;
     }
-
-    const repository = new ToonRepository(options.toonRoot);
-    const indexPath = path.join(options.toonRoot, '_index', 'components.json');
-    await repository.writeIndex(indexedComponents, indexPath);
 
     return {
       importedCount,
       skippedCount,
-      indexPath,
     };
   }
 
@@ -121,11 +98,4 @@ export class ToonImporter {
       hash,
     };
   }
-}
-
-function stripXmlSpec(spec: Record<string, unknown>): Record<string, unknown> | undefined {
-  const stripped = { ...spec };
-  delete stripped.xml;
-  delete stripped.metaXml;
-  return Object.keys(stripped).length ? stripped : undefined;
 }

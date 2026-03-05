@@ -15,41 +15,30 @@ export interface ValidationSummary {
 export class ToonValidator {
   async run(toonRoot: string): Promise<ValidationSummary> {
     const repository = new ToonRepository(toonRoot);
+    const toonFiles = await repository.listToonFiles();
     const issues: ValidationIssue[] = [];
 
-    let index;
-    try {
-      index = await repository.loadIndex();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown index parse error';
-      return {
-        valid: false,
-        scannedFiles: 0,
-        issues: [{ file: '_index/components.json', message }],
-      };
-    }
-
-    for (const component of index.components) {
-      if (!component.id || !component.metadataType || !component.fullName || !component.toonFilePath) {
-        issues.push({ file: component.toonFilePath || '_index/components.json', message: 'Index entry missing required fields' });
-        continue;
-      }
-
-      if (!SUPPORTED_METADATA_TYPES.has(component.metadataType)) {
-        issues.push({ file: component.toonFilePath, message: `Unsupported metadataType: ${component.metadataType}` });
-      }
-
+    for (const toonFile of toonFiles) {
       try {
-        await repository.loadToonPayloadFromFs(component.toonFilePath);
+        const summary = await repository.loadComponentSummaryFromFs(toonFile);
+
+        if (!summary.id || !summary.metadataType || !summary.fullName || !summary.toonFilePath) {
+          issues.push({ file: toonFile, message: 'Invalid component summary derived from TOON file' });
+          continue;
+        }
+
+        if (!SUPPORTED_METADATA_TYPES.has(summary.metadataType)) {
+          issues.push({ file: toonFile, message: `Unsupported metadataType: ${summary.metadataType}` });
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown TOON parse error';
-        issues.push({ file: component.toonFilePath, message });
+        issues.push({ file: toonFile, message });
       }
     }
 
     return {
       valid: issues.length === 0,
-      scannedFiles: index.componentCount,
+      scannedFiles: toonFiles.length,
       issues,
     };
   }

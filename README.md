@@ -15,7 +15,7 @@
 
 ```bash
 simpleSfCli import   # SFDX -> TOON
-simpleSfCli validate # Validate TOON documents + index
+simpleSfCli validate # Validate TOON documents
 simpleSfCli plan     # Git diff -> deployment plan
 simpleSfCli build    # Plan -> MDAPI files + zips
 simpleSfCli deploy   # Plan + build + deploy
@@ -34,23 +34,21 @@ npx simple-sf-cli <command>
 
 ```text
 toon/
-  _index/
-    components.json
   apexClasses/
-    InvoiceService,cls-meta.toon
+    InvoiceService.cls-meta.toon
     InvoiceService.cls
   objects/
     Invoice__c/
-      Invoice__c,object-meta.toon
+      Invoice__c.object-meta.toon
       fields/
-        Amount__c,field-meta.toon
+        Amount__c.field-meta.toon
   flows/
-    Invoice_Approval,flow-meta.toon
+    Invoice_Approval.flow-meta.toon
   profiles/
-    Admin,profile-meta.toon
+    Admin.profile-meta.toon
   lwc/
     invoiceTable/
-      invoiceTable,js-meta.toon
+      invoiceTable.js-meta.toon
       invoiceTable.js
       invoiceTable.html
 ```
@@ -62,6 +60,8 @@ toon/
 ```bash
 simpleSfCli import --source force-app/main/default --toon-root toon --clean
 ```
+
+`import` is merge/overwrite-only and does not delete existing files in `toon/` (even with `--clean`).
 
 ### 2) Validate TOON files
 
@@ -77,6 +77,12 @@ simpleSfCli plan \
   --from-ref "$BASE_SHA" \
   --to-ref "$HEAD_SHA" \
   --out .simpleSfCli/plans/plan.json
+```
+
+For local testing with uncommitted changes (including deletions):
+
+```bash
+simpleSfCli plan --toon-root toon --working-tree --out .simpleSfCli/plans/plan.json
 ```
 
 ### 4) Build deployment artifacts
@@ -99,6 +105,12 @@ simpleSfCli deploy \
   --toon-root toon \
   --from-ref "$BASE_SHA" \
   --to-ref "$HEAD_SHA"
+```
+
+For local deploy testing against uncommitted changes:
+
+```bash
+simpleSfCli deploy ... --toon-root toon --working-tree
 ```
 
 ## Supported metadata (initial TOON adapters)
