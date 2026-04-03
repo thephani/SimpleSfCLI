@@ -54,6 +54,10 @@ export const METADATA_TYPES: Record<string, string> = {
 	homePageLayouts: 'HomePageLayout',
 	settings: 'Settings',
 	contentassets: 'ContentAsset',
+	layouts: 'Layout',
+	groups: 'Group',
+	objects: 'CustomObject',
+	
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
