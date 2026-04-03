@@ -100,8 +100,11 @@ export const METADATA_TYPES: Record<string, string> = {
 	tab: 'CustomTab',
 	triggers: 'ApexTrigger',
 	workflows: 'Workflow',
-
-
+	lwc: 'LightningComponentBundle',
+	layouts: 'Layout',
+	groups: 'Group',
+	objects: 'CustomObject',
+	
 };
 
 export const METADATA_EXTENSIONS: Record<string, string> = {
@@ -121,6 +124,9 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.js': '',                             // LightningComponentBundle
 	'.js-meta.xml': '',					   // LightningComponentBundle
 	'.css': '',                            // LightningComponentBundle
+	'.group-meta.xml': '',                 // Group
+	'.object-meta.xml': '',                         // CustomObject
+	'.layout-meta.xml': '',                         // Layout
 };
 
 export const MEMBERTYPE_REGEX = {

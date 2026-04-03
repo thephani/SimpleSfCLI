@@ -106,6 +106,7 @@ export class MDAPIService extends BaseService {
       excludedComponents,
       runTests,
     );
+    await this.processMetadataFiles(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
 
     if (!metadataTypes.length) {
       throw new Error(
