@@ -2,6 +2,8 @@ export interface CommandArgsConfig {
 	source: string;
 	output: string;
 	env: 'SANDBOX' | 'PRODUCTION';
+	baseBranch: string;
+	targetBranch: string;
 	accessToken?: string;
 	clientId?: string;
 	exclude?: string[];

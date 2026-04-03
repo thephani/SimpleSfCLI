@@ -6,11 +6,11 @@ import { FieldProperties, GroupedData } from 'types/xml.type';
 import xmlbuilder from 'xmlbuilder';
 
 export class XmlHelper {
-	// private sourceDirectory: string;
+	private sourceDirectory: string;
 	private outputDirectory: string;
 
-	constructor(outputDirectory: string = './.simpleSfCli_out') {
-		// this.sourceDirectory = sourceDirectory;
+	constructor(outputDirectory: string = './.simpleSfCli_out', sourceDirectory: string = 'force-app/main/default') {
+		this.sourceDirectory = sourceDirectory;
 		this.outputDirectory = outputDirectory;
 	}
 
@@ -87,13 +87,13 @@ export class XmlHelper {
 			Object.keys(groupedData).forEach((objectName) => {
 				console.log(`Processing object: ${objectName}`);
 
-				const fields = groupedData[objectName].fields;
-				// console.log(`Fields for ${objectName}: ${fields}`);
-				const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
+					const fields = groupedData[objectName].fields;
+					// console.log(`Fields for ${objectName}: ${fields}`);
+					const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
-				fields.forEach((field) => {
-					const sourceFilePath = `force-app/main/default/objects/${objectName}/fields/${field}.field-meta.xml`;
-					const existingXmlContent = fs.readFileSync(sourceFilePath, 'utf-8');
+					fields.forEach((field) => {
+						const sourceFilePath = path.join(this.sourceDirectory, 'objects', objectName, 'fields', `${field}.field-meta.xml`);
+						const existingXmlContent = fs.readFileSync(sourceFilePath, 'utf-8');
 
 					const match = existingXmlContent.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
 					if (!match) {
@@ -165,9 +165,9 @@ export class XmlHelper {
 	/**
 	 * Sets the source directory for XML operations.
 	 */
-	// public setSourceDirectory(directory: string): void {
-	// 	// this.sourceDirectory = directory;
-	// }
+	public setSourceDirectory(directory: string): void {
+		this.sourceDirectory = directory;
+	}
 
 	/**
 	 * Sets the output directory for XML operations.

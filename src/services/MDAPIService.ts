@@ -17,7 +17,7 @@ export class MDAPIService extends BaseService {
 
   constructor(config: CommandArgsConfig) {
     super(config);
-    this.xmlHelper = new XmlHelper();
+    this.xmlHelper = new XmlHelper(config.cliOuputFolder, config.source);
   }
 
   async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
@@ -99,14 +99,13 @@ export class MDAPIService extends BaseService {
     const metadataTypes: MetadataType[] = [];
     const excludedComponents: string[] = [];
 
-    await this.processMetadataFiles(
-      changedFiles,
-      excludeList,
-      metadataTypes,
-      excludedComponents,
-      runTests,
-    );
-    await this.processMetadataFiles(changedFiles, excludeList, metadataTypes, excludedComponents, runTests);
+      await this.processMetadataFiles(
+        changedFiles,
+        excludeList,
+        metadataTypes,
+        excludedComponents,
+        runTests,
+      );
 
     if (!metadataTypes.length) {
       throw new Error(
@@ -120,13 +119,14 @@ export class MDAPIService extends BaseService {
 
   private async getGitFiles(filter: string): Promise<string[]> {
     try {
+      const diffRange = `${this.config.baseBranch}...${this.config.targetBranch}`;
       return execSync(
-        `git diff --diff-filter=${filter} --name-only HEAD~1 HEAD`,
+        `git diff --diff-filter=${filter} --name-only ${diffRange}`,
         { encoding: "utf8" },
       )
         .split("\n")
         .filter(
-          (file) => file.startsWith("force-app/main/default/") && file.trim(),
+          (file) => file.startsWith(`${this.config.source}/`) && file.trim(),
         );
     } catch (error) {
       this.logError(`Failed to get git files with filter ${filter}`, error);
@@ -167,6 +167,10 @@ export class MDAPIService extends BaseService {
   private async copyFileWithMetadata(file: string): Promise<void> {
     const relativePath = path.relative(this.config.source, file);
 
+    if (this.shouldIgnoreFile(relativePath)) {
+      return;
+    }
+
     if (file.includes("/lwc/")) {
       await this.copyLWCComponent(relativePath);
       return;
@@ -200,6 +204,12 @@ export class MDAPIService extends BaseService {
 
     if (relativePath.endsWith(".md-meta.xml")) {
       targetPath = targetPath.replace(".md-meta.xml", ".md");
+    } else if (relativePath.match(/^objects\/[^/]+\/[^/]+\.object-meta\.xml$/)) {
+      targetPath = path.join(
+        this.config.cliOuputFolder,
+        "objects",
+        `${path.basename(relativePath, ".object-meta.xml")}.object`,
+      );
     }
 
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
@@ -265,17 +275,27 @@ export class MDAPIService extends BaseService {
   }
 
   private getMetadataType(file: string): string | null {
-    const relativePath = path.relative("force-app/main/default", file);
+    const relativePath = path.relative(this.config.source, file);
+
+    if (this.shouldIgnoreFile(relativePath)) {
+      return null;
+    }
 
     if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
       return "CustomField";
     }
 
-    const folder = Object.keys(METADATA_TYPES).find((folder) =>
-      relativePath.startsWith(folder),
-    );
+    // Prefer the most specific folder match so prefixes like "Bot" do not
+    // swallow more specific types such as "BotBlock" or "BotVersion".
+    const folder = Object.keys(METADATA_TYPES)
+      .sort((left, right) => right.length - left.length)
+      .find((candidate) => relativePath.startsWith(candidate));
 
     return folder ? METADATA_TYPES[folder] : null;
+  }
+
+  private shouldIgnoreFile(relativePath: string): boolean {
+    return relativePath === "lwc/jsconfig.json";
   }
 
   private getMemberName(file: string): string | null {

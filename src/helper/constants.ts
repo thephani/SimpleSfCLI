@@ -100,7 +100,6 @@ export const METADATA_TYPES: Record<string, string> = {
 	tab: 'CustomTab',
 	triggers: 'ApexTrigger',
 	workflows: 'Workflow',
-	lwc: 'LightningComponentBundle',
 	layouts: 'Layout',
 	groups: 'Group',
 	objects: 'CustomObject',

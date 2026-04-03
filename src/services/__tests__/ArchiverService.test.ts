@@ -22,6 +22,8 @@ describe('ArchiverService', () => {
 		source: 'src',
 		output: 'deploy.zip',
 		env: 'SANDBOX',
+		baseBranch: 'HEAD~1',
+		targetBranch: 'HEAD',
 		appVersion: '1.0.0',
 		appDescription: 'Test App',
 		sfVersion: '56.0',
