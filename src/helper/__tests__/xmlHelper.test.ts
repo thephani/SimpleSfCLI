@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { XmlHelper } from '../xmlHelper';
 import { MetadataType } from '../../types/index.type';
 
@@ -13,6 +14,7 @@ describe('XmlHelper', () => {
 	beforeEach(() => {
 		// Clear all mocks before each test
 		jest.clearAllMocks();
+		(path.join as jest.Mock).mockImplementation((...parts: string[]) => parts.join('/'));
 		xmlHelper = new XmlHelper(mockOutputDir);
 	});
 
@@ -172,6 +174,31 @@ describe('XmlHelper', () => {
 			// We need to test the private property indirectly through behavior
 			const result = xmlHelper.createEmptyPackageXml();
 			expect(result).toBeTruthy();
+		});
+	});
+
+	describe('setSourceDirectory', () => {
+		it('should use the configured source directory when generating custom objects for fields', () => {
+			xmlHelper.setSourceDirectory('packages/core/main/default');
+			(fs.readFileSync as jest.Mock).mockReturnValue(`
+        <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+          <fullName>TestField</fullName>
+          <type>Text</type>
+        </CustomField>
+      `);
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+			(fs.mkdirSync as jest.Mock).mockImplementation(() => {});
+
+			xmlHelper.generateCustomObjectForFields({
+				Account: {
+					fields: ['CustomField1__c'],
+				},
+			});
+
+			expect(fs.readFileSync).toHaveBeenCalledWith(
+				'packages/core/main/default/objects/Account/fields/CustomField1__c.field-meta.xml',
+				'utf-8',
+			);
 		});
 	});
 });

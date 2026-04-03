@@ -17,9 +17,11 @@ describe('MDAPIService', () => {
 		instanceUrl: 'https://test.salesforce.com',
 		privateKey: 'test-private-key.pem',
 		accessToken: 'mock-access-token',
-		source: 'src',
+		source: 'force-app/main/default',
 		output: 'deploy.zip',
 		env: 'SANDBOX',
+		baseBranch: 'HEAD~1',
+		targetBranch: 'HEAD',
 		appVersion: '1.0.0',
 		appDescription: 'Test App',
 		sfVersion: '56.0',
@@ -130,10 +132,22 @@ describe('MDAPIService', () => {
 			expect(type).toBe('LightningComponentBundle');
 		});
 
+		it('should ignore lwc jsconfig file', () => {
+			const filePath = 'force-app/main/default/lwc/jsconfig.json';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBeNull();
+		});
+
 		it('should identify Group', () => {
 			const filePath = 'force-app/main/default/groups/sandbox-users.group-meta.xml';
 			const type = (service as any).getMetadataType(filePath);
 			expect(type).toBe('Group');
+		});
+
+		it('should identify CustomObject type', () => {
+			const filePath = 'force-app/main/default/objects/Account/Account.object-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBe('CustomObject');
 		});
 
 	});
@@ -187,6 +201,27 @@ describe('MDAPIService', () => {
 
 			expect(fs.promises.copyFile).toHaveBeenCalledTimes(1);
 		});
+
+		it('should ignore lwc jsconfig file during copy', async () => {
+			const jsConfigFile = 'force-app/main/default/lwc/jsconfig.json';
+
+			await (service as any).copyFileWithMetadata(jsConfigFile);
+
+			expect(fs.promises.copyFile).not.toHaveBeenCalled();
+			expect(fs.promises.mkdir).not.toHaveBeenCalled();
+		});
+
+		it('should flatten custom object metadata to MDAPI object path', async () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+			const objectFile = 'force-app/main/default/objects/Account/Account.object-meta.xml';
+
+			await (service as any).copyFileWithMetadata(objectFile);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				objectFile,
+				path.join(mockConfig.cliOuputFolder, 'objects', 'Account.object'),
+			);
+		});
 	});
 
 	// describe('generateCustomObjectForFields', () => {
@@ -232,12 +267,16 @@ describe('MDAPIService', () => {
 
 			(execSync as jest.Mock).mockReturnValueOnce(mockChangedFiles);
 
-			const result = await (service as any).getGitFiles();
+			const result = await (service as any).getGitFiles('AM');
 
 			expect(result).toEqual([
 				'force-app/main/default/classes/TestClass.cls',
 				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
 			]);
+			expect(execSync).toHaveBeenCalledWith(
+				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				{ encoding: 'utf8' },
+			);
 		});
 
 		it('should handle git command errors', async () => {
@@ -245,9 +284,31 @@ describe('MDAPIService', () => {
 				throw new Error('Git command failed');
 			});
 
-			const result = await (service as any).getGitFiles();
+			const result = await (service as any).getGitFiles('AM');
 
 			expect(result).toEqual([]);
+		});
+
+		it('should respect configured source directory when filtering changed files', async () => {
+			const customSourceService = new MDAPIService({
+				...mockConfig,
+				source: 'packages/core/main/default',
+				baseBranch: 'origin/develop',
+				targetBranch: 'feature/my-branch',
+			});
+
+			(execSync as jest.Mock).mockReturnValueOnce([
+				'packages/core/main/default/classes/TestClass.cls',
+				'force-app/main/default/classes/IgnoreMe.cls',
+			].join('\n'));
+
+			const result = await (customSourceService as any).getGitFiles('AM');
+
+			expect(result).toEqual(['packages/core/main/default/classes/TestClass.cls']);
+			expect(execSync).toHaveBeenCalledWith(
+				'git diff --diff-filter=AM --name-only origin/develop...feature/my-branch',
+				{ encoding: 'utf8' },
+			);
 		});
 	});
 
@@ -262,7 +323,7 @@ describe('MDAPIService', () => {
 				throw new Error('Git command failed');
 			});
 
-			const result = await (service as any).getGitFiles();
+			const result = await (service as any).getGitFiles('D');
 
 			expect(result).toHaveLength(0);
 		});
@@ -272,7 +333,7 @@ describe('MDAPIService', () => {
 				'force-app/main/default/classes/DeletedClass2.cls'
 			].join('\n'));
 
-			const result = await (service as any).getGitFiles();
+			const result = await (service as any).getGitFiles('D');
 
 			expect(result).toHaveLength(2);
 			expect(result).toContain('force-app/main/default/classes/DeletedClass1.cls');
@@ -285,7 +346,7 @@ describe('MDAPIService', () => {
 				'force-app/main/default/classes/DeletedClass.cls\n'
 			);
 
-			const result = await (service as any).getGitFiles();
+			const result = await (service as any).getGitFiles('D');
 
 			expect(result).toHaveLength(1);
 			expect(result[0]).toBe('force-app/main/default/classes/DeletedClass.cls');

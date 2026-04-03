@@ -9,6 +9,10 @@ const config: CommandArgsConfig = {
   
   // Default environment
   env: 'SANDBOX',
+
+  // Default git comparison range
+  baseBranch: 'HEAD~1',
+  targetBranch: 'HEAD',
   
   // Authentication tokens and credentials (initialized as undefined)
   accessToken: undefined,
