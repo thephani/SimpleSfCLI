@@ -4,10 +4,12 @@ import { execSync } from 'child_process';
 import { XmlHelper } from '../../helper/xmlHelper';
 import { CommandArgsConfig } from '../../types/config.type';
 import path from 'path';
+import { ForceIgnoreHelper } from '../../helper/forceignoreHelper';
 
 jest.mock('../../helper/xmlHelper');
 jest.mock('fs');
 jest.mock('child_process');
+jest.mock('../../helper/forceignoreHelper');
 
 describe('MDAPIService', () => {
 	let service: MDAPIService;
@@ -34,6 +36,7 @@ describe('MDAPIService', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
 
 		// Mock fs.promises methods
@@ -138,6 +141,14 @@ describe('MDAPIService', () => {
 			expect(type).toBeNull();
 		});
 
+		it('should ignore files matched by .forceignore', () => {
+			(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(true);
+			service = new MDAPIService(mockConfig);
+			const filePath = 'force-app/main/default/profiles/Admin.profile-meta.xml';
+			const type = (service as any).getMetadataType(filePath);
+			expect(type).toBeNull();
+		});
+
 		it('should identify Group', () => {
 			const filePath = 'force-app/main/default/groups/sandbox-users.group-meta.xml';
 			const type = (service as any).getMetadataType(filePath);
@@ -150,6 +161,19 @@ describe('MDAPIService', () => {
 			expect(type).toBe('CustomObject');
 		});
 
+	});
+
+	describe('forceignore path handling', () => {
+		it('should match source-prefixed .forceignore paths', () => {
+			jest.unmock('../../helper/forceignoreHelper');
+			const { ForceIgnoreHelper: RealForceIgnoreHelper } = jest.requireActual('../../helper/forceignoreHelper');
+
+			(fs.existsSync as jest.Mock).mockImplementation((filePath: fs.PathLike) => String(filePath).endsWith('.forceignore'));
+			(fs.readFileSync as unknown as jest.Mock).mockReturnValue('force-app/main/default/labels/CustomLabels.labels-meta.xml\n');
+
+			const helper = new RealForceIgnoreHelper(mockConfig.source);
+			expect(helper.shouldIgnore('labels/CustomLabels.labels-meta.xml')).toBe(true);
+		});
 	});
 
 	describe('isTestClass', () => {
