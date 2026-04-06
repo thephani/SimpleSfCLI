@@ -28,8 +28,6 @@
 - [Development](#development)
 - [Contributing](#contributing)
 - [Documentation](#documentation)
-- [License](#license)
-- [Support](#support)
 
 ---
 
@@ -183,7 +181,7 @@ simpleSfCli \
 
 ### Environment Variables (Recommended)
 
-For CI/CD pipelines, use environment variables to avoid hardcoding credentials:
+For CI/CD pipelines, use shell environment variables to avoid hardcoding credentials, then pass them into CLI flags:
 
 ```bash
 # Salesforce credentials
@@ -194,9 +192,8 @@ export SF_PRIVATE_KEY_PATH="./server.key"
 # Deployment environment
 export SF_ENV="SANDBOX"  # or PRODUCTION
 
-# Optional: Set deployment options
+# Optional: Set deployment options used by your shell scripts
 export SF_SOURCE="force-app/main/default"
-export SF_OUTPUT="deploy.zip"
 export SF_EXCLUDE="Profile,NamedCredential,CustomMetadata"
 ```
 
@@ -240,7 +237,8 @@ simpleSfCli \
 
 ### Production Deployment
 
-Deploy to production (requires authentication and permissions):
+Deploy to production (requires authentication and permissions).
+When `--env PRODUCTION` is used, the CLI forces `RunLocalTests`:
 
 ```bash
 simpleSfCli \
@@ -253,7 +251,7 @@ simpleSfCli \
 
 ### Selective Deployment (Exclude Components)
 
-Skip specific metadata types from deployment:
+Skip specific metadata types from deployment with `--exclude`, or prefer `.forceignore` for path-based filtering:
 
 ```bash
 simpleSfCli \
@@ -319,7 +317,7 @@ simpleSfCli \
 | `-e, --env <environment>` | `SANDBOX` | Target environment (SANDBOX or PRODUCTION) |
 | `-s, --source <directory>` | `force-app/main/default` | SFDX source directory path |
 | `-x, --exclude <types>` | - | Comma-separated list of metadata types to exclude |
-| `-t, --testLevel <level>` | `NoTestRun` | Test level: NoTestRun, RunSpecifiedTests, RunLocalTests |
+| `-t, --testLevel <level>` | `NoTestRun` | Test level: NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg |
 | `-v, --validateOnly` | `false` | Validate only, do not deploy |
 
 ### Deployment Options
@@ -328,7 +326,7 @@ simpleSfCli \
 |------|---------|-------------|
 | `-b, --baseBranch <branch>` | `HEAD~1` | Base branch for delta deployment |
 | `-r, --targetBranch <branch>` | `HEAD` | Target branch for delta deployment |
-| `-q, --quickDeployId <id>` | - | Use validated deployment ID for quick deploy |
+| `quick-deploy -q, --quickDeployId <id>` | - | Use a validated deployment ID with the `quick-deploy` subcommand |
 
 ### Display Options
 
@@ -374,7 +372,7 @@ simpleSfCli \
     --env SANDBOX
 
 # Use the returned deployment ID for quick deploy
-simpleSfCli \
+simpleSfCli quick-deploy \
     --username user@example.com \
     --clientId client123 \
     --privateKey ./server.key \
@@ -428,12 +426,21 @@ simpleSfCli \
 
 ### Environment Variables Override
 
-You can override any configuration via environment variables:
+The CLI does not currently read configuration directly from environment variables.
+Use shell variables and pass them to flags explicitly:
 
 ```bash
 export SF_ENV="PRODUCTION"
 export SF_SOURCE="custom/src"
 export SF_TEST_LEVEL="RunLocalTests"
+
+simpleSfCli \
+  --username "$SF_USERNAME" \
+  --clientId "$SF_CLIENT_ID" \
+  --privateKey "$SF_PRIVATE_KEY_PATH" \
+  --env "$SF_ENV" \
+  --source "$SF_SOURCE" \
+  --testLevel "$SF_TEST_LEVEL"
 ```
 
 ---
@@ -472,7 +479,7 @@ jobs:
           SF_PRIVATE_KEY: ${{ secrets.SF_PRIVATE_KEY }}
         run: |
           echo "$SF_PRIVATE_KEY" > server.key
-          simpleSfCli \
+          npx simple-sf-cli \
             --username "$SF_USERNAME" \
             --clientId "$SF_CLIENT_ID" \
             --privateKey ./server.key \
@@ -487,9 +494,9 @@ jobs:
           SF_PRIVATE_KEY: ${{ secrets.SF_PROD_PRIVATE_KEY }}
         run: |
           echo "$SF_PRIVATE_KEY" > server.key
-          simpleSfCli \
-            --username "$SF_USERNAME" \
-            --clientId "$SF_CLIENT_ID" \
+          npx simple-sf-cli \
+            --username "$SF_PROD_USERNAME" \
+            --clientId "$SF_PROD_CLIENT_ID" \
             --privateKey ./server.key \
             --env PRODUCTION \
             --testLevel RunLocalTests
@@ -569,16 +576,26 @@ pipelines:
             - node
 ```
 
-### Excluded Components in CI/CD
+### Excluding Components in CI/CD
+
+Prefer `.forceignore` for path-based exclusions:
+
+```text
+profiles/**
+namedCredentials/**
+labels/CustomLabels.labels-meta.xml
+```
+
+Use `--exclude` only when you need metadata-type filtering:
 
 ```bash
-simpleSfCli \
-    --username user@example.com \
-    --clientId client123 \
-    --privateKey ./server.key \
-    --env SANDBOX \
-    --exclude Profile,NamedCredential,CustomMetadata \
-    --testLevel RunLocalTests
+npx simple-sf-cli \
+  --username user@example.com \
+  --clientId client123 \
+  --privateKey ./server.key \
+  --env SANDBOX \
+  --exclude Profile,NamedCredential,CustomMetadata \
+  --testLevel RunLocalTests
 ```
 
 ---
@@ -593,6 +610,7 @@ SimpleSfCLI/
 │   ├── cli.ts                 # CLI entry point
 │   ├── config.ts              # Configuration
 │   ├── SalesforceClient.ts    # Main client orchestration
+│   ├── helper/                # Helpers and constants
 │   ├── types/                 # TypeScript type definitions
 │   └── services/              # Business logic services
 │       ├── AuthService.ts     # Authentication
@@ -600,9 +618,7 @@ SimpleSfCLI/
 │       ├── DeployService.ts   # Deployment logic
 │       ├── ArchiverService.ts # File packaging
 │       └── BaseService.ts     # Base service utilities
-├── lib/                       # Compiled JavaScript
 ├── dist/                      # Distribution files
-├── tests/                     # Test files
 ├── package.json               # Project configuration
 ├── tsconfig.json              # TypeScript configuration
 └── jest.config.ts             # Jest configuration
@@ -623,9 +639,6 @@ npm run build
 
 # Run tests
 npm test
-
-# Watch mode for development
-npm test -- --watch
 ```
 
 ### Available Scripts
@@ -637,10 +650,7 @@ npm test -- --watch
     "build": "tsc",
     "prebuild": "npm run clean",
     "prepare": "npm run build",
-    "test": "jest --collectCoverage --verbose --silent",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.{ts,tsx}"
+    "test": "jest --collectCoverage --verbose --silent"
   }
 }
 ```
@@ -744,10 +754,10 @@ Error: Invalid certificate
 
 ### Debug Mode
 
-Enable verbose logging for troubleshooting:
+There is no dedicated debug flag today. Use the normal console output and inspect generated artifacts when troubleshooting.
 
 ```bash
-DEBUG=* simpleSfCli --help
+npx simple-sf-cli --help
 ```
 
 ### Check Logs
