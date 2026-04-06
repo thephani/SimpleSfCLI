@@ -758,30 +758,6 @@ Deployment logs are saved to:
 - Enable IP restrictions on Connected Apps when possible
 - Use sandbox environments for testing before production
 
----
-
-## Roadmap
-
-### Planned Features
-
-- [ ] Aura component support
-- [ ] Package versioning
-- [ ] Deployment history tracking
-- [ ] Bulk API support for large deployments
-- [ ] Custom output formats (JSON, XML)
-- [ ] Plugin system for custom metadata handlers
-- [ ] GraphQL integration
-
-### Future Enhancements
-
-- Support for scratch org deployments
-- Automated rollback on failure
-- Integration with CI/CD pipelines
-- Enhanced error recovery
-- Performance metrics and reporting
-
----
-
 ## Support
 
 ### Getting Help
