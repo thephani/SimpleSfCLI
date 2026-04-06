@@ -55,6 +55,10 @@ describe('metadata constants coverage', () => {
 				expect(getMetadataType(buildSamplePath(folder))).toBe(expectedType);
 			},
 		);
+
+		it('maps labels correctly', () => {
+			expect(getMetadataType('force-app/main/default/labels/SampleComponent-meta.xml')).toBe('CustomLabels');
+		});
 	});
 
 	describe('METADATA_EXTENSIONS', () => {

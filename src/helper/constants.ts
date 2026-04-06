@@ -43,6 +43,7 @@ export const METADATA_TYPES: Record<string, string> = {
 	CspTrustedSite: 'CspTrustedSite',
 	CustomApplication: 'CustomApplication',
 	CustomApplicationComponent: 'CustomApplicationComponent',
+	labels: 'CustomLabels',
 	customMetadata: 'CustomMetadata',
 	CustomObjectTranslation: 'CustomObjectTranslation',
 	CustomPageWebLink: 'CustomPageWebLink',
@@ -126,6 +127,7 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.group-meta.xml': '',                 // Group
 	'.object-meta.xml': '',                         // CustomObject
 	'.layout-meta.xml': '',                         // Layout
+	'.labels-meta.xml': '',                         // CustomLabels	
 };
 
 export const MEMBERTYPE_REGEX = {
