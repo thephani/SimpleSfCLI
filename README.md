@@ -53,7 +53,7 @@
 
 - **⚡ Lightning-Fast Deployments**: Push SFDX projects to Sandbox or Production faster than Salesforce CLI installation
 - **📄 Automated MDAPI Conversion**: Converts SFDX metadata to Metadata API format for streamlined deployments
-- **✂️ Selective Deployments**: Exclude specific metadata types (Profiles, NamedCredentials, etc.)
+- **✂️ Selective Deployments**: Respect `.forceignore` and optionally exclude specific metadata types
 - **🔄 Delta Deployments**: Compare and deploy changes between branches
 - **🚀 Quick Deploy**: Use validated deployment IDs for instant deployments
 - **🧪 Test Integration**: Support for various test levels (NoTestRun, RunSpecifiedTests, RunLocalTests)
@@ -165,8 +165,7 @@ simpleSfCli \
     --username yourSalesforceUser@example.com \
     --clientId yourClientIdFromConnectedApp \
     --privateKey ./server.key \
-    --env SANDBOX \
-    --exclude Profile,NamedCredential
+    --env SANDBOX
 ```
 
 ### What Happens?
@@ -200,6 +199,16 @@ export SF_SOURCE="force-app/main/default"
 export SF_OUTPUT="deploy.zip"
 export SF_EXCLUDE="Profile,NamedCredential,CustomMetadata"
 ```
+
+Use a project-level `.forceignore` file to exclude files or folders from deployment packaging:
+
+```text
+profiles/**
+namedCredentials/**
+labels/CustomLabels.labels-meta.xml
+```
+
+Patterns can be relative to your `--source` directory. Source-prefixed entries such as `force-app/main/default/labels/CustomLabels.labels-meta.xml` are also accepted.
 
 ### Local Usage
 

@@ -9,15 +9,18 @@ import {
   METADATA_EXTENSIONS,
   METADATA_TYPES,
 } from "../helper/constants.js";
+import { ForceIgnoreHelper } from "../helper/forceignoreHelper.js";
 import { XmlHelper } from "../helper/xmlHelper.js";
 import { BaseService } from "./BaseService.js";
 
 export class MDAPIService extends BaseService {
   private xmlHelper: XmlHelper;
+  private forceIgnoreHelper: ForceIgnoreHelper;
 
   constructor(config: CommandArgsConfig) {
     super(config);
     this.xmlHelper = new XmlHelper(config.cliOuputFolder, config.source);
+    this.forceIgnoreHelper = new ForceIgnoreHelper(config.source);
   }
 
   async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
@@ -295,7 +298,10 @@ export class MDAPIService extends BaseService {
   }
 
   private shouldIgnoreFile(relativePath: string): boolean {
-    return relativePath === "lwc/jsconfig.json";
+    return (
+      relativePath === "lwc/jsconfig.json" ||
+      this.forceIgnoreHelper.shouldIgnore(relativePath)
+    );
   }
 
   private getMemberName(file: string): string | null {
