@@ -13,6 +13,7 @@ jest.mock('../../helper/forceignoreHelper');
 
 describe('MDAPIService', () => {
 	let service: MDAPIService;
+	const originalEnv = { ...process.env };
 	const mockConfig: CommandArgsConfig = {
 		clientId: 'test-client-id',
 		username: 'test@example.com',
@@ -36,6 +37,7 @@ describe('MDAPIService', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		process.env = { ...originalEnv };
 		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
 
@@ -57,6 +59,10 @@ describe('MDAPIService', () => {
 		// Mock XmlHelper methods
 		(XmlHelper.prototype.createPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
 		(XmlHelper.prototype.createEmptyPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
+	});
+
+	afterAll(() => {
+		process.env = originalEnv;
 	});
 
 	describe('convertToMDAPI', () => {
@@ -428,6 +434,70 @@ describe('MDAPIService', () => {
 			expect(execSync).toHaveBeenNthCalledWith(
 				2,
 				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use GitHub PR base and target branches when available', async () => {
+			process.env.GITHUB_BASE_REF = 'main';
+			process.env.GITHUB_HEAD_REF = 'feature/pr-branch';
+
+			(execSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execSync).toHaveBeenNthCalledWith(
+				1,
+				'git rev-parse --verify --quiet origin/main',
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				2,
+				'git rev-parse --verify --quiet origin/feature/pr-branch',
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				3,
+				'git diff --diff-filter=AM --name-only origin/main...origin/feature/pr-branch',
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use Bitbucket PR base and target branches when available', async () => {
+			process.env.BITBUCKET_PR_DESTINATION_BRANCH = 'develop';
+			process.env.BITBUCKET_BRANCH = 'feature/bitbucket-pr';
+
+			(execSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execSync).toHaveBeenNthCalledWith(
+				1,
+				'git rev-parse --verify --quiet origin/develop',
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				2,
+				'git rev-parse --verify --quiet origin/feature/bitbucket-pr',
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				3,
+				'git diff --diff-filter=AM --name-only origin/develop...origin/feature/bitbucket-pr',
 				{ encoding: 'utf8' },
 			);
 		});

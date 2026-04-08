@@ -447,15 +447,41 @@ export class MDAPIService extends BaseService {
   }
 
   private getDiffRange(): string {
-    const targetBranch = this.normalizeGitRef(this.config.targetBranch);
     const configuredBase = this.normalizeGitRef(this.config.baseBranch);
+    const configuredTarget = this.normalizeGitRef(this.config.targetBranch);
 
     if (configuredBase && configuredBase !== "HEAD~1") {
-      return `${configuredBase}...${targetBranch}`;
+      return `${configuredBase}...${configuredTarget}`;
+    }
+
+    const pullRequestRange = this.detectPullRequestRangeFromEnv();
+    if (pullRequestRange) {
+      return `${pullRequestRange.base}...${pullRequestRange.target}`;
     }
 
     const prBase = this.detectPullRequestBaseBranch();
-    return `${prBase ?? "HEAD~1"}...${targetBranch}`;
+    return `${prBase ?? "HEAD~1"}...${configuredTarget}`;
+  }
+
+  private detectPullRequestRangeFromEnv(): {
+    base: string;
+    target: string;
+  } | null {
+    const rawBaseRef =
+      process.env.GITHUB_BASE_REF ||
+      process.env.BITBUCKET_PR_DESTINATION_BRANCH;
+    const rawTargetRef =
+      process.env.GITHUB_HEAD_REF ||
+      process.env.BITBUCKET_PR_SOURCE_BRANCH ||
+      process.env.BITBUCKET_BRANCH;
+
+    const baseRef = this.resolveGitRef(rawBaseRef, { remoteOnly: true });
+    if (!baseRef) {
+      return null;
+    }
+
+    const targetRef = this.resolveGitRef(rawTargetRef) ?? "HEAD";
+    return { base: baseRef, target: targetRef };
   }
 
   private detectPullRequestBaseBranch(): string | null {
@@ -483,6 +509,34 @@ export class MDAPIService extends BaseService {
 
   private normalizeGitRef(value: string): string {
     return value.trim();
+  }
+
+  private resolveGitRef(
+    rawRef: string | undefined,
+    options: { remoteOnly?: boolean } = {},
+  ): string | null {
+    const normalizedRef = this.normalizeGitRef(rawRef ?? "");
+    if (!normalizedRef) {
+      return null;
+    }
+
+    const candidates = options.remoteOnly
+      ? [`origin/${normalizedRef}`]
+      : [`origin/${normalizedRef}`, normalizedRef];
+
+    for (const candidate of candidates) {
+      try {
+        execSync(`git rev-parse --verify --quiet ${candidate}`, {
+          encoding: "utf8",
+          stdio: "ignore",
+        });
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
   }
 
   private toRelativeSourcePath(file: string): string {
