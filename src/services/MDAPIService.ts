@@ -31,6 +31,11 @@ export class MDAPIService extends BaseService {
       await this.initializeDirectories();
 
       const runTests: string[] = [];
+      if (this.config.manifest) {
+        await this.processManifestMetadata(excludeList, runTests);
+        return runTests;
+      }
+
       await this.processDeletedMetadata(excludeList);
       await this.processModifiedMetadata(excludeList, runTests);
 
@@ -40,6 +45,73 @@ export class MDAPIService extends BaseService {
       this.logError("MDAPI conversion failed", error);
       throw error;
     }
+  }
+
+  private async processManifestMetadata(
+    excludeList: string[],
+    runTests: string[],
+  ): Promise<void> {
+    const manifestPath = path.resolve(this.config.manifest as string);
+    const manifestContent = await fs.promises.readFile(manifestPath, "utf8");
+    const { metadataTypes, apiVersion } =
+      this.xmlHelper.parseManifestXml(manifestContent);
+    const metadataMap = new Map(
+      metadataTypes.map((metadataType) => [metadataType.name, metadataType]),
+    );
+
+    const sourceFiles = await this.getFilesRecursively(this.normalizedSource);
+    const copiedFiles = new Set<string>();
+    const missingMembers: string[] = [];
+    const excludedTypes: string[] = [];
+
+    for (const metadataType of metadataTypes) {
+      if (excludeList?.includes(metadataType.name)) {
+        excludedTypes.push(metadataType.name);
+        continue;
+      }
+
+      for (const member of metadataType.members) {
+        const matches = sourceFiles.filter((file) => {
+          const type = this.getMetadataType(file);
+          const memberName = this.getMemberName(file);
+          return type === metadataType.name && memberName === member;
+        });
+
+        if (!matches.length) {
+          missingMembers.push(`${metadataType.name}:${member}`);
+          continue;
+        }
+
+        for (const file of matches) {
+          await this.copyFileWithMetadata(file);
+          copiedFiles.add(file);
+
+          if (metadataType.name === "ApexClass" && (await this.isTestClass(file))) {
+            runTests.push(path.basename(file, ".cls"));
+          }
+        }
+      }
+    }
+
+    if (missingMembers.length) {
+      throw new Error(
+        `Manifest members not found in source: ${missingMembers.join(", ")}`,
+      );
+    }
+
+    if (copiedFiles.size === 0) {
+      throw new Error("Manifest resolved to zero deployable metadata.");
+    }
+
+    const filteredTypes = [...metadataMap.values()]
+      .filter((metadataType) => !excludeList?.includes(metadataType.name))
+      .map((metadataType) => ({
+        ...metadataType,
+        members: [...metadataType.members],
+      }));
+
+    await this.generatePackageXml(filteredTypes, apiVersion);
+    this.logExcludedComponents(excludedTypes);
   }
 
   private async initializeDirectories(): Promise<void> {
@@ -403,8 +475,11 @@ export class MDAPIService extends BaseService {
     }
   }
 
-  private async generatePackageXml(types: MetadataType[]): Promise<void> {
-    const packageXml = this.xmlHelper.createPackageXml(types);
+  private async generatePackageXml(
+    types: MetadataType[],
+    apiVersion?: string,
+  ): Promise<void> {
+    const packageXml = this.xmlHelper.createPackageXml(types, apiVersion);
     await fs.promises.writeFile(
       path.join(this.config.cliOuputFolder, "package.xml"),
       packageXml,
@@ -550,5 +625,21 @@ export class MDAPIService extends BaseService {
 
   private normalizeRepoPath(value: string): string {
     return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
+  }
+
+  private async getFilesRecursively(directory: string): Promise<string[]> {
+    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    const files: string[] = [];
+
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await this.getFilesRecursively(fullPath)));
+      } else {
+        files.push(this.normalizeRepoPath(fullPath));
+      }
+    }
+
+    return files;
   }
 }

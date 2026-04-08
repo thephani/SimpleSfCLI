@@ -48,6 +48,7 @@ describe('MDAPIService', () => {
 			writeFile: jest.fn().mockResolvedValue(undefined),
 			readFile: jest.fn().mockResolvedValue('class content'),
 			copyFile: jest.fn().mockResolvedValue(undefined),
+			readdir: jest.fn().mockResolvedValue([]),
 		};
 
 		// Mock existsSync
@@ -59,6 +60,10 @@ describe('MDAPIService', () => {
 		// Mock XmlHelper methods
 		(XmlHelper.prototype.createPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
 		(XmlHelper.prototype.createEmptyPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
+		(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+			metadataTypes: [],
+			apiVersion: '58.0',
+		});
 	});
 
 	afterAll(() => {
@@ -251,6 +256,45 @@ describe('MDAPIService', () => {
 				objectFile,
 				path.join(mockConfig.cliOuputFolder, 'objects', 'Account.object'),
 			);
+		});
+	});
+
+	describe('manifest mode', () => {
+		it('should parse manifest and generate package.xml from manifest metadata', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['TestClass'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest\nclass TestClass {}');
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'classes', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'TestClass.cls', isDirectory: () => false }]);
+
+			await service.convertToMDAPI([]);
+
+			expect(XmlHelper.prototype.parseManifestXml).toHaveBeenCalled();
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith(
+				[{ name: 'ApexClass', members: ['TestClass'] }],
+				'62.0',
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/classes/TestClass.cls',
+				path.join(manifestConfig.cliOuputFolder, 'classes/TestClass.cls'),
+			);
+		});
+
+		it('should throw when manifest member is missing', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['MissingClass'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock).mockResolvedValue([]);
+
+			await expect(service.convertToMDAPI([])).rejects.toThrow('Manifest members not found in source');
 		});
 	});
 
