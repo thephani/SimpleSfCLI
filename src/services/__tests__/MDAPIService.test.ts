@@ -284,12 +284,14 @@ describe('MDAPIService', () => {
 		});
 
 		it('should return grouped and filtered files', async () => {
-			const mockChangedFiles = [
-				'force-app/main/default/classes/TestClass.cls',
-				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
-			].join('\n');
-
-			(execSync as jest.Mock).mockReturnValueOnce(mockChangedFiles);
+			(execSync as jest.Mock)
+				.mockReturnValueOnce([
+					'force-app/main/default/classes/TestClass.cls',
+					'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
+				].join('\n'))
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
 
 			const result = await (service as any).getGitFiles('AM');
 
@@ -297,8 +299,24 @@ describe('MDAPIService', () => {
 				'force-app/main/default/classes/TestClass.cls',
 				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
 			]);
-			expect(execSync).toHaveBeenCalledWith(
+			expect(execSync).toHaveBeenNthCalledWith(
+				1,
 				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				2,
+				'git diff --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				3,
+				'git diff --cached --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				4,
+				'git ls-files --others --exclude-standard',
 				{ encoding: 'utf8' },
 			);
 		});
@@ -321,15 +339,20 @@ describe('MDAPIService', () => {
 				targetBranch: 'feature/my-branch',
 			});
 
-			(execSync as jest.Mock).mockReturnValueOnce([
-				'packages/core/main/default/classes/TestClass.cls',
-				'force-app/main/default/classes/IgnoreMe.cls',
-			].join('\n'));
+			(execSync as jest.Mock)
+				.mockReturnValueOnce([
+					'packages/core/main/default/classes/TestClass.cls',
+					'force-app/main/default/classes/IgnoreMe.cls',
+				].join('\n'))
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
 
 			const result = await (customSourceService as any).getGitFiles('AM');
 
 			expect(result).toEqual(['packages/core/main/default/classes/TestClass.cls']);
-			expect(execSync).toHaveBeenCalledWith(
+			expect(execSync).toHaveBeenNthCalledWith(
+				1,
 				'git diff --diff-filter=AM --name-only origin/develop...feature/my-branch',
 				{ encoding: 'utf8' },
 			);
@@ -341,16 +364,36 @@ describe('MDAPIService', () => {
 				source: './force-app/main/default/',
 			});
 
-			(execSync as jest.Mock).mockReturnValueOnce([
-				'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
-				'force-app/main/default/classes/TestClass.cls',
-			].join('\n'));
+			(execSync as jest.Mock)
+				.mockReturnValueOnce([
+					'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
+					'force-app/main/default/classes/TestClass.cls',
+				].join('\n'))
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
 
 			const result = await (customSourceService as any).getGitFiles('AM');
 
 			expect(result).toEqual([
 				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
 				'force-app/main/default/classes/TestClass.cls',
+			]);
+		});
+
+		it('should include uncommitted and untracked custom field changes', async () => {
+			(execSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml\n')
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml\n')
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Session_Start__c.field-meta.xml\n');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual([
+				'force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml',
+				'force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml',
+				'force-app/main/default/objects/Opportunity/fields/Session_Start__c.field-meta.xml',
 			]);
 		});
 	});
@@ -396,5 +439,28 @@ describe('MDAPIService', () => {
 		});
 
 
+	});
+
+	describe('field package reconciliation', () => {
+		it('should package generated field object deltas as CustomObject members', () => {
+			const metadataTypes = [
+				{ name: 'CustomField', members: ['Opportunity.Publish_Date__c', 'Opportunity.Session_Start__c'] },
+				{ name: 'ApexClass', members: ['TestClass'] },
+			];
+
+			(service as any).reconcileFieldMetadataWithGeneratedObjects(
+				{
+					Opportunity: {
+						fields: ['Publish_Date__c', 'Session_Start__c'],
+					},
+				},
+				metadataTypes,
+			);
+
+			expect(metadataTypes).toEqual([
+				{ name: 'ApexClass', members: ['TestClass'] },
+				{ name: 'CustomObject', members: ['Opportunity'] },
+			]);
+		});
 	});
 });

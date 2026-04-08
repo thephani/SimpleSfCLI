@@ -112,6 +112,8 @@ export class MDAPIService extends BaseService {
         runTests,
       );
 
+    this.reconcileFieldMetadataWithGeneratedObjects(fieldData, metadataTypes);
+
     if (!metadataTypes.length) {
       throw new Error(
         `No supported metadata found. Supported types: ${Object.values(METADATA_TYPES)}`,
@@ -125,15 +127,31 @@ export class MDAPIService extends BaseService {
   private async getGitFiles(filter: string): Promise<string[]> {
     try {
       const diffRange = `${this.config.baseBranch}...${this.config.targetBranch}`;
-      return execSync(
+      const files = new Set<string>();
+
+      this.collectFilesFromGitCommand(
         `git diff --diff-filter=${filter} --name-only ${diffRange}`,
-        { encoding: "utf8" },
-      )
-        .split("\n")
-        .map((file) => this.normalizeRepoPath(file))
-        .filter(
-          (file) => file.startsWith(`${this.normalizedSource}/`) && file.trim(),
+        files,
+      );
+      this.collectFilesFromGitCommand(
+        `git diff --diff-filter=${filter} --name-only`,
+        files,
+      );
+      this.collectFilesFromGitCommand(
+        `git diff --cached --diff-filter=${filter} --name-only`,
+        files,
+      );
+
+      if (filter.includes("A")) {
+        this.collectFilesFromGitCommand(
+          "git ls-files --others --exclude-standard",
+          files,
         );
+      }
+
+      return [...files].filter(
+        (file) => file.startsWith(`${this.normalizedSource}/`) && file.trim(),
+      );
     } catch (error) {
       this.logError(`Failed to get git files with filter ${filter}`, error);
       return [];
@@ -343,6 +361,39 @@ export class MDAPIService extends BaseService {
     }
   }
 
+  private reconcileFieldMetadataWithGeneratedObjects(
+    fieldData: GroupedData,
+    types: MetadataType[],
+  ): void {
+    const objectNames = Object.keys(fieldData);
+    if (!objectNames.length) {
+      return;
+    }
+
+    const customFieldType = types.find((type) => type.name === "CustomField");
+    if (customFieldType) {
+      const generatedFieldMembers = new Set(
+        objectNames.flatMap((objectName) =>
+          fieldData[objectName].fields.map((field) => `${objectName}.${field}`),
+        ),
+      );
+
+      customFieldType.members = customFieldType.members.filter(
+        (member) => !generatedFieldMembers.has(member),
+      );
+    }
+
+    objectNames.forEach((objectName) => {
+      this.addMember("CustomObject", objectName, types);
+    });
+
+    for (let index = types.length - 1; index >= 0; index -= 1) {
+      if (types[index].members.length === 0) {
+        types.splice(index, 1);
+      }
+    }
+  }
+
   private async isTestClass(file: string): Promise<boolean> {
     try {
       const content = await fs.promises.readFile(file, "utf8");
@@ -379,6 +430,19 @@ export class MDAPIService extends BaseService {
     console.error(`❌ ${message}: ${errorMessage}`);
     if (error instanceof Error && error.stack) {
       console.debug("Stack trace:", error.stack);
+    }
+  }
+
+  private collectFilesFromGitCommand(command: string, files: Set<string>): void {
+    try {
+      const output = execSync(command, { encoding: "utf8" });
+      output
+        .split("\n")
+        .map((file) => this.normalizeRepoPath(file))
+        .filter(Boolean)
+        .forEach((file) => files.add(file));
+    } catch (error) {
+      this.logError(`Failed to collect files from command: ${command}`, error);
     }
   }
 
