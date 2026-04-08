@@ -463,12 +463,12 @@ export class MDAPIService extends BaseService {
       const currentBranch = this.normalizeGitRef(
         execSync("git branch --show-current", { encoding: "utf8" }),
       );
-      const defaultBranch = this.normalizeGitRef(
-        execSync("git remote show origin | sed -n '/HEAD branch/s/.*: //p'", {
+      const originHeadRef = this.normalizeGitRef(
+        execSync("git symbolic-ref refs/remotes/origin/HEAD", {
           encoding: "utf8",
-          shell: "/bin/zsh",
         }),
       );
+      const defaultBranch = originHeadRef.split("/").pop() ?? "";
 
       if (!currentBranch || !defaultBranch || currentBranch === defaultBranch) {
         return null;

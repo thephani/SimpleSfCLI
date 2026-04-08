@@ -286,7 +286,7 @@ describe('MDAPIService', () => {
 		it('should return grouped and filtered files', async () => {
 			(execSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
-				.mockReturnValueOnce('main\n')
+				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce([
 					'force-app/main/default/classes/TestClass.cls',
 					'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
@@ -308,8 +308,8 @@ describe('MDAPIService', () => {
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				2,
-				"git remote show origin | sed -n '/HEAD branch/s/.*: //p'",
-				{ encoding: 'utf8', shell: '/bin/zsh' },
+				'git symbolic-ref refs/remotes/origin/HEAD',
+				{ encoding: 'utf8' },
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				3,
@@ -328,21 +328,6 @@ describe('MDAPIService', () => {
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				6,
-				'git ls-files --others --exclude-standard',
-				{ encoding: 'utf8' },
-			);
-			expect(execSync).toHaveBeenNthCalledWith(
-				2,
-				'git diff --diff-filter=AM --name-only',
-				{ encoding: 'utf8' },
-			);
-			expect(execSync).toHaveBeenNthCalledWith(
-				3,
-				'git diff --cached --diff-filter=AM --name-only',
-				{ encoding: 'utf8' },
-			);
-			expect(execSync).toHaveBeenNthCalledWith(
-				4,
 				'git ls-files --others --exclude-standard',
 				{ encoding: 'utf8' },
 			);
@@ -393,7 +378,7 @@ describe('MDAPIService', () => {
 
 			(execSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
-				.mockReturnValueOnce('main\n')
+				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce([
 					'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
 					'force-app/main/default/classes/TestClass.cls',
@@ -413,7 +398,7 @@ describe('MDAPIService', () => {
 		it('should include uncommitted and untracked custom field changes', async () => {
 			(execSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
-				.mockReturnValueOnce('main\n')
+				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml\n')
 				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml\n')

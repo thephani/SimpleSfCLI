@@ -16,6 +16,7 @@
 
 - [Overview](#overview)
 - [Features](#features)
+- [What's New](#whats-new)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -74,6 +75,23 @@ The tool supports extensive Salesforce metadata types including but not limited 
 - And 50+ more metadata types
 
 See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_tab.htm) for full details.
+
+---
+
+## What's New
+
+### 2.7.1 - 2026-04-07
+
+- Added release documentation for the metadata delta and package-generation fixes shipped today.
+- Clarified PR-style delta comparison behavior in the release log.
+
+### 2.7.0 - 2026-04-07
+
+- Fixed custom field detection for normalized source paths and local working tree changes.
+- Improved delta collection so PR deployments can include unstaged, staged, and untracked metadata.
+- Corrected `package.xml` generation for field-driven object payloads and removed empty metadata sections.
+
+Full release notes: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -832,17 +850,7 @@ SOFTWARE.
 
 ## Changelog
 
-### Version 2.5.1
-- Bug fixes and performance improvements
-- Enhanced error handling
-- Improved test coverage
-
-### Version 2.5.0
-- Quick deploy feature
-- Delta deployment support
-- Enhanced logging
-
-For a complete changelog, see [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the `2.7.0` and `2.7.1` changes logged on 2026-04-07.
 
 ---
 
