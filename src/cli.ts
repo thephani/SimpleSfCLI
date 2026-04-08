@@ -5,6 +5,7 @@ import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
 import type { CommandArgsConfig } from './types/config.type.js';
 import type { DeployOptions } from './types/deployment.type.js';
+import type { RetrieveCommandOptions } from './types/retrieve.type.js';
 
 class CLI {
 	private program: Command;
@@ -41,6 +42,7 @@ class CLI {
 	private setupCommands(): void {
 		this.setupQuickDeployCommand();
 		this.setupDeployCommand();
+		this.setupRetrieveCommand();
 	}
 
 	private setupQuickDeployCommand(): void {
@@ -57,6 +59,39 @@ class CLI {
 					console.log('Quick deployment completed:', result);
 				} catch (error) {
 					this.handleError('Quick deployment failed', error);
+				}
+			});
+	}
+
+
+	private setupRetrieveCommand(): void {
+		this.program
+			.command('retrieve')
+			.description('Retrieve metadata package from Salesforce')
+			.option('-m, --manifest <manifestPath>', 'Path to package.xml manifest')
+			.option('-f, --metadata <metadataFilter>', 'Inline metadata filter (ex: ApexClass:MyClass,OtherClass;CustomObject:*)')
+			.option('-o, --outputDir <outputDir>', 'Directory where retrieved metadata is extracted', '.simpleSfCli_retrieve')
+			.option('-l, --targetLayout <targetLayout>', 'Conversion target layout (currently mdapi only)', 'mdapi')
+			.action(async (cmdOptions) => {
+				try {
+					if (!cmdOptions.manifest && !cmdOptions.metadata) {
+						throw new Error('Provide either --manifest or --metadata');
+					}
+
+					const updatedConfig = this.getUpdatedConfig(this.program.opts());
+					const client = new SalesforceClient(updatedConfig);
+					const retrieveOptions: RetrieveCommandOptions = {
+						manifestPath: cmdOptions.manifest,
+						metadataFilter: cmdOptions.metadata,
+						outputDir: cmdOptions.outputDir,
+						targetLayout: cmdOptions.targetLayout,
+					};
+
+					console.log('Initiating retrieve...');
+					const result = await client.retrieve(retrieveOptions);
+					console.log('Retrieve completed:', result);
+				} catch (error) {
+					this.handleError('Retrieve failed', error);
 				}
 			});
 	}
