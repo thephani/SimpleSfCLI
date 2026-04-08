@@ -126,7 +126,7 @@ export class MDAPIService extends BaseService {
 
   private async getGitFiles(filter: string): Promise<string[]> {
     try {
-      const diffRange = `${this.config.baseBranch}...${this.config.targetBranch}`;
+      const diffRange = this.getDiffRange();
       const files = new Set<string>();
 
       this.collectFilesFromGitCommand(
@@ -444,6 +444,45 @@ export class MDAPIService extends BaseService {
     } catch (error) {
       this.logError(`Failed to collect files from command: ${command}`, error);
     }
+  }
+
+  private getDiffRange(): string {
+    const targetBranch = this.normalizeGitRef(this.config.targetBranch);
+    const configuredBase = this.normalizeGitRef(this.config.baseBranch);
+
+    if (configuredBase && configuredBase !== "HEAD~1") {
+      return `${configuredBase}...${targetBranch}`;
+    }
+
+    const prBase = this.detectPullRequestBaseBranch();
+    return `${prBase ?? "HEAD~1"}...${targetBranch}`;
+  }
+
+  private detectPullRequestBaseBranch(): string | null {
+    try {
+      const currentBranch = this.normalizeGitRef(
+        execSync("git branch --show-current", { encoding: "utf8" }),
+      );
+      const defaultBranch = this.normalizeGitRef(
+        execSync("git remote show origin | sed -n '/HEAD branch/s/.*: //p'", {
+          encoding: "utf8",
+          shell: "/bin/zsh",
+        }),
+      );
+
+      if (!currentBranch || !defaultBranch || currentBranch === defaultBranch) {
+        return null;
+      }
+
+      return `origin/${defaultBranch}`;
+    } catch (error) {
+      this.logError("Failed to detect PR base branch", error);
+      return null;
+    }
+  }
+
+  private normalizeGitRef(value: string): string {
+    return value.trim();
   }
 
   private toRelativeSourcePath(file: string): string {
