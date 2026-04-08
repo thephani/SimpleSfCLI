@@ -36,7 +36,9 @@ export class XmlHelper {
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
 			// Sort metadata types for consistency
-			const sortedTypes = [...metadataTypes].sort((a, b) => a.name.localeCompare(b.name));
+			const sortedTypes = metadataTypes
+				.filter(({ members }) => members.length > 0)
+				.sort((a, b) => a.name.localeCompare(b.name));
 
 			sortedTypes.forEach(({ name, members }) => {
 				// console.log(`Processing metadata type: ${name} with ${members.length} members ${members}`);

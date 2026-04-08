@@ -65,6 +65,17 @@ describe('XmlHelper', () => {
 			expect(result).toContain('<version>58.0</version>');
 			expect(result).not.toContain('<types>');
 		});
+
+		it('should skip metadata types with no members', () => {
+			const result = xmlHelper.createPackageXml([
+				{ name: 'CustomField', members: [] },
+				{ name: 'CustomObject', members: ['Opportunity'] },
+			]);
+
+			expect(result).toContain('<members>Opportunity</members>');
+			expect(result).toContain('<name>CustomObject</name>');
+			expect(result).not.toContain('<name>CustomField</name>');
+		});
 	});
 
 	describe('generatePackageMember', () => {
