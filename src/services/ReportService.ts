@@ -52,29 +52,34 @@ export class ReportService {
 	}
 
 	generateJUnitReport(report: DeploymentReport): string {
-		const testCases = report.testFailures
-			.map(
-				(failure) =>
-					`    <testcase classname="${this.escapeXml(failure.name)}" name="${this.escapeXml(failure.methodName)}">\n` +
-					`      <failure message="${this.escapeXml(failure.message)}">${this.escapeXml(failure.stackTrace)}</failure>\n` +
-					'    </testcase>'
-			)
-			.join('\n');
+		const failedTestCases = report.testFailures.map(
+			(failure) =>
+				`    <testcase classname="${this.escapeXml(failure.name)}" name="${this.escapeXml(failure.methodName)}">\n` +
+				`      <failure message="${this.escapeXml(failure.message)}">${this.escapeXml(failure.stackTrace)}</failure>\n` +
+				'    </testcase>'
+		);
 
-		const componentCases = report.componentFailures
-			.map(
-				(failure) =>
-					`    <testcase classname="${this.escapeXml(failure.componentType)}" name="${this.escapeXml(failure.fullName)}">\n` +
-					`      <failure message="${this.escapeXml(failure.problemType)}">${this.escapeXml(failure.problem)}</failure>\n` +
-					'    </testcase>'
-			)
-			.join('\n');
+		const passedTestCount = Math.max(report.summary.tests.total - report.testFailures.length, 0);
+		const passedTestCases = Array.from({ length: passedTestCount }, (_, index) => `    <testcase classname="ApexTests" name="passed-${index + 1}" />`);
 
-		const failureCases = [testCases, componentCases].filter(Boolean).join('\n');
+		const componentFailureCases = report.componentFailures.map(
+			(failure) =>
+				`    <testcase classname="${this.escapeXml(failure.componentType)}" name="${this.escapeXml(failure.fullName)}">\n` +
+				`      <failure message="${this.escapeXml(failure.problemType)}">${this.escapeXml(failure.problem)}</failure>\n` +
+				'    </testcase>'
+		);
+
+		const testSuiteCases = [...failedTestCases, ...passedTestCases].join('\n');
+		const componentSuiteCases = componentFailureCases.join('\n');
 		const totalFailures = report.testFailures.length + report.componentFailures.length;
-		const totalTests = Math.max(report.summary.tests.total, totalFailures, 1);
 
-		return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="Salesforce Deployment ${this.escapeXml(report.summary.deploymentId)}" tests="${totalTests}" failures="${totalFailures}">\n${failureCases}\n</testsuite>\n`;
+		return (
+			`<?xml version="1.0" encoding="UTF-8"?>\n` +
+			`<testsuites name="Salesforce Deployment ${this.escapeXml(report.summary.deploymentId)}" tests="${report.summary.tests.total + report.componentFailures.length}" failures="${totalFailures}">\n` +
+			`  <testsuite name="Apex Tests" tests="${report.summary.tests.total}" failures="${report.testFailures.length}">\n${testSuiteCases}\n  </testsuite>\n` +
+			`  <testsuite name="Component Failures" tests="${report.componentFailures.length}" failures="${report.componentFailures.length}">\n${componentSuiteCases}\n  </testsuite>\n` +
+			'</testsuites>\n'
+		);
 	}
 
 	private printSummary(summary: DeploymentSummary, outputFiles: string[]): void {

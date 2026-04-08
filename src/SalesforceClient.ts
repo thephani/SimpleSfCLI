@@ -95,18 +95,23 @@ export class SalesforceClient {
 	}
 
 	private async generateReport(deployResult: DeployResult): Promise<void> {
-		await this.reportService.writeDeploymentReport(
-			{
-				summary: this.deployService.serializeSummary(deployResult),
-				componentFailures: this.deployService.serializeComponentFailures(deployResult),
-				testFailures: this.deployService.serializeTestFailures(deployResult),
-			},
-			{
-				reportFormat: this.config.reportFormat,
-				reportPath: this.config.reportPath,
-				emitConsoleSummary: true,
-			}
-		);
+		try {
+			await this.reportService.writeDeploymentReport(
+				{
+					summary: this.deployService.serializeSummary(deployResult),
+					componentFailures: this.deployService.serializeComponentFailures(deployResult),
+					testFailures: this.deployService.serializeTestFailures(deployResult),
+				},
+				{
+					reportFormat: this.config.reportFormat,
+					reportPath: this.config.reportPath,
+					emitConsoleSummary: true,
+				}
+			);
+		} catch (error) {
+			const reportError = error instanceof Error ? error.message : error;
+			console.warn('⚠️ Failed to generate deployment report:', reportError);
+		}
 	}
 
 	private fileExists(filePath: string): boolean {

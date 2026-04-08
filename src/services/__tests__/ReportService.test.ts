@@ -91,7 +91,28 @@ describe('ReportService', () => {
 
 		const rawXml = await fs.promises.readFile(xmlPath!, 'utf8');
 		expect(rawXml).toContain('<failure message="Error">Unexpected token</failure>');
-		expect(rawXml).toContain('testsuite');
+		expect(rawXml).toContain('<testsuites name="Salesforce Deployment 0Afxx0000009999"');
+		expect(rawXml).toContain('<testsuite name="Apex Tests" tests="3" failures="1">');
+		expect(rawXml).toContain('<testcase classname="ApexTests" name="passed-1" />');
+	});
+
+	it('creates JUnit testcases for passing tests when there are no failures', () => {
+		const xml = reportService.generateJUnitReport({
+			generatedAt: new Date().toISOString(),
+			summary: {
+				deploymentId: '0Afxx0000007777',
+				status: 'Succeeded',
+				done: true,
+				components: { deployed: 5, total: 5, errors: 0 },
+				tests: { completed: 2, total: 2, errors: 0 },
+			},
+			componentFailures: [],
+			testFailures: [],
+		});
+
+		expect(xml).toContain('<testsuite name="Apex Tests" tests="2" failures="0">');
+		expect(xml).toContain('<testcase classname="ApexTests" name="passed-1" />');
+		expect(xml).toContain('<testcase classname="ApexTests" name="passed-2" />');
 	});
 
 	it('uses DeployService serializers for failed deployment failure sections', () => {
