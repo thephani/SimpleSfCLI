@@ -27,7 +27,8 @@ describe('DeployService', () => {
 		coverageJson: 'coverage.json',
 		runTests: [],
 	};
-    const MOCK_DEPLOY_ID = 'mock-deploy-id';
+    const MOCK_DEPLOY_ID = '0Af123456789012';
+    const INVALID_DEPLOY_ID = 'bad-id';
     const MOCK_ZIP_PATH = './test.zip';
     const MOCK_ZIP_CONTENT = Buffer.from('test-zip-content');
     const MOCK_BASE64_ZIP = MOCK_ZIP_CONTENT.toString('base64');
@@ -208,6 +209,114 @@ describe('DeployService', () => {
             await expect(service.pollDeploymentStatus(MOCK_DEPLOY_ID))
                 .rejects
                 .toThrow('Deployment timed out');
+        });
+    });
+
+    describe('fetchDeploymentStatus', () => {
+        it('should fetch deployment status in one shot', async () => {
+            const mockResponse = {
+                ok: true,
+                json: async () => ({
+                    deployResult: {
+                        id: MOCK_DEPLOY_ID,
+                        status: 'Succeeded',
+                        done: true
+                    }
+                })
+            };
+            jest.spyOn(service as any, 'fetchWithAuth').mockResolvedValueOnce(mockResponse);
+
+            const result = await service.fetchDeploymentStatus(MOCK_DEPLOY_ID);
+            expect(result).toEqual({
+                id: MOCK_DEPLOY_ID,
+                status: 'Succeeded',
+                done: true
+            });
+        });
+
+        it('should reject invalid deployment IDs', async () => {
+            await expect(service.fetchDeploymentStatus(INVALID_DEPLOY_ID))
+                .rejects
+                .toThrow(`Invalid deploy ID: ${INVALID_DEPLOY_ID}`);
+        });
+    });
+
+    describe('cancelDeployment', () => {
+        it('should return deploy result from cancel endpoint', async () => {
+            const cancelResponse = {
+                ok: true,
+                json: async () => ({
+                    deployResult: {
+                        id: MOCK_DEPLOY_ID,
+                        status: 'Canceled',
+                        done: true
+                    }
+                })
+            };
+            jest.spyOn(service as any, 'fetchWithAuth').mockResolvedValueOnce(cancelResponse);
+
+            const result = await service.cancelDeployment(MOCK_DEPLOY_ID);
+            expect(result.status).toBe('Canceled');
+        });
+
+        it('should fallback to status fetch when cancel endpoint has no result', async () => {
+            const fetchWithAuthSpy = jest.spyOn(service as any, 'fetchWithAuth')
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({})
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        deployResult: {
+                            id: MOCK_DEPLOY_ID,
+                            status: 'InProgress',
+                            done: false
+                        }
+                    })
+                });
+
+            const result = await service.cancelDeployment(MOCK_DEPLOY_ID);
+            expect(result.status).toBe('InProgress');
+            expect(fetchWithAuthSpy).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('formatDeployResponse', () => {
+        it('should normalize successful response', () => {
+            const response = service.formatDeployResponse({
+                id: MOCK_DEPLOY_ID,
+                done: true,
+                status: 'Succeeded',
+                numberComponentsDeployed: 10,
+                numberComponentsTotal: 10,
+                numberComponentErrors: 0,
+                numberTestsCompleted: 5,
+                numberTestsTotal: 5,
+                numberTestErrors: 0,
+                details: { componentFailures: [] }
+            });
+
+            expect(response.success).toBe(true);
+            expect(response.errorCount).toBe(0);
+        });
+
+        it('should normalize failed response', () => {
+            const response = service.formatDeployResponse({
+                id: MOCK_DEPLOY_ID,
+                done: true,
+                status: 'Failed',
+                numberComponentsDeployed: 8,
+                numberComponentsTotal: 10,
+                numberComponentErrors: 2,
+                numberTestsCompleted: 3,
+                numberTestsTotal: 5,
+                numberTestErrors: 1,
+                details: { componentFailures: [] }
+            });
+
+            expect(response.success).toBe(false);
+            expect(response.errorCount).toBe(3);
         });
     });
 

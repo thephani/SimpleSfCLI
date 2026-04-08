@@ -1,7 +1,7 @@
 // src/SalesforceClient.ts
 import type { CommandArgsConfig } from './types/config.type.js';
 import { AuthService } from './services/AuthService.js';
-import { DeployService } from './services/DeployService.js';
+import { DeployService, NormalizedDeployResponse } from './services/DeployService.js';
 import { MDAPIService } from './services/MDAPIService.js';
 import { ArchiverService } from './services/ArchiverService.js';
 import { DeployOptions, DeployResult } from 'types/deployment.type.js';
@@ -112,5 +112,19 @@ export class SalesforceClient {
 	async quickDeploy(deploymentId: string): Promise<DeployResult> {
 		await this.authService.authenticate();
 		return this.deployService.quickDeploy(deploymentId);
+	}
+
+	async fetchDeploymentStatus(deploymentId: string): Promise<DeployResult> {
+		await this.authService.authenticate();
+		return this.deployService.fetchDeploymentStatus(deploymentId);
+	}
+
+	async cancelDeployment(deploymentId: string): Promise<DeployResult> {
+		await this.authService.authenticate();
+		return this.deployService.cancelDeployment(deploymentId);
+	}
+
+	formatDeployResponse(result: DeployResult): NormalizedDeployResponse {
+		return this.deployService.formatDeployResponse(result);
 	}
 }
