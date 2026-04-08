@@ -285,6 +285,8 @@ describe('MDAPIService', () => {
 
 		it('should return grouped and filtered files', async () => {
 			(execSync as jest.Mock)
+				.mockReturnValueOnce('bug/fields\n')
+				.mockReturnValueOnce('main\n')
 				.mockReturnValueOnce([
 					'force-app/main/default/classes/TestClass.cls',
 					'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
@@ -301,21 +303,31 @@ describe('MDAPIService', () => {
 			]);
 			expect(execSync).toHaveBeenNthCalledWith(
 				1,
-				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				'git branch --show-current',
 				{ encoding: 'utf8' },
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				2,
-				'git diff --diff-filter=AM --name-only',
-				{ encoding: 'utf8' },
+				"git remote show origin | sed -n '/HEAD branch/s/.*: //p'",
+				{ encoding: 'utf8', shell: '/bin/zsh' },
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				3,
-				'git diff --cached --diff-filter=AM --name-only',
+				'git diff --diff-filter=AM --name-only origin/main...HEAD',
 				{ encoding: 'utf8' },
 			);
 			expect(execSync).toHaveBeenNthCalledWith(
 				4,
+				'git diff --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				5,
+				'git diff --cached --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				6,
 				'git ls-files --others --exclude-standard',
 				{ encoding: 'utf8' },
 			);
@@ -365,6 +377,8 @@ describe('MDAPIService', () => {
 			});
 
 			(execSync as jest.Mock)
+				.mockReturnValueOnce('bug/fields\n')
+				.mockReturnValueOnce('main\n')
 				.mockReturnValueOnce([
 					'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
 					'force-app/main/default/classes/TestClass.cls',
@@ -383,6 +397,8 @@ describe('MDAPIService', () => {
 
 		it('should include uncommitted and untracked custom field changes', async () => {
 			(execSync as jest.Mock)
+				.mockReturnValueOnce('bug/fields\n')
+				.mockReturnValueOnce('main\n')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml\n')
 				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml\n')
@@ -395,6 +411,25 @@ describe('MDAPIService', () => {
 				'force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml',
 				'force-app/main/default/objects/Opportunity/fields/Session_Start__c.field-meta.xml',
 			]);
+		});
+
+		it('should fall back to HEAD~1 when PR base branch cannot be detected', async () => {
+			(execSync as jest.Mock)
+				.mockImplementationOnce(() => {
+					throw new Error('No branch');
+				})
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execSync).toHaveBeenNthCalledWith(
+				2,
+				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				{ encoding: 'utf8' },
+			);
 		});
 	});
 
