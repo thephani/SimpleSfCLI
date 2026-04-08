@@ -331,6 +331,21 @@ describe('MDAPIService', () => {
 				'git ls-files --others --exclude-standard',
 				{ encoding: 'utf8' },
 			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				2,
+				'git diff --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				3,
+				'git diff --cached --diff-filter=AM --name-only',
+				{ encoding: 'utf8' },
+			);
+			expect(execSync).toHaveBeenNthCalledWith(
+				4,
+				'git ls-files --others --exclude-standard',
+				{ encoding: 'utf8' },
+			);
 		});
 
 		it('should handle git command errors', async () => {
