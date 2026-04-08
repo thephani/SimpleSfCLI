@@ -30,7 +30,7 @@ export class XmlHelper {
 	/**
 	 * Generates a package.xml file based on the provided metadata types and their members.
 	 */
-	public createPackageXml(metadataTypes: MetadataType[]): string {
+	public createPackageXml(metadataTypes: MetadataType[], version: string = '58.0'): string {
 		try {
 			// console.log('Creating package.xml with metadata types:', metadataTypes);
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
@@ -53,7 +53,7 @@ export class XmlHelper {
 				types.ele('name', name);
 			});
 
-			packageXml.ele('version', '58.0');
+			packageXml.ele('version', version);
 			return packageXml.end({ pretty: true });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -162,6 +162,62 @@ export class XmlHelper {
 		} catch {
 			return false;
 		}
+	}
+
+	public validateManifestXml(manifestXml: string): void {
+		if (!manifestXml.includes('<Package')) {
+			throw new Error('Invalid manifest: missing Package root element.');
+		}
+
+		const versionMatch = manifestXml.match(/<version>\s*([^<\s]+)\s*<\/version>/);
+		if (!versionMatch?.[1]) {
+			throw new Error('Invalid manifest: missing API version.');
+		}
+
+		const typeSections = manifestXml.match(/<types>[\s\S]*?<\/types>/g) ?? [];
+		if (typeSections.length === 0) {
+			throw new Error('Invalid manifest: at least one <types> block is required.');
+		}
+
+		typeSections.forEach((section) => {
+			const memberMatches = [...section.matchAll(/<members>\s*([^<]+?)\s*<\/members>/g)].map((match) => match[1].trim());
+			const typeName = section.match(/<name>\s*([^<\s]+)\s*<\/name>/)?.[1]?.trim();
+
+			if (!typeName) {
+				throw new Error('Invalid manifest: each <types> block must contain a <name>.');
+			}
+
+			const nonEmptyMembers = memberMatches.filter(Boolean);
+			if (nonEmptyMembers.length === 0) {
+				throw new Error(`Invalid manifest: ${typeName} must include at least one member.`);
+			}
+		});
+	}
+
+	public parseManifestXml(manifestXml: string): { metadataTypes: MetadataType[]; apiVersion: string } {
+		this.validateManifestXml(manifestXml);
+
+		const apiVersion = manifestXml.match(/<version>\s*([^<\s]+)\s*<\/version>/)?.[1]?.trim();
+		if (!apiVersion) {
+			throw new Error('Invalid manifest: missing API version.');
+		}
+
+		const metadataTypes: MetadataType[] = [];
+		const typeSections = manifestXml.match(/<types>[\s\S]*?<\/types>/g) ?? [];
+		typeSections.forEach((section) => {
+			const name = section.match(/<name>\s*([^<\s]+)\s*<\/name>/)?.[1]?.trim();
+			if (!name) {
+				return;
+			}
+
+			const members = [...section.matchAll(/<members>\s*([^<]+?)\s*<\/members>/g)]
+				.map((match) => match[1].trim())
+				.filter(Boolean);
+
+			metadataTypes.push({ name, members });
+		});
+
+		return { metadataTypes, apiVersion };
 	}
 
 	/**
