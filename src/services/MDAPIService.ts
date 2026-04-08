@@ -16,11 +16,13 @@ import { BaseService } from "./BaseService.js";
 export class MDAPIService extends BaseService {
   private xmlHelper: XmlHelper;
   private forceIgnoreHelper: ForceIgnoreHelper;
+  private readonly normalizedSource: string;
 
   constructor(config: CommandArgsConfig) {
     super(config);
-    this.xmlHelper = new XmlHelper(config.cliOuputFolder, config.source);
-    this.forceIgnoreHelper = new ForceIgnoreHelper(config.source);
+    this.normalizedSource = this.normalizeRepoPath(config.source);
+    this.xmlHelper = new XmlHelper(config.cliOuputFolder, this.normalizedSource);
+    this.forceIgnoreHelper = new ForceIgnoreHelper(this.normalizedSource);
   }
 
   async convertToMDAPI(excludeList: string[] = []): Promise<string[]> {
@@ -128,8 +130,9 @@ export class MDAPIService extends BaseService {
         { encoding: "utf8" },
       )
         .split("\n")
+        .map((file) => this.normalizeRepoPath(file))
         .filter(
-          (file) => file.startsWith(`${this.config.source}/`) && file.trim(),
+          (file) => file.startsWith(`${this.normalizedSource}/`) && file.trim(),
         );
     } catch (error) {
       this.logError(`Failed to get git files with filter ${filter}`, error);
@@ -143,7 +146,12 @@ export class MDAPIService extends BaseService {
   } {
     const fieldData: GroupedData = {};
     const otherFiles = files.filter((file) => {
-      const parts = file.split("/");
+      const normalizedFile = this.normalizeRepoPath(file);
+      if (!normalizedFile.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
+        return true;
+      }
+
+      const parts = normalizedFile.split("/");
       const objectIndex = parts.indexOf("objects") + 1;
       const fieldIndex = parts.indexOf("fields") + 1;
 
@@ -168,9 +176,10 @@ export class MDAPIService extends BaseService {
   }
 
   private async copyFileWithMetadata(file: string): Promise<void> {
-    const relativePath = path.relative(this.config.source, file);
+    const relativePath = this.toRelativeSourcePath(file);
 
     if (this.shouldIgnoreFile(relativePath)) {
+      console.log(`⏭️  Skipping ignored file: ${file}`);
       return;
     }
 
@@ -259,8 +268,14 @@ export class MDAPIService extends BaseService {
   ): Promise<void> {
     for (const file of files) {
       const type = this.getMetadataType(file);
-      if (!type || excludeList?.includes(type)) {
-        if (type && !excluded.includes(type)) {
+      if (!type) {
+        console.log(`⏭️  Skipping unsupported or ignored metadata: ${file}`);
+        continue;
+      }
+
+      if (excludeList?.includes(type)) {
+        console.log(`⏭️  Skipping excluded metadata type ${type}: ${file}`);
+        if (!excluded.includes(type)) {
           excluded.push(type);
         }
         continue;
@@ -278,7 +293,7 @@ export class MDAPIService extends BaseService {
   }
 
   private getMetadataType(file: string): string | null {
-    const relativePath = path.relative(this.config.source, file);
+    const relativePath = this.toRelativeSourcePath(file);
 
     if (this.shouldIgnoreFile(relativePath)) {
       return null;
@@ -365,5 +380,18 @@ export class MDAPIService extends BaseService {
     if (error instanceof Error && error.stack) {
       console.debug("Stack trace:", error.stack);
     }
+  }
+
+  private toRelativeSourcePath(file: string): string {
+    const normalizedFile = this.normalizeRepoPath(file);
+    const sourcePrefix = `${this.normalizedSource}/`;
+
+    return normalizedFile.startsWith(sourcePrefix)
+      ? normalizedFile.slice(sourcePrefix.length)
+      : normalizedFile;
+  }
+
+  private normalizeRepoPath(value: string): string {
+    return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
   }
 }
