@@ -6,6 +6,7 @@ export interface RetrieveCommandOptions {
 }
 
 export interface RetrieveRequestPayload {
+  apiVersion: string;
   singlePackage: boolean;
   unpackaged?: string | RetrieveUnpackaged;
 }

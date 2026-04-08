@@ -29,7 +29,6 @@ export class RetrieveService extends BaseService {
 
     while (attempt < maxAttempts) {
       const status = await this.getRetrieveStatus(retrieveId);
-
       if (status.done) {
         return status;
       }
@@ -52,6 +51,7 @@ export class RetrieveService extends BaseService {
 
   private buildRetrievePayload(options: RetrieveCommandOptions): RetrieveRequestPayload {
     const payload: RetrieveRequestPayload = {
+      apiVersion: this.config.sfVersion.replace(/^v/i, ''),
       singlePackage: true,
     };
 
@@ -75,11 +75,17 @@ export class RetrieveService extends BaseService {
           throw new Error(`Invalid metadata filter entry: ${entry}`);
         }
 
-        return {
-          name,
-          members: membersRaw.split(',').map((member) => member.trim()).filter(Boolean),
-        };
+        const members = membersRaw.split(',').map((member) => member.trim()).filter(Boolean);
+        if (!members.length) {
+          throw new Error(`Invalid metadata members for type: ${name}`);
+        }
+
+        return { name, members };
       });
+
+    if (!types.length) {
+      throw new Error('Metadata filter is empty');
+    }
 
     return {
       types,

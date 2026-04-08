@@ -86,4 +86,14 @@ describe('ArchiverService', () => {
 		expect(extractSpy).toHaveBeenCalledWith('/tmp/retrieve/retrieve.zip', './retrieve-out');
 		expect(fs.promises.rm).toHaveBeenCalledWith('/tmp/retrieve', { recursive: true, force: true });
 	});
+
+	it('cleans up temporary files when extraction fails', async () => {
+		jest.spyOn(service, 'extractZipFile').mockRejectedValue(new Error('extract failed'));
+
+		await expect(
+			service.extractBase64Zip(Buffer.from('zip-content').toString('base64'), './retrieve-out')
+		).rejects.toThrow('extract failed');
+		expect(fs.promises.rm).toHaveBeenCalledWith('/tmp/retrieve', { recursive: true, force: true });
+	});
+
 });

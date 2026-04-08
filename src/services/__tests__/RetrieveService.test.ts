@@ -55,6 +55,7 @@ describe('RetrieveService', () => {
           'Content-Type': 'application/json',
         }),
         body: JSON.stringify({
+          apiVersion: '60.0',
           singlePackage: true,
           unpackaged: '<Package />',
         }),
@@ -75,6 +76,7 @@ describe('RetrieveService', () => {
 
     const fetchBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
     expect(fetchBody).toEqual({
+      apiVersion: '60.0',
       singlePackage: true,
       unpackaged: {
         types: [
@@ -111,5 +113,12 @@ describe('RetrieveService', () => {
     });
     expect((service as any).fetchWithAuth).toHaveBeenCalledTimes(2);
     expect((service as any).wait).toHaveBeenCalledTimes(1);
+  });
+
+
+  it('throws for invalid metadata filter entries', async () => {
+    await expect(
+      service.initiateRetrieve({ metadataFilter: 'ApexClass', outputDir: './out' })
+    ).rejects.toThrow('Invalid metadata filter entry: ApexClass');
   });
 });

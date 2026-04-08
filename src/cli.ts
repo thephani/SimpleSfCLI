@@ -69,20 +69,20 @@ class CLI {
 			.command('retrieve')
 			.description('Retrieve metadata package from Salesforce')
 			.option('-m, --manifest <manifestPath>', 'Path to package.xml manifest')
-			.option('-f, --metadataFilter <metadataFilter>', 'Inline metadata filter (ex: ApexClass:MyClass,OtherClass;CustomObject:*)')
+			.option('-f, --metadata <metadataFilter>', 'Inline metadata filter (ex: ApexClass:MyClass,OtherClass;CustomObject:*)')
 			.option('-o, --outputDir <outputDir>', 'Directory where retrieved metadata is extracted', '.simpleSfCli_retrieve')
 			.option('-l, --targetLayout <targetLayout>', 'Conversion target layout (currently mdapi only)', 'mdapi')
 			.action(async (cmdOptions) => {
 				try {
-					if (!cmdOptions.manifest && !cmdOptions.metadataFilter) {
-						throw new Error('Provide either --manifest or --metadataFilter');
+					if (!cmdOptions.manifest && !cmdOptions.metadata) {
+						throw new Error('Provide either --manifest or --metadata');
 					}
 
 					const updatedConfig = this.getUpdatedConfig(this.program.opts());
 					const client = new SalesforceClient(updatedConfig);
 					const retrieveOptions: RetrieveCommandOptions = {
 						manifestPath: cmdOptions.manifest,
-						metadataFilter: cmdOptions.metadataFilter,
+						metadataFilter: cmdOptions.metadata,
 						outputDir: cmdOptions.outputDir,
 						targetLayout: cmdOptions.targetLayout,
 					};

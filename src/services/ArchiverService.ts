@@ -41,8 +41,11 @@ export class ArchiverService extends BaseService {
         const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'simplesfcli-retrieve-'));
         const zipFilePath = path.join(tmpDir, 'retrieve.zip');
 
-        await fs.promises.writeFile(zipFilePath, Buffer.from(base64Zip, 'base64'));
-        await this.extractZipFile(zipFilePath, outputDir);
-        await fs.promises.rm(tmpDir, { recursive: true, force: true });
+        try {
+            await fs.promises.writeFile(zipFilePath, Buffer.from(base64Zip, 'base64'));
+            await this.extractZipFile(zipFilePath, outputDir);
+        } finally {
+            await fs.promises.rm(tmpDir, { recursive: true, force: true });
+        }
     }
 }
