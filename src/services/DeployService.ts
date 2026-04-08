@@ -2,6 +2,20 @@ import fs from 'fs';
 import { BaseService } from './BaseService.js';
 import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
 
+const DEPLOY_ID_PATTERN = /^0Af[A-Za-z0-9]{12,15}$/;
+
+export interface NormalizedDeployResponse {
+  id: string;
+  done: boolean;
+  status: DeployResult['status'];
+  success: boolean;
+  canceled: boolean;
+  errorCount: number;
+  testErrorCount: number;
+  componentErrorCount: number;
+  summary: string;
+}
+
 export class DeployService extends BaseService {
   async quickDeploy(deploymentId: string): Promise<DeployResult> {
     try {
@@ -53,7 +67,7 @@ export class DeployService extends BaseService {
     const maxAttempts = 120;
 
     while (attempt < maxAttempts) {
-      const status = await this.getDeploymentStatus(deployId);
+      const status = await this.fetchDeploymentStatus(deployId);
       // console.table(status.details.componentFailures);
       if (status.numberComponentsDeployed === 0) console.log('Pending Deployment. ');
       
@@ -87,10 +101,48 @@ export class DeployService extends BaseService {
     throw new Error('Deployment timed out');
   }
 
-  private async getDeploymentStatus(deployId: string): Promise<DeployResult> {
+  async fetchDeploymentStatus(deployId: string): Promise<DeployResult> {
+    this.validateDeployId(deployId);
     const response = await this.fetchWithAuth(`${this.config.instanceUrl}/services/data/${this.config.sfVersion}/metadata/deployRequest/${deployId}?includeDetails=true`, { method: 'GET' });
     const data = (await response.json()) as { deployResult: DeployResult };
     return data.deployResult;
+  }
+
+  async cancelDeployment(deployId: string): Promise<DeployResult> {
+    this.validateDeployId(deployId);
+    const response = await this.fetchWithAuth(`${this.config.instanceUrl}/services/data/${this.config.sfVersion}/metadata/deployRequest/${deployId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancelDeploy: true }),
+    });
+    const data = (await response.json()) as { deployResult?: DeployResult };
+
+    if (data.deployResult) {
+      return data.deployResult;
+    }
+
+    return this.fetchDeploymentStatus(deployId);
+  }
+
+  formatDeployResponse(result: DeployResult): NormalizedDeployResponse {
+    const componentErrorCount = result.numberComponentErrors ?? 0;
+    const testErrorCount = result.numberTestErrors ?? 0;
+    const errorCount = componentErrorCount + testErrorCount;
+    const canceled = result.status === 'Canceled';
+    const success = (result.status === 'Succeeded' || result.status === 'SucceededPartial') && !canceled;
+    const summary = `${result.status} | components ${result.numberComponentsDeployed}/${result.numberComponentsTotal} | tests ${result.numberTestsCompleted}/${result.numberTestsTotal} | errors ${errorCount}`;
+
+    return {
+      id: result.id,
+      done: result.done,
+      status: result.status,
+      success,
+      canceled,
+      errorCount,
+      testErrorCount,
+      componentErrorCount,
+      summary,
+    };
   }
 
   private async createDeployRequest(zipPath: string, options: Partial<DeployOptions>): Promise<string> {
@@ -130,5 +182,11 @@ export class DeployService extends BaseService {
 
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private validateDeployId(deployId: string): void {
+    if (!DEPLOY_ID_PATTERN.test(deployId)) {
+      throw new Error(`Invalid deploy ID: ${deployId}`);
+    }
   }
 }

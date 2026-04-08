@@ -5,6 +5,7 @@ import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
 import type { CommandArgsConfig } from './types/config.type.js';
 import type { DeployOptions } from './types/deployment.type.js';
+import type { NormalizedDeployResponse } from './services/DeployService.js';
 
 class CLI {
 	private program: Command;
@@ -35,12 +36,15 @@ class CLI {
 			.option('-r, --targetBranch <targetBranch>', 'Target branch or git ref for delta comparison', this.config.targetBranch)
 			.option('-v, --validateOnly', 'Validate only, do not deploy')
 			.option('-x, --exclude <types...>', 'List of metadata types to exclude')
-			.option('-t, --testLevel <level>', 'Specifies which tests are run as part of a deployment', 'NoTestRun');
+			.option('-t, --testLevel <level>', 'Specifies which tests are run as part of a deployment', 'NoTestRun')
+			.option('--reportFormat <format>', 'Output format (summary|json)', 'summary');
 	}
 
 	private setupCommands(): void {
 		this.setupQuickDeployCommand();
 		this.setupDeployCommand();
+		this.setupStatusCommand();
+		this.setupCancelCommand();
 	}
 
 	private setupQuickDeployCommand(): void {
@@ -54,7 +58,8 @@ class CLI {
 					const client = new SalesforceClient(updatedConfig);
 					console.log('Initiating quick deployment...');
 					const result = await client.quickDeploy(cmdOptions.quickDeployId);
-					console.log('Quick deployment completed:', result);
+					this.printReport(client.formatDeployResponse(result), updatedConfig.reportFormat);
+					this.failForTerminalError(result.status, 'Quick deployment failed');
 				} catch (error) {
 					this.handleError('Quick deployment failed', error);
 				}
@@ -80,9 +85,46 @@ class CLI {
 
 					// Initialize deployment
 					const result: any = await client.deploy(deployOptions);
-					console.log('Deployment completed:', result.id);
+					this.printReport(client.formatDeployResponse(result), updatedConfig.reportFormat);
+					this.failForTerminalError(result.status, 'Deployment failed');
 				} catch (error) {
 					this.handleError('Deployment failed', error);
+				}
+			});
+	}
+
+	private setupStatusCommand(): void {
+		this.program
+			.command('status')
+			.description('Get one-shot deployment status')
+			.requiredOption('--deployId <id>', 'Deployment ID')
+			.action(async (cmdOptions) => {
+				try {
+					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions });
+					const client = new SalesforceClient(updatedConfig);
+					const result = await client.fetchDeploymentStatus(cmdOptions.deployId);
+					this.printReport(client.formatDeployResponse(result), updatedConfig.reportFormat);
+					this.failForTerminalError(result.status, 'Deployment status indicates terminal failure');
+				} catch (error) {
+					this.handleError('Status command failed', error);
+				}
+			});
+	}
+
+	private setupCancelCommand(): void {
+		this.program
+			.command('cancel')
+			.description('Cancel deployment by ID')
+			.requiredOption('--deployId <id>', 'Deployment ID')
+			.action(async (cmdOptions) => {
+				try {
+					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions });
+					const client = new SalesforceClient(updatedConfig);
+					const result = await client.cancelDeployment(cmdOptions.deployId);
+					this.printReport(client.formatDeployResponse(result), updatedConfig.reportFormat);
+					this.failForTerminalError(result.status, 'Deployment cancel command failed');
+				} catch (error) {
+					this.handleError('Cancel command failed', error);
 				}
 			});
 	}
@@ -122,6 +164,20 @@ class CLI {
 			console.error('Unknown error:', error);
 		}
 		process.exit(1);
+	}
+
+	private printReport(report: NormalizedDeployResponse, reportFormat?: string): void {
+		if (reportFormat?.toLowerCase() === 'json') {
+			console.log(JSON.stringify(report, null, 2));
+			return;
+		}
+		console.log(report.summary);
+	}
+
+	private failForTerminalError(status: string, message: string): void {
+		if (status === 'Failed' || status === 'Canceled') {
+			throw new Error(`${message}: ${status}`);
+		}
 	}
 }
 
