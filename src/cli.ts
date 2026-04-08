@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
 import type { CommandArgsConfig } from './types/config.type.js';
-import type { DeployOptions } from './types/deployment.type.js';
+import type { DeployOptions, ReportFormat } from './types/deployment.type.js';
 
 class CLI {
 	private program: Command;
@@ -35,7 +35,9 @@ class CLI {
 			.option('-r, --targetBranch <targetBranch>', 'Target branch or git ref for delta comparison', this.config.targetBranch)
 			.option('-v, --validateOnly', 'Validate only, do not deploy')
 			.option('-x, --exclude <types...>', 'List of metadata types to exclude')
-			.option('-t, --testLevel <level>', 'Specifies which tests are run as part of a deployment', 'NoTestRun');
+			.option('-t, --testLevel <level>', 'Specifies which tests are run as part of a deployment', 'NoTestRun')
+			.option('--reportFormat <json|junit|both>', 'Deployment report format', this.config.reportFormat ?? 'json')
+			.option('--reportPath <path>', 'Directory path for generated deployment reports', this.config.reportPath ?? './reports');
 	}
 
 	private setupCommands(): void {
@@ -89,6 +91,7 @@ class CLI {
 
 	private getUpdatedConfig(options: any): CommandArgsConfig {
 		const updatedConfig = { ...this.config, ...options };
+		updatedConfig.reportFormat = this.parseReportFormat(updatedConfig.reportFormat);
 
 		// Update instance URL and test level for production environment
 		if (options.env?.toUpperCase() === 'PRODUCTION') {
@@ -102,6 +105,18 @@ class CLI {
 		console.log('Username :', updatedConfig.username);
 		// console.log('Using configuration:', updatedConfig);
 		return updatedConfig;
+	}
+
+
+	private parseReportFormat(value?: string): ReportFormat {
+		const allowedFormats: ReportFormat[] = ['json', 'junit', 'both'];
+		const normalizedValue = (value ?? 'json').toLowerCase() as ReportFormat;
+
+		if (!allowedFormats.includes(normalizedValue)) {
+			throw new Error(`Invalid report format: ${value}. Allowed values: ${allowedFormats.join(', ')}`);
+		}
+
+		return normalizedValue;
 	}
 
 	private validateConfig(config: CommandArgsConfig): void {

@@ -1,3 +1,5 @@
+import type { ReportFormat } from './deployment.type.js';
+
 export interface CommandArgsConfig {
 	source: string;
 	output: string;
@@ -19,4 +21,6 @@ export interface CommandArgsConfig {
 	testLevel: 'NoTestRun' | 'RunLocalTests' | 'RunAllTestsInOrg' | 'RunSpecifiedTests';
 	coverageJson: string;
 	runTests: string[];
+	reportFormat?: ReportFormat;
+	reportPath?: string;
 }
