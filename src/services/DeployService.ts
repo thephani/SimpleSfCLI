@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { BaseService } from './BaseService.js';
-import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
+import type { DeployOptions, DeployResult, DeploymentComponentFailure, DeploymentSummary, DeploymentTestFailure } from '../types/deployment.type.js';
 
 export class DeployService extends BaseService {
   async quickDeploy(deploymentId: string): Promise<DeployResult> {
@@ -62,17 +62,17 @@ export class DeployService extends BaseService {
         console.log(`Running Test Status: ${status.numberTestsCompleted} / ${status.numberTestsTotal}`);
       }
       // if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) { // status.details?.componentFailures.length > 0
-      if(status.status === 'Failed') {
+      if (status.status === 'Failed') {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
-        // Create a new array with only the selected properties
-        const failedTests = status.details.runTestResult?.failures.map(({ stackTrace }) => ({ stackTrace }));
-        if (failedTests?.length) {
+        const failedTests = this.serializeTestFailures(status).map(({ stackTrace }) => ({ stackTrace }));
+
+        if (failedTests.length > 0) {
           console.table(failedTests);
         }
-        if (status.details?.componentFailures) {
-          const failedComponenets = status.details?.componentFailures.map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
-          console.table(failedComponenets);
-          // console.log('Failed Components:', status.details.componentFailures);
+
+        const failedComponents = this.serializeComponentFailures(status).map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
+        if (failedComponents.length > 0) {
+          console.table(failedComponents);
         }
       }
 
@@ -85,6 +85,34 @@ export class DeployService extends BaseService {
     }
 
     throw new Error('Deployment timed out');
+  }
+
+
+  serializeSummary(status: DeployResult): DeploymentSummary {
+    return {
+      deploymentId: status.id,
+      status: status.status,
+      done: status.done,
+      components: {
+        deployed: status.numberComponentsDeployed ?? 0,
+        total: status.numberComponentsTotal ?? 0,
+        errors: status.numberComponentErrors ?? 0,
+      },
+      tests: {
+        completed: status.numberTestsCompleted ?? 0,
+        total: status.numberTestsTotal ?? 0,
+        errors: status.numberTestErrors ?? 0,
+      },
+      stateDetail: status.stateDetail,
+    };
+  }
+
+  serializeComponentFailures(status: DeployResult): DeploymentComponentFailure[] {
+    return status.details?.componentFailures ?? [];
+  }
+
+  serializeTestFailures(status: DeployResult): DeploymentTestFailure[] {
+    return status.details?.runTestResult?.failures ?? [];
   }
 
   private async getDeploymentStatus(deployId: string): Promise<DeployResult> {

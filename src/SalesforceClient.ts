@@ -4,7 +4,8 @@ import { AuthService } from './services/AuthService.js';
 import { DeployService } from './services/DeployService.js';
 import { MDAPIService } from './services/MDAPIService.js';
 import { ArchiverService } from './services/ArchiverService.js';
-import { DeployOptions, DeployResult } from 'types/deployment.type.js';
+import { ReportService } from './services/ReportService.js';
+import type { DeployOptions, DeployResult } from 'types/deployment.type.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -14,6 +15,7 @@ export class SalesforceClient {
 	private deployService: DeployService;
 	private mdapiService: MDAPIService;
 	private archiverService: ArchiverService;
+	private reportService: ReportService;
 
 	constructor(config: CommandArgsConfig) {
 		this.config = config;
@@ -21,6 +23,7 @@ export class SalesforceClient {
 		this.deployService = new DeployService(config);
 		this.mdapiService = new MDAPIService(config);
 		this.archiverService = new ArchiverService(config);
+		this.reportService = new ReportService();
 	}
 
 	async deploy(options: Partial<DeployOptions> = {}): Promise<DeployResult> {
@@ -29,15 +32,10 @@ export class SalesforceClient {
 			console.log('🔐 Authenticating with Salesforce...');
 			await this.authService.authenticate();
 
-			// Step 2: Convert to MDAPI format
-			// console.log('🔄 Converting to MDAPI format...');
 			const runTests = await this.mdapiService.convertToMDAPI(this.config.exclude);
-
 			const files = await fs.promises.readdir(this.config.cliOuputFolder);
-			const hasPackageXml = files.some(file => file === 'package.xml');
-			console
+			const hasPackageXml = files.some((file) => file === 'package.xml');
 
-			// Step 3: Handle main deployment
 			const deploymentOptions = { ...options, runTests };
 			let mainDeployId: string;
 
@@ -45,24 +43,21 @@ export class SalesforceClient {
 				console.log('📦 Preparing deployment package...', this.config.output);
 				await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
 
-
 				console.log('🚀 Initiating deployment...');
 				mainDeployId = await this.deployService.initiateDeployment(this.config.output, deploymentOptions);
 				console.log('📝 Main deployment initiated with ID:', mainDeployId);
 
-				// Step 5: Poll for deployment status
 				console.log('⏳ Waiting for deployment completion...');
 				console.time('⏳⏳ Deployment time ⏳⏳');
 				const mainDeployResult = await this.deployService.pollDeploymentStatus(mainDeployId);
 				console.log('📊 Main deployment result:', mainDeployResult.status);
 				console.timeEnd('⏳⏳ Deployment time ⏳⏳');
+				await this.generateReport(mainDeployResult);
 
 				return mainDeployResult;
 			}
 
-			// Step 4: Handle destructive changes
 			const destructivePath = path.join(this.config.cliOuputFolder, 'destructiveChanges', 'destructiveChanges.xml');
-
 			let destructiveDeployId: string | undefined;
 
 			if (this.fileExists(destructivePath)) {
@@ -76,21 +71,16 @@ export class SalesforceClient {
 					console.log('🚀 Destructive changes deployment initiated with ID:', destructiveDeployId);
 				} catch (error) {
 					console.error('❌ Error processing destructive changes:', error);
-					// Continue with main deployment even if destructive deployment fails
 				}
 			} else {
 				console.log('ℹ️  No destructive changes found');
 			}
 
-
-			// if (mainDeployResult.status === 'Failed') process.exit(1);
-
-			// If there was a destructive deployment, wait for it too
 			if (destructiveDeployId) {
 				console.log('⏳ Waiting for destructive changes deployment...');
 				try {
 					const destructiveResult = await this.deployService.pollDeploymentStatus(destructiveDeployId);
-					// console.log('📊 Destructive changes deployment result:', destructiveResult.status);
+					await this.generateReport(destructiveResult);
 					return destructiveResult;
 				} catch (error) {
 					console.error('❌ Error in destructive changes deployment:', error);
@@ -104,7 +94,26 @@ export class SalesforceClient {
 		}
 	}
 
-	// Helper method to check file existence
+	private async generateReport(deployResult: DeployResult): Promise<void> {
+		try {
+			await this.reportService.writeDeploymentReport(
+				{
+					summary: this.deployService.serializeSummary(deployResult),
+					componentFailures: this.deployService.serializeComponentFailures(deployResult),
+					testFailures: this.deployService.serializeTestFailures(deployResult),
+				},
+				{
+					reportFormat: this.config.reportFormat,
+					reportPath: this.config.reportPath,
+					emitConsoleSummary: true,
+				}
+			);
+		} catch (error) {
+			const reportError = error instanceof Error ? error.message : error;
+			console.warn('⚠️ Failed to generate deployment report:', reportError);
+		}
+	}
+
 	private fileExists(filePath: string): boolean {
 		return fs.existsSync(filePath);
 	}

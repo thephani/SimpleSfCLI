@@ -41,7 +41,9 @@ const config: CommandArgsConfig = {
   
   // Test coverage configuration
   coverageJson: './ApexTestCoverage.json',
-  runTests: []
+  runTests: [],
+  reportFormat: 'json',
+  reportPath: './reports'
 };
 
 export default config;
