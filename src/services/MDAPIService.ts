@@ -73,8 +73,23 @@ export class MDAPIService extends BaseService {
       for (const member of metadataType.members) {
         const matches = sourceFiles.filter((file) => {
           const type = this.getMetadataType(file);
+          if (type !== metadataType.name) {
+            return false;
+          }
+
+          if (member === "*") {
+            return true;
+          }
+
           const memberName = this.getMemberName(file);
-          return type === metadataType.name && memberName === member;
+          const relativePath = this.toRelativeSourcePath(file);
+          const comparableMember = this.getManifestComparableMember(
+            metadataType.name,
+            memberName,
+            relativePath,
+          );
+
+          return comparableMember === member;
         });
 
         if (!matches.length) {
@@ -87,7 +102,10 @@ export class MDAPIService extends BaseService {
           copiedFiles.add(file);
 
           if (metadataType.name === "ApexClass" && (await this.isTestClass(file))) {
-            runTests.push(path.basename(file, ".cls"));
+            const testClassName = path.basename(file, ".cls");
+            if (!runTests.includes(testClassName)) {
+              runTests.push(testClassName);
+            }
           }
         }
       }
@@ -641,5 +659,27 @@ export class MDAPIService extends BaseService {
     }
 
     return files;
+  }
+
+  private getManifestComparableMember(
+    metadataType: string,
+    memberName: string | null,
+    relativePath: string,
+  ): string | null {
+    if (!memberName) {
+      return null;
+    }
+
+    if (metadataType === "LightningComponentBundle") {
+      const segments = relativePath.split("/");
+      return segments.length >= 2 ? segments[1] : memberName;
+    }
+
+    if (metadataType === "AuraDefinitionBundle") {
+      const segments = relativePath.split("/");
+      return segments.length >= 2 ? segments[1] : memberName;
+    }
+
+    return memberName;
   }
 }

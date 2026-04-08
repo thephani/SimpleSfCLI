@@ -296,6 +296,47 @@ describe('MDAPIService', () => {
 
 			await expect(service.convertToMDAPI([])).rejects.toThrow('Manifest members not found in source');
 		});
+
+		it('should support wildcard members in manifest', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['*'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'classes', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'TestClass.cls', isDirectory: () => false }]);
+			(fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest\nclass TestClass {}');
+
+			await service.convertToMDAPI([]);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/classes/TestClass.cls',
+				path.join(manifestConfig.cliOuputFolder, 'classes/TestClass.cls'),
+			);
+		});
+
+		it('should resolve LightningComponentBundle members by bundle folder name', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'LightningComponentBundle', members: ['myCmp'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'lwc', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'myCmp', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'myCmp.html', isDirectory: () => false }])
+				.mockResolvedValueOnce(['myCmp.html']);
+
+			await service.convertToMDAPI([]);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/lwc/myCmp/myCmp.html',
+				path.join(manifestConfig.cliOuputFolder, 'lwc/myCmp/myCmp.html'),
+			);
+		});
 	});
 
 	// describe('generateCustomObjectForFields', () => {
