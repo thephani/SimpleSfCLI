@@ -38,11 +38,11 @@
 
 ### Key Advantages
 
-- ⚡ **Blazing Fast**: Deploy SFDX projects in 5-7 seconds
-- 🚫 **No Salesforce CLI Required**: Works independently
+- ⚡ **Blazing Fast**: Kick start your Deployment job in SFDX projects with in 6-8 seconds
+- 🚫 **No Salesforce CLI Required**: Works independently uses salesforce metadata API
 - 💎 **Zero Installation Overhead**: Use directly with `npx` or install locally
 - 🔧 **Custom Built**: Only 4 core dependencies with full control
-- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines
+- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines like Github, Bitbucket
 
 ---
 
@@ -80,13 +80,13 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 
 ## What's New
 
-### 2.7.1 - 2026-04-07
+### 2.7.X - 2026-04-07
 
+- Added GitHub and Bitbucket pull request branch detection using CI environment variables.
+- Prefer PR base and target branches from CI metadata before falling back to git inference. 
+- Removed the `/bin/zsh` dependency from PR base detection so Linux and CI runners do not error on missing shell paths.
 - Added release documentation for the metadata delta and package-generation fixes shipped today.
 - Clarified PR-style delta comparison behavior in the release log.
-
-### 2.7.0 - 2026-04-07
-
 - Fixed custom field detection for normalized source paths and local working tree changes.
 - Improved delta collection so PR deployments can include unstaged, staged, and untracked metadata.
 - Corrected `package.xml` generation for field-driven object payloads and removed empty metadata sections.
