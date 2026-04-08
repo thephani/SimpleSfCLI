@@ -334,6 +334,25 @@ describe('MDAPIService', () => {
 				{ encoding: 'utf8' },
 			);
 		});
+
+		it('should normalize source paths when filtering custom field changes', async () => {
+			const customSourceService = new MDAPIService({
+				...mockConfig,
+				source: './force-app/main/default/',
+			});
+
+			(execSync as jest.Mock).mockReturnValueOnce([
+				'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
+				'force-app/main/default/classes/TestClass.cls',
+			].join('\n'));
+
+			const result = await (customSourceService as any).getGitFiles('AM');
+
+			expect(result).toEqual([
+				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
+				'force-app/main/default/classes/TestClass.cls',
+			]);
+		});
 	});
 
 	describe('getDeletedFiles', () => {
