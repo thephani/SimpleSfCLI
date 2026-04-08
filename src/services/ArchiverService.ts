@@ -1,6 +1,12 @@
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { promisify } from 'util';
+import { execFile } from 'child_process';
 import { BaseService } from './BaseService.js';
 import archiver from 'archiver';
+
+const execFileAsync = promisify(execFile);
 
 export class ArchiverService extends BaseService {
     async zipDirectory(sourceDir: string, outputFilePath: string): Promise<void> {
@@ -8,14 +14,13 @@ export class ArchiverService extends BaseService {
             const output = fs.createWriteStream(outputFilePath);
             const archive = archiver('zip', { zlib: { level: 9 } });
 
-            // Handle errors from both archive and output stream
             archive.on('error', (err) => {
-                output.destroy(); // Clean up the write stream
+                output.destroy();
                 reject(err);
             });
 
             output.on('error', (err) => {
-                archive.abort(); // Abort the archiving process
+                archive.abort();
                 reject(err);
             });
 
@@ -25,5 +30,19 @@ export class ArchiverService extends BaseService {
             archive.directory(sourceDir, false);
             archive.finalize();
         });
+    }
+
+    async extractZipFile(zipFilePath: string, outputDir: string): Promise<void> {
+        await fs.promises.mkdir(outputDir, { recursive: true });
+        await execFileAsync('unzip', ['-o', zipFilePath, '-d', outputDir]);
+    }
+
+    async extractBase64Zip(base64Zip: string, outputDir: string): Promise<void> {
+        const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'simplesfcli-retrieve-'));
+        const zipFilePath = path.join(tmpDir, 'retrieve.zip');
+
+        await fs.promises.writeFile(zipFilePath, Buffer.from(base64Zip, 'base64'));
+        await this.extractZipFile(zipFilePath, outputDir);
+        await fs.promises.rm(tmpDir, { recursive: true, force: true });
     }
 }

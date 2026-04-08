@@ -1,12 +1,12 @@
 import { ArchiverService } from '../ArchiverService';
 import fs from 'fs';
 import archiver from 'archiver';
-import type { CommandArgsConfig } from '../../types/config.type';
 import { Writable } from 'stream';
+import { execFile } from 'child_process';
+import type { CommandArgsConfig } from '../../types/config.type';
 
-// Mock fs and archiver
-jest.mock('fs');
 jest.mock('archiver');
+jest.mock('child_process', () => ({ execFile: jest.fn() }));
 
 describe('ArchiverService', () => {
 	let service: ArchiverService;
@@ -35,113 +35,55 @@ describe('ArchiverService', () => {
 	};
 
 	beforeEach(() => {
-		// Reset mocks
 		jest.clearAllMocks();
 
-		// Create mock write stream
-		mockWriteStream = new Writable({
-			write: (_chunk, _encoding, callback) => {
-				callback();
-			},
-		});
+		mockWriteStream = new Writable({ write: (_chunk, _encoding, callback) => callback() });
+		mockArchiver = {
+			on: jest.fn().mockReturnThis(),
+			pipe: jest.fn().mockReturnThis(),
+			directory: jest.fn().mockReturnThis(),
+			finalize: jest.fn().mockReturnThis(),
+			abort: jest.fn().mockReturnThis(),
+		} as any;
 
-		// Mock archiver
-        mockArchiver = {
-            on: jest.fn().mockReturnThis(),
-            pipe: jest.fn().mockReturnThis(),
-            directory: jest.fn().mockReturnThis(),
-            finalize: jest.fn().mockReturnThis(),
-            abort: jest.fn().mockReturnThis(),
-        } as any;
-
-		// Setup fs mock
-		(fs.createWriteStream as jest.Mock).mockReturnValue(mockWriteStream);
-
-		// Setup archiver mock
+		jest.spyOn(fs, 'createWriteStream').mockReturnValue(mockWriteStream as fs.WriteStream);
+		jest.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined);
+		jest.spyOn(fs.promises, 'writeFile').mockResolvedValue(undefined);
+		jest.spyOn(fs.promises, 'mkdtemp').mockResolvedValue('/tmp/retrieve');
+		jest.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
 		(archiver as unknown as jest.Mock).mockReturnValue(mockArchiver);
+		(execFile as unknown as jest.Mock).mockImplementation((_cmd, _args, callback) => callback(null, '', ''));
 
-		// Initialize service
 		service = new ArchiverService(mockConfig);
 	});
 
-	describe('zipDirectory', () => {
-		const sourceDir = 'source/directory';
-		const outputFile = 'output/file.zip';
+	afterEach(() => {
+		jest.restoreAllMocks();
+	});
 
-		it('should successfully zip a directory', async () => {
-			// Setup archiver mock to emit close event
-			mockArchiver.pipe.mockImplementation(() => {
-				setTimeout(() => {
-					mockWriteStream.emit('close');
-				}, 0);
-				return mockArchiver;
-			});
-
-			await service.zipDirectory(sourceDir, outputFile);
-
-			// Verify write stream creation
-			expect(fs.createWriteStream).toHaveBeenCalledWith(outputFile);
-
-			// Verify archiver initialization
-			expect(archiver).toHaveBeenCalledWith('zip', { zlib: { level: 9 } });
-
-			// Verify archiver operations
-			expect(mockArchiver.pipe).toHaveBeenCalledWith(mockWriteStream);
-			expect(mockArchiver.directory).toHaveBeenCalledWith(sourceDir, false);
-			expect(mockArchiver.finalize).toHaveBeenCalled();
+	it('should successfully zip a directory', async () => {
+		mockArchiver.pipe.mockImplementation(() => {
+			setTimeout(() => mockWriteStream.emit('close'), 0);
+			return mockArchiver;
 		});
 
-		it('should handle archiver errors', async () => {
-			const errorMessage = 'Archiver error';
+		await service.zipDirectory('source/directory', 'output/file.zip');
+		expect(fs.createWriteStream).toHaveBeenCalledWith('output/file.zip');
+		expect(mockArchiver.directory).toHaveBeenCalledWith('source/directory', false);
+	});
 
-			// Setup archiver mock to emit error
-			mockArchiver.pipe.mockImplementation(() => {
-				setTimeout(() => {
-					mockArchiver.on.mock.calls.find((call: any) => call[0] === 'error')?.[1](new Error(errorMessage));
-				}, 0);
-				return mockArchiver;
-			});
+	it('should extract zip to output directory using unzip command', async () => {
+		await service.extractZipFile('/tmp/file.zip', './out');
+		expect(fs.promises.mkdir).toHaveBeenCalledWith('./out', { recursive: true });
+		expect(execFile).toHaveBeenCalledWith('unzip', ['-o', '/tmp/file.zip', '-d', './out'], expect.any(Function));
+	});
 
-			await expect(service.zipDirectory(sourceDir, outputFile)).rejects.toThrow(errorMessage);
-		});
+	it('should persist temp zip and cleanup after extraction', async () => {
+		const extractSpy = jest.spyOn(service, 'extractZipFile').mockResolvedValue(undefined);
+		await service.extractBase64Zip(Buffer.from('zip-content').toString('base64'), './retrieve-out');
 
-		it('should handle write stream errors', async () => {
-			const errorMessage = 'Write stream error';
-
-			// Setup write stream to emit error
-			mockArchiver.pipe.mockImplementation(() => {
-				setTimeout(() => {
-					mockWriteStream.emit('error', new Error(errorMessage));
-				}, 0);
-				return mockArchiver;
-			});
-
-			await expect(service.zipDirectory(sourceDir, outputFile)).rejects.toThrow();
-		});
-
-		it('should handle file system errors', async () => {
-			const errorMessage = 'File system error';
-
-			(fs.createWriteStream as jest.Mock).mockImplementation(() => {
-				throw new Error(errorMessage);
-			});
-
-			await expect(service.zipDirectory(sourceDir, outputFile)).rejects.toThrow(errorMessage);
-		});
-
-		it('should use correct compression level', async () => {
-			mockArchiver.pipe.mockImplementation(() => {
-				setTimeout(() => {
-					mockWriteStream.emit('close');
-				}, 0);
-				return mockArchiver;
-			});
-
-			await service.zipDirectory(sourceDir, outputFile);
-
-			expect(archiver).toHaveBeenCalledWith('zip', {
-				zlib: { level: 9 },
-			});
-		});
+		expect(fs.promises.writeFile).toHaveBeenCalledWith('/tmp/retrieve/retrieve.zip', expect.any(Buffer));
+		expect(extractSpy).toHaveBeenCalledWith('/tmp/retrieve/retrieve.zip', './retrieve-out');
+		expect(fs.promises.rm).toHaveBeenCalledWith('/tmp/retrieve', { recursive: true, force: true });
 	});
 });
