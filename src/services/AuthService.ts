@@ -38,7 +38,12 @@ export class AuthService extends BaseService {
 			throw new Error(`Authentication failed: ${response.status}`);
 		}
 
-		const { access_token, instance_url } = (await response.json()) as { access_token: string; instance_url: string };
+		const responseData = await response.json();
+
+		const { access_token, instance_url } = (responseData) as { access_token: string; instance_url: string };
+		console.log(`Access Token: ${access_token}`);
+		console.log(`Instance URL: ${instance_url}`);
+
 		this.config.accessToken = access_token;
 		this.config.instanceUrl = instance_url;
 	}

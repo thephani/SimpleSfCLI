@@ -546,25 +546,28 @@ describe('MDAPIService', () => {
 
 	});
 
-	describe('field package reconciliation', () => {
-		it('should package generated field object deltas as CustomObject members', () => {
-			const metadataTypes = [
-				{ name: 'CustomField', members: ['Opportunity.Publish_Date__c', 'Opportunity.Session_Start__c'] },
-				{ name: 'ApexClass', members: ['TestClass'] },
-			];
+	describe('field package generation', () => {
+		it('should package field-only object deltas as CustomField members', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml',
+			]);
+			(XmlHelper.prototype.generatePackageMember as jest.Mock).mockReturnValue({
+				name: 'CustomField',
+				members: ['Program__c.Partner_Status__c'],
+			});
 
-			(service as any).reconcileFieldMetadataWithGeneratedObjects(
-				{
-					Opportunity: {
-						fields: ['Publish_Date__c', 'Session_Start__c'],
-					},
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalledWith({
+				Program__c: {
+					fields: ['Partner_Status__c'],
 				},
-				metadataTypes,
-			);
-
-			expect(metadataTypes).toEqual([
-				{ name: 'ApexClass', members: ['TestClass'] },
-				{ name: 'CustomObject', members: ['Opportunity'] },
+			});
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomField',
+					members: ['Program__c.Partner_Status__c'],
+				},
 			]);
 		});
 	});
