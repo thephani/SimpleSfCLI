@@ -14,6 +14,7 @@ jest.mock('../../helper/forceignoreHelper');
 describe('MDAPIService', () => {
 	let service: MDAPIService;
 	const originalEnv = { ...process.env };
+	const testEnv = { ...originalEnv };
 	const mockConfig: CommandArgsConfig = {
 		clientId: 'test-client-id',
 		username: 'test@example.com',
@@ -37,7 +38,12 @@ describe('MDAPIService', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		process.env = { ...originalEnv };
+		delete testEnv.GITHUB_BASE_REF;
+		delete testEnv.GITHUB_HEAD_REF;
+		delete testEnv.BITBUCKET_PR_DESTINATION_BRANCH;
+		delete testEnv.BITBUCKET_PR_SOURCE_BRANCH;
+		delete testEnv.BITBUCKET_BRANCH;
+		process.env = { ...testEnv };
 		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
 

@@ -86,6 +86,7 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 - Fixed `package.xml` generation for custom field deltas by reading the field metadata `<fullName>` and matching the manifest member to the generated MDAPI object payload.
 - Prevented deployment failures such as `Must specify a non-empty label for the CustomObject` and `Not in package.xml` when only a custom field changes.
 - Confirmed JWT authentication stores the returned Salesforce access token and instance URL on shared runtime config so deploy and status polling calls reuse the authenticated session.
+- Added `auth:token` for explicit token export to JSON stdout or a protected local file.
 
 ### 2.7.x - 2026-04-07
 
@@ -244,6 +245,32 @@ simpleSfCli \
     --env "$SF_ENV"
 ```
 
+### Export an Access Token
+
+Use `auth:token` when another local process, script, or cron job needs a short-lived Salesforce access token. The normal deploy flow keeps tokens in memory and does not print them.
+
+```bash
+simpleSfCli auth:token \
+    --username "$SF_USERNAME" \
+    --clientId "$SF_CLIENT_ID" \
+    --privateKey "$SF_PRIVATE_KEY_PATH" \
+    --env SANDBOX \
+    --output .simpleSfCli_auth.json
+```
+
+The output file is written with `0600` permissions and contains:
+
+```json
+{
+  "accessToken": "00D...",
+  "instanceUrl": "https://your-org.my.salesforce.com",
+  "issuedAt": "2026-04-27T20:00:00.000Z",
+  "username": "yourUser@example.com"
+}
+```
+
+Pass `--json` to print the same payload to stdout. Use that only in trusted scripts because the token is a live bearer token.
+
 ---
 
 ## Usage
@@ -352,6 +379,8 @@ simpleSfCli \
 | `-b, --baseBranch <branch>` | `HEAD~1` | Base branch for delta deployment |
 | `-r, --targetBranch <branch>` | `HEAD` | Target branch for delta deployment |
 | `quick-deploy -q, --quickDeployId <id>` | - | Use a validated deployment ID with the `quick-deploy` subcommand |
+| `auth:token --json` | - | Print token details as JSON |
+| `auth:token -o, --output <path>` | - | Write token details to a JSON file with `0600` permissions |
 
 ### Display Options
 
@@ -803,7 +832,9 @@ Deployment logs are saved to:
 ## Security Considerations
 
 - **Never commit private keys** to version control
+- Never commit `.simpleSfCli_auth.json` or any exported token file
 - Use environment variables or secrets for credentials
+- Prefer re-authenticating in cron jobs over sharing token files when possible
 - Rotate credentials regularly
 - Limit Connected App permissions to only what's needed
 - Enable IP restrictions on Connected Apps when possible

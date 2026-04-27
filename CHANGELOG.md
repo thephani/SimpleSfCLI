@@ -10,6 +10,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Resolved deployment failures where generated `objects/<Object>.object` payloads could report `<Object>.<Field> Not in package.xml`.
 - Added regression coverage for field-only object delta package generation and mismatched field filename versus XML `<fullName>` handling.
 - Documented that JWT authentication stores the returned access token and instance URL on the shared runtime config for subsequent deploy, quick deploy, and polling calls.
+- Added `auth:token` to export JWT auth results to JSON stdout or a local `0600` token file for trusted automation.
 
 ## 2.6.x - 2.7.3 - 2026-04-07
 

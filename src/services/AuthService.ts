@@ -2,12 +2,18 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import { BaseService } from './BaseService.js';
 
+export interface AuthResult {
+	accessToken: string;
+	instanceUrl: string;
+	issuedAt: string;
+}
+
 export class AuthService extends BaseService {
-	async authenticate(): Promise<void> {
+	async authenticate(): Promise<AuthResult> {
 		try {
 			const privateKeyContents = fs.readFileSync(this.config.privateKey!, 'utf-8');
 			const jwtToken = this.createJwtToken(privateKeyContents);
-			await this.getAccessToken(jwtToken);
+			return await this.getAccessToken(jwtToken);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
 			throw new Error(`Authentication error: ${errorMessage}`);
@@ -27,7 +33,7 @@ export class AuthService extends BaseService {
 		);
 	}
 
-	private async getAccessToken(jwtToken: string): Promise<void> {
+	private async getAccessToken(jwtToken: string): Promise<AuthResult> {
 		const response = await fetch(`${this.config.instanceUrl}/services/oauth2/token`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -41,10 +47,13 @@ export class AuthService extends BaseService {
 		const responseData = await response.json();
 
 		const { access_token, instance_url } = (responseData) as { access_token: string; instance_url: string };
-		console.log(`Access Token: ${access_token}`);
-		console.log(`Instance URL: ${instance_url}`);
-
 		this.config.accessToken = access_token;
 		this.config.instanceUrl = instance_url;
+
+		return {
+			accessToken: access_token,
+			instanceUrl: instance_url,
+			issuedAt: new Date().toISOString(),
+		};
 	}
 }

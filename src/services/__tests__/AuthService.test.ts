@@ -66,7 +66,7 @@ describe('AuthService', () => {
 				}),
 			});
 
-			await service.authenticate();
+			const result = await service.authenticate();
 
 			// Verify private key was read
 			expect(fs.readFileSync).toHaveBeenCalledWith(mockConfig.privateKey, 'utf-8');
@@ -91,6 +91,14 @@ describe('AuthService', () => {
 				},
 				body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${MOCK_JWT_TOKEN}`,
 			});
+
+			expect(result).toEqual({
+				accessToken: MOCK_ACCESS_TOKEN,
+				instanceUrl: MOCK_INSTANCE_URL,
+				issuedAt: expect.any(String),
+			});
+			expect(mockConfig.accessToken).toBe(MOCK_ACCESS_TOKEN);
+			expect(mockConfig.instanceUrl).toBe(MOCK_INSTANCE_URL);
 
 			// Verify that a subsequent request would use the new access token and instance URL
 			const testEndpoint = '/test/endpoint';
@@ -176,7 +184,13 @@ describe('AuthService', () => {
     
             (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
     
-            await (service as any).getAccessToken(MOCK_JWT_TOKEN);
+            const result = await (service as any).getAccessToken(MOCK_JWT_TOKEN);
+
+			expect(result).toEqual({
+				accessToken: MOCK_ACCESS_TOKEN,
+				instanceUrl: MOCK_INSTANCE_URL,
+				issuedAt: expect.any(String),
+			});
     
             // Test subsequent request with full URL
             await (service as any).fetchWithAuth('/test/endpoint', {
