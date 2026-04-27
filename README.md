@@ -80,7 +80,14 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 
 ## What's New
 
-### 2.7.X - 2026-04-07
+### 2.7.4 - 2026-04-27
+
+- Fixed field-only delta deployments so changed fields are declared as `CustomField` members, not parent `CustomObject` members.
+- Fixed `package.xml` generation for custom field deltas by reading the field metadata `<fullName>` and matching the manifest member to the generated MDAPI object payload.
+- Prevented deployment failures such as `Must specify a non-empty label for the CustomObject` and `Not in package.xml` when only a custom field changes.
+- Confirmed JWT authentication stores the returned Salesforce access token and instance URL on shared runtime config so deploy and status polling calls reuse the authenticated session.
+
+### 2.7.x - 2026-04-07
 
 - Added GitHub and Bitbucket pull request branch detection using CI environment variables.
 - Prefer PR base and target branches from CI metadata before falling back to git inference. 
@@ -89,7 +96,7 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 - Clarified PR-style delta comparison behavior in the release log.
 - Fixed custom field detection for normalized source paths and local working tree changes.
 - Improved delta collection so PR deployments can include unstaged, staged, and untracked metadata.
-- Corrected `package.xml` generation for field-driven object payloads and removed empty metadata sections.
+- Removed empty metadata sections from generated `package.xml` output.
 
 Full release notes: [CHANGELOG.md](CHANGELOG.md)
 
@@ -764,7 +771,14 @@ Error: No supported metadata found
 ```
 **Solution:** Verify your git diff filters and ensure files are in the correct source directory.
 
-**4. Certificate Issues**
+**4. Custom Field Delta Deployment Fails**
+```
+Must specify a non-empty label for the CustomObject
+Not in package.xml
+```
+**Solution:** Upgrade to `2.7.4` or later and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`.
+
+**5. Certificate Issues**
 ```
 Error: Invalid certificate
 ```
@@ -850,7 +864,7 @@ SOFTWARE.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the `2.7.0` and `2.7.1` changes logged on 2026-04-07.
+See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the latest `2.7.4` deployment fixes.
 
 ---
 

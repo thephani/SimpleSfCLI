@@ -2,6 +2,15 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## 2.7.4 - 2026-04-27
+
+- Fixed field-only delta deployments so changed custom fields remain `CustomField` package members instead of being rewritten as parent `CustomObject` members.
+- Fixed `package.xml` generation to use the custom field metadata `<fullName>` when it differs from the field file name, keeping MDAPI object payloads and manifest members aligned.
+- Resolved deployment failures where adding only a field could report `Must specify a non-empty label for the CustomObject`.
+- Resolved deployment failures where generated `objects/<Object>.object` payloads could report `<Object>.<Field> Not in package.xml`.
+- Added regression coverage for field-only object delta package generation and mismatched field filename versus XML `<fullName>` handling.
+- Documented that JWT authentication stores the returned access token and instance URL on the shared runtime config for subsequent deploy, quick deploy, and polling calls.
+
 ## 2.6.x - 2.7.3 - 2026-04-07
 
 - Added CI-aware pull request diff resolution using GitHub and Bitbucket environment variables when available.
@@ -15,9 +24,8 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Fixed custom field detection when `--source` contains prefixes like `./` or trailing slashes.
 - Expanded delta collection to include branch diff results, unstaged changes, staged changes, and untracked files.
 - Updated default diff-range behavior to prefer PR-style comparison against the remote default branch instead of only `HEAD~1...HEAD`.
-- Fixed package generation for field-driven object payloads so generated object deltas are declared as `CustomObject` members.
 - Removed empty metadata sections from generated `package.xml` output.
-- Added regression tests for source normalization, uncommitted field detection, PR-base diff selection, and field/object package reconciliation.
+- Added regression tests for source normalization, uncommitted field detection, and PR-base diff selection.
 - Added initial coverage around uncommitted and untracked metadata detection during local development.
 - Improved MDAPI service tests for path normalization and git diff collection.
 
