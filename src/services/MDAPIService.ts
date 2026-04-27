@@ -112,8 +112,6 @@ export class MDAPIService extends BaseService {
         runTests,
       );
 
-    this.reconcileFieldMetadataWithGeneratedObjects(fieldData, metadataTypes);
-
     if (!metadataTypes.length) {
       throw new Error(
         `No supported metadata found. Supported types: ${Object.values(METADATA_TYPES)}`,
@@ -358,39 +356,6 @@ export class MDAPIService extends BaseService {
       }
     } else {
       types.push({ name: type, members: [name] });
-    }
-  }
-
-  private reconcileFieldMetadataWithGeneratedObjects(
-    fieldData: GroupedData,
-    types: MetadataType[],
-  ): void {
-    const objectNames = Object.keys(fieldData);
-    if (!objectNames.length) {
-      return;
-    }
-
-    const customFieldType = types.find((type) => type.name === "CustomField");
-    if (customFieldType) {
-      const generatedFieldMembers = new Set(
-        objectNames.flatMap((objectName) =>
-          fieldData[objectName].fields.map((field) => `${objectName}.${field}`),
-        ),
-      );
-
-      customFieldType.members = customFieldType.members.filter(
-        (member) => !generatedFieldMembers.has(member),
-      );
-    }
-
-    objectNames.forEach((objectName) => {
-      this.addMember("CustomObject", objectName, types);
-    });
-
-    for (let index = types.length - 1; index >= 0; index -= 1) {
-      if (types[index].members.length === 0) {
-        types.splice(index, 1);
-      }
     }
   }
 

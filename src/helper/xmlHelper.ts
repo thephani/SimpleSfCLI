@@ -74,10 +74,12 @@ export class XmlHelper {
 		}
 
 		//1. first captured group (object name) 2. second captured group (field name)
+		const objectName = match[1];
+		const fieldName = this.getFieldFullName(filePath) ?? match[2];
 
 		return {
 			name: 'CustomField',
-			members: [`${match[1]}.${match[2]}`],
+			members: [fieldName.includes('.') ? fieldName : `${objectName}.${fieldName}`],
 		};
 	}
 
@@ -192,6 +194,18 @@ export class XmlHelper {
 		}
 
 		return fieldProperties;
+	}
+
+	private getFieldFullName(filePath: string): string | null {
+		if (!fs.existsSync(filePath)) {
+			return null;
+		}
+
+		const xmlContent = fs.readFileSync(filePath, 'utf-8');
+		const fullNameMatch = xmlContent.match(/<fullName>\s*([\s\S]*?)\s*<\/fullName>/);
+		const fullName = fullNameMatch?.[1]?.trim();
+
+		return fullName || null;
 	}
 
 	/**

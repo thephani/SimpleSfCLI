@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import fs from 'fs';
+import path from 'path';
 import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
+import { AuthService } from './services/AuthService.js';
 import type { CommandArgsConfig } from './types/config.type.js';
 import type { DeployOptions } from './types/deployment.type.js';
 
@@ -26,9 +29,9 @@ class CLI {
 
 	private addGlobalOptions(): void {
 		this.program
-			.requiredOption('-u, --username <username>', 'Salesforce username')
-			.requiredOption('-c, --clientId <clientId>', 'Salesforce client ID')
-			.requiredOption('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
 			.option('-e, --env <environment>', 'Production or Sandbox [Default]', 'Sandbox')
 			.option('-s, --source <sourceDir>', 'Path to the SFDX source directory')
 			.option('-b, --baseBranch <baseBranch>', 'Base branch or git ref for delta comparison', this.config.baseBranch)
@@ -39,18 +42,65 @@ class CLI {
 	}
 
 	private setupCommands(): void {
+		this.setupAuthTokenCommand();
 		this.setupQuickDeployCommand();
 		this.setupDeployCommand();
+	}
+
+	private setupAuthTokenCommand(): void {
+		this.program
+			.command('auth:token')
+			.description('Authenticate and return a Salesforce access token')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]', 'Sandbox')
+			.option('--json', 'Print token details as JSON to stdout')
+			.option('-o, --output <path>', 'Write token details to a JSON file with 0600 permissions')
+			.action(async (cmdOptions) => {
+				try {
+					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions }, {
+						logUsername: !cmdOptions.json,
+					});
+					const authService = new AuthService(updatedConfig);
+					const authResult = await authService.authenticate();
+					const tokenDetails = {
+						accessToken: authResult.accessToken,
+						instanceUrl: authResult.instanceUrl,
+						issuedAt: authResult.issuedAt,
+						username: updatedConfig.username,
+					};
+
+					if (cmdOptions.output) {
+						await this.writeTokenFile(cmdOptions.output, tokenDetails);
+						if (!cmdOptions.json) {
+							console.log(`Token details written to ${cmdOptions.output}`);
+						}
+					}
+
+					if (cmdOptions.json) {
+						console.log(JSON.stringify(tokenDetails, null, 2));
+					} else if (!cmdOptions.output) {
+						console.log('Authenticated successfully. Use --json to print token details or --output to write them to a file.');
+					}
+				} catch (error) {
+					this.handleError('Authentication failed', error);
+				}
+			});
 	}
 
 	private setupQuickDeployCommand(): void {
 		this.program
 			.command('quick-deploy')
 			.description('Quick deploy using a validated deployment ID')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]', 'Sandbox')
 			.requiredOption('-q, --quickDeployId <id>', 'Validated deployment ID')
 			.action(async (cmdOptions) => {
 				try {
-					const updatedConfig = this.getUpdatedConfig(cmdOptions);
+					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions });
 					const client = new SalesforceClient(updatedConfig);
 					console.log('Initiating quick deployment...');
 					const result = await client.quickDeploy(cmdOptions.quickDeployId);
@@ -87,8 +137,9 @@ class CLI {
 			});
 	}
 
-	private getUpdatedConfig(options: any): CommandArgsConfig {
+	private getUpdatedConfig(options: any, logging: { logUsername?: boolean } = {}): CommandArgsConfig {
 		const updatedConfig = { ...this.config, ...options };
+		const { logUsername = true } = logging;
 
 		// Update instance URL and test level for production environment
 		if (options.env?.toUpperCase() === 'PRODUCTION') {
@@ -99,9 +150,23 @@ class CLI {
 		// Validate required fields
 		this.validateConfig(updatedConfig);
 
-		console.log('Username :', updatedConfig.username);
+		if (logUsername) {
+			console.log('Username :', updatedConfig.username);
+		}
 		// console.log('Using configuration:', updatedConfig);
 		return updatedConfig;
+	}
+
+	private async writeTokenFile(outputPath: string, tokenDetails: object): Promise<void> {
+		const resolvedPath = path.resolve(outputPath);
+
+		await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+		await fs.promises.writeFile(
+			resolvedPath,
+			`${JSON.stringify(tokenDetails, null, 2)}\n`,
+			{ encoding: 'utf-8', mode: 0o600 },
+		);
+		await fs.promises.chmod(resolvedPath, 0o600);
 	}
 
 	private validateConfig(config: CommandArgsConfig): void {

@@ -80,12 +80,32 @@ describe('XmlHelper', () => {
 
 	describe('generatePackageMember', () => {
 		it('should generate package member for valid field path', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
 			const filePath = 'objects/Account/fields/CustomField__c.field-meta.xml';
 			const result = xmlHelper.generatePackageMember(filePath);
 
 			expect(result).toEqual({
 				name: 'CustomField',
 				members: ['Account.CustomField__c'],
+			});
+		});
+
+		it('should use the field XML fullName when it differs from the file name', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+			(fs.readFileSync as jest.Mock).mockReturnValue(`
+				<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+					<fullName>Partner_Status_test__c</fullName>
+					<label>Partner Status Test</label>
+					<type>Picklist</type>
+				</CustomField>
+			`);
+
+			const filePath = 'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml';
+			const result = xmlHelper.generatePackageMember(filePath);
+
+			expect(result).toEqual({
+				name: 'CustomField',
+				members: ['Program__c.Partner_Status_test__c'],
 			});
 		});
 
