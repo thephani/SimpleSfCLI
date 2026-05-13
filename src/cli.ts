@@ -54,13 +54,14 @@ class CLI {
 			.option('-u, --username <username>', 'Salesforce username')
 			.option('-c, --clientId <clientId>', 'Salesforce client ID')
 			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
-			.option('-e, --env <environment>', 'Production or Sandbox [Default]', 'Sandbox')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
 			.option('--json', 'Print token details as JSON to stdout')
 			.option('-o, --output <path>', 'Write token details to a JSON file with 0600 permissions')
 			.action(async (cmdOptions) => {
 				try {
-					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions }, {
-						logUsername: !cmdOptions.json,
+					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
+					const updatedConfig = this.getUpdatedConfig(options, {
+						logUsername: !options.json,
 					});
 					const authService = new AuthService(updatedConfig);
 					const authResult = await authService.authenticate();
@@ -71,16 +72,16 @@ class CLI {
 						username: updatedConfig.username,
 					};
 
-					if (cmdOptions.output) {
-						await this.writeTokenFile(cmdOptions.output, tokenDetails);
-						if (!cmdOptions.json) {
-							console.log(`Token details written to ${cmdOptions.output}`);
+					if (options.output) {
+						await this.writeTokenFile(options.output, tokenDetails);
+						if (!options.json) {
+							console.log(`Token details written to ${options.output}`);
 						}
 					}
 
-					if (cmdOptions.json) {
+					if (options.json) {
 						console.log(JSON.stringify(tokenDetails, null, 2));
-					} else if (!cmdOptions.output) {
+					} else if (!options.output) {
 						console.log('Authenticated successfully. Use --json to print token details or --output to write them to a file.');
 					}
 				} catch (error) {
@@ -96,14 +97,15 @@ class CLI {
 			.option('-u, --username <username>', 'Salesforce username')
 			.option('-c, --clientId <clientId>', 'Salesforce client ID')
 			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
-			.option('-e, --env <environment>', 'Production or Sandbox [Default]', 'Sandbox')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
 			.requiredOption('-q, --quickDeployId <id>', 'Validated deployment ID')
 			.action(async (cmdOptions) => {
 				try {
-					const updatedConfig = this.getUpdatedConfig({ ...this.program.opts(), ...cmdOptions });
+					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
+					const updatedConfig = this.getUpdatedConfig(options);
 					const client = new SalesforceClient(updatedConfig);
 					console.log('Initiating quick deployment...');
-					const result = await client.quickDeploy(cmdOptions.quickDeployId);
+					const result = await client.quickDeploy(options.quickDeployId);
 					console.log('Quick deployment completed:', result);
 				} catch (error) {
 					this.handleError('Quick deployment failed', error);
@@ -137,12 +139,21 @@ class CLI {
 			});
 	}
 
+	private getCommandOptions(commandOrOptions: any): any {
+		if (typeof commandOrOptions.opts === 'function') {
+			return commandOrOptions.opts();
+		}
+
+		return commandOrOptions;
+	}
+
 	private getUpdatedConfig(options: any, logging: { logUsername?: boolean } = {}): CommandArgsConfig {
 		const updatedConfig = { ...this.config, ...options };
 		const { logUsername = true } = logging;
+		updatedConfig.env = this.normalizeEnv(options.env ?? updatedConfig.env);
 
 		// Update instance URL and test level for production environment
-		if (options.env?.toUpperCase() === 'PRODUCTION') {
+		if (updatedConfig.env === 'PRODUCTION') {
 			updatedConfig.instanceUrl = 'https://login.salesforce.com';
 			updatedConfig.testLevel = 'RunLocalTests';
 		}
@@ -155,6 +166,19 @@ class CLI {
 		}
 		// console.log('Using configuration:', updatedConfig);
 		return updatedConfig;
+	}
+
+	private normalizeEnv(env: string): CommandArgsConfig['env'] {
+		switch (env.toUpperCase()) {
+			case 'PROD':
+			case 'PRODUCTION':
+				return 'PRODUCTION';
+			case 'SBX':
+			case 'SANDBOX':
+				return 'SANDBOX';
+			default:
+				throw new Error(`Invalid environment: ${env}. Expected SANDBOX or PRODUCTION.`);
+		}
 	}
 
 	private async writeTokenFile(outputPath: string, tokenDetails: object): Promise<void> {

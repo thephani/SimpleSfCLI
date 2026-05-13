@@ -1,6 +1,6 @@
 {
 	"name": "simple-sf-cli",
-	"version": "2.7.4",
+	"version": "2.7.5",
 	"description": "A simplified Salesforce CLI plugin",
 	"type": "commonjs",
 	"main": "dist/cli.js",
@@ -20,13 +20,11 @@
 	"dependencies": {
 		"archiver": "^7.0.1",
 		"commander": "^11.0.0",
-		"jsonwebtoken": "^9.0.0",
 		"xmlbuilder": "^15.1.1"
 	},
 	"devDependencies": {
 		"@types/archiver": "^6.0.3",
 		"@types/jest": "^29.5.14",
-		"@types/jsonwebtoken": "^9.0.0",
 		"@types/node": "^20.19.39",
 		"@types/xmlbuilder": "^0.0.35",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
