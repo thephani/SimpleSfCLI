@@ -269,7 +269,7 @@ The output file is written with `0600` permissions and contains:
 }
 ```
 
-Pass `--json` to print the same payload to stdout. Use that only in trusted scripts because the token is a live bearer token.
+Pass `--json` to print the same payload to stdout. Use that only in trusted scripts because the token is a live bearer token. Successful commands also print a duration message such as `⏱️ Command completed in 1.23 seconds.` to stderr, so JSON stdout remains parseable.
 
 ---
 
@@ -381,6 +381,8 @@ simpleSfCli \
 | `quick-deploy -q, --quickDeployId <id>` | - | Use a validated deployment ID with the `quick-deploy` subcommand |
 | `auth:token --json` | - | Print token details as JSON |
 | `auth:token -o, --output <path>` | - | Write token details to a JSON file with `0600` permissions |
+
+Successful commands print an elapsed-time summary to stderr, for example `⏱️ Command completed in 1.23 seconds.`. This keeps `auth:token --json` stdout safe for scripts that parse JSON.
 
 ### Display Options
 

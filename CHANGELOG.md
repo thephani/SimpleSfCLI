@@ -9,6 +9,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Replaced the `jsonwebtoken` dependency with Node's built-in `crypto` signing for RS256 JWT assertions.
 - Switched OAuth token requests to `URLSearchParams` form encoding.
 - Improved Salesforce authentication errors to include the token URL and Salesforce `error` / `error_description` details when available.
+- Added successful command duration logging to stderr for `auth:token`, `quick-deploy`, and `deploy`.
 - Added integration coverage for `auth:token --json` in both sandbox and production modes, including JWT audience validation.
 - Expanded auth service coverage for JWT generation, local private-key loading, response parsing, and error-body handling.
 
