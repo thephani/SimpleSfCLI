@@ -232,4 +232,48 @@ describe('XmlHelper', () => {
 			);
 		});
 	});
+
+	describe('manifest utilities', () => {
+		it('should parse valid manifest XML', () => {
+			const manifest = `
+				<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+					<types>
+						<members>MyClass</members>
+						<name>ApexClass</name>
+					</types>
+					<version>62.0</version>
+				</Package>
+			`;
+
+			const result = xmlHelper.parseManifestXml(manifest);
+			expect(result.apiVersion).toBe('62.0');
+			expect(result.metadataTypes).toEqual([{ name: 'ApexClass', members: ['MyClass'] }]);
+		});
+
+		it('should throw when manifest is missing API version', () => {
+			const manifest = `
+				<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+					<types>
+						<members>MyClass</members>
+						<name>ApexClass</name>
+					</types>
+				</Package>
+			`;
+
+			expect(() => xmlHelper.validateManifestXml(manifest)).toThrow('missing API version');
+		});
+
+		it('should throw when a types block has no members', () => {
+			const manifest = `
+				<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+					<types>
+						<name>ApexClass</name>
+					</types>
+					<version>62.0</version>
+				</Package>
+			`;
+
+			expect(() => xmlHelper.validateManifestXml(manifest)).toThrow('must include at least one member');
+		});
+	});
 });
