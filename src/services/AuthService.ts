@@ -1,11 +1,16 @@
 import fs from 'fs';
-import jwt from 'jsonwebtoken';
+import { createSign } from 'crypto';
 import { BaseService } from './BaseService.js';
 
 export interface AuthResult {
 	accessToken: string;
 	instanceUrl: string;
 	issuedAt: string;
+}
+
+interface SalesforceAuthError {
+	error?: string;
+	error_description?: string;
 }
 
 export class AuthService extends BaseService {
@@ -21,27 +26,41 @@ export class AuthService extends BaseService {
 	}
 
 	private createJwtToken(privateKey: string): string {
-		return jwt.sign(
-			{
-				iss: this.config.clientId,
-				sub: this.config.username,
-				aud: this.config.instanceUrl,
-				exp: Math.floor(Date.now() / 1000) + 60,
-			},
-			privateKey,
-			{ algorithm: 'RS256' }
-		);
+		const header = this.base64UrlEncode({
+			alg: 'RS256',
+			typ: 'JWT',
+		});
+		const payload = this.base64UrlEncode({
+			iss: this.config.clientId,
+			sub: this.config.username,
+			aud: this.config.instanceUrl,
+			exp: Math.floor(Date.now() / 1000) + 60,
+		});
+		const token = `${header}.${payload}`;
+		const signature = createSign('RSA-SHA256').update(token).sign(privateKey, 'base64url');
+
+		return `${token}.${signature}`;
+	}
+
+	private base64UrlEncode(value: object): string {
+		return Buffer.from(JSON.stringify(value)).toString('base64url');
 	}
 
 	private async getAccessToken(jwtToken: string): Promise<AuthResult> {
-		const response = await fetch(`${this.config.instanceUrl}/services/oauth2/token`, {
+		const tokenUrl = `${this.config.instanceUrl}/services/oauth2/token`;
+		const body = new URLSearchParams({
+			grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+			assertion: jwtToken,
+		});
+
+		const response = await fetch(tokenUrl, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwtToken}`,
+			body,
 		});
 
 		if (!response.ok) {
-			throw new Error(`Authentication failed: ${response.status}`);
+			throw new Error(await this.formatAuthFailure(response, tokenUrl));
 		}
 
 		const responseData = await response.json();
@@ -55,5 +74,32 @@ export class AuthService extends BaseService {
 			instanceUrl: instance_url,
 			issuedAt: new Date().toISOString(),
 		};
+	}
+
+	private async formatAuthFailure(response: Response, tokenUrl: string): Promise<string> {
+		const status = response.statusText ? `${response.status} ${response.statusText}` : `${response.status}`;
+		const responseText = await response.text().catch(() => '');
+		const detail = this.parseAuthError(responseText);
+
+		return [
+			`Authentication failed: ${status}`,
+			`tokenUrl=${tokenUrl}`,
+			detail,
+		].filter(Boolean).join(' ');
+	}
+
+	private parseAuthError(responseText: string): string {
+		if (!responseText) {
+			return '';
+		}
+
+		try {
+			const authError = JSON.parse(responseText) as SalesforceAuthError;
+			const error = authError.error ? `error=${authError.error}` : '';
+			const description = authError.error_description ? `description=${authError.error_description}` : '';
+			return [error, description].filter(Boolean).join(' ');
+		} catch {
+			return `response=${responseText}`;
+		}
 	}
 }

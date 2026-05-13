@@ -366,7 +366,7 @@ simpleSfCli \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-e, --env <environment>` | `SANDBOX` | Target environment (SANDBOX or PRODUCTION) |
+| `-e, --env <environment>` | `SANDBOX` | Target environment (SANDBOX/SBX or PRODUCTION/PROD) |
 | `-s, --source <directory>` | `force-app/main/default` | SFDX source directory path |
 | `-x, --exclude <types>` | - | Comma-separated list of metadata types to exclude |
 | `-t, --testLevel <level>` | `NoTestRun` | Test level: NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg |
