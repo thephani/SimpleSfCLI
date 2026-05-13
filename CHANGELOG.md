@@ -2,6 +2,16 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## 2.7.5 - 2026-05-13
+
+- Fixed `auth:token --env PROD` and `--env PRODUCTION` so production JWT auth uses `https://login.salesforce.com` instead of falling back to the sandbox login URL.
+- Added support for `PROD`/`PRODUCTION` and `SBX`/`SANDBOX` environment aliases with validation for invalid environment values.
+- Replaced the `jsonwebtoken` dependency with Node's built-in `crypto` signing for RS256 JWT assertions.
+- Switched OAuth token requests to `URLSearchParams` form encoding.
+- Improved Salesforce authentication errors to include the token URL and Salesforce `error` / `error_description` details when available.
+- Added integration coverage for `auth:token --json` in both sandbox and production modes, including JWT audience validation.
+- Expanded auth service coverage for JWT generation, local private-key loading, response parsing, and error-body handling.
+
 ## 2.7.4 - 2026-04-27
 
 - Fixed field-only delta deployments so changed custom fields remain `CustomField` package members instead of being rewritten as parent `CustomObject` members.
