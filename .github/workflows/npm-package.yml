@@ -1,54 +1,86 @@
-# .github/workflows/npm-publish.yml
 name: SimpleSfCli NPM Package CI/CD
 
 on:
   pull_request:
     paths:
-      - 'src/**'    # Only trigger on changes to files in src directory
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'jest.config.ts'
+      - 'jest.setup.ts'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/npm-package.yml'
     branches: [ main ]
   push:
     paths:
-      - 'src/**'    # Only trigger on changes to files in src directory 
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'jest.config.ts'
+      - 'jest.setup.ts'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/npm-package.yml'
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
-  test-and-build:
-    if: github.event_name == 'pull_request'
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-        
-      - name: Run TypeScript compiler
-        run: npm install && npm run build
-        
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
       - name: Run tests
         run: npm test
-        
+
       - name: Run npm publish dry-run
-        if: github.event_name == 'pull_request'
         run: npm publish --dry-run
-        
+
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Build
-        run: npm install && npm run build
-        
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
       - name: Publish to NPM
-        run: npm publish
+        run: npm publish --provenance
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
