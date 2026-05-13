@@ -58,6 +58,7 @@ class CLI {
 			.option('--json', 'Print token details as JSON to stdout')
 			.option('-o, --output <path>', 'Write token details to a JSON file with 0600 permissions')
 			.action(async (cmdOptions) => {
+				const timer = this.startCommandTimer();
 				try {
 					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
 					const updatedConfig = this.getUpdatedConfig(options, {
@@ -84,6 +85,7 @@ class CLI {
 					} else if (!options.output) {
 						console.log('Authenticated successfully. Use --json to print token details or --output to write them to a file.');
 					}
+					this.logCommandDuration(timer);
 				} catch (error) {
 					this.handleError('Authentication failed', error);
 				}
@@ -100,6 +102,7 @@ class CLI {
 			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
 			.requiredOption('-q, --quickDeployId <id>', 'Validated deployment ID')
 			.action(async (cmdOptions) => {
+				const timer = this.startCommandTimer();
 				try {
 					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
 					const updatedConfig = this.getUpdatedConfig(options);
@@ -107,6 +110,7 @@ class CLI {
 					console.log('Initiating quick deployment...');
 					const result = await client.quickDeploy(options.quickDeployId);
 					console.log('Quick deployment completed:', result);
+					this.logCommandDuration(timer);
 				} catch (error) {
 					this.handleError('Quick deployment failed', error);
 				}
@@ -118,6 +122,7 @@ class CLI {
 			.command('deploy', { isDefault: true })
 			.description('Deploy metadata to Salesforce')
 			.action(async () => {
+				const timer = this.startCommandTimer();
 				try {
 					const updatedConfig = this.getUpdatedConfig(this.program.opts());
 					const client = new SalesforceClient(updatedConfig);
@@ -133,6 +138,7 @@ class CLI {
 					// Initialize deployment
 					const result: any = await client.deploy(deployOptions);
 					console.log('Deployment completed:', result.id);
+					this.logCommandDuration(timer);
 				} catch (error) {
 					this.handleError('Deployment failed', error);
 				}
@@ -145,6 +151,15 @@ class CLI {
 		}
 
 		return commandOrOptions;
+	}
+
+	private startCommandTimer(): bigint {
+		return process.hrtime.bigint();
+	}
+
+	private logCommandDuration(startedAt: bigint): void {
+		const elapsedSeconds = Number(process.hrtime.bigint() - startedAt) / 1_000_000_000;
+		console.error(`⏱️ Command completed in ${elapsedSeconds.toFixed(2)} seconds.`);
 	}
 
 	private getUpdatedConfig(options: any, logging: { logUsername?: boolean } = {}): CommandArgsConfig {

@@ -7,12 +7,14 @@ describe('auth:token CLI integration', () => {
 	const originalArgv = process.argv;
 	const originalFetch = global.fetch;
 	let consoleLogSpy: jest.SpyInstance;
+	let consoleErrorSpy: jest.SpyInstance;
 	let tempDir: string;
 	let privateKeyPath: string;
 
 	beforeEach(() => {
 		jest.resetModules();
 		consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+		consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'simple-sf-cli-auth-token-'));
 		privateKeyPath = path.join(tempDir, 'server.key');
 		fs.writeFileSync(privateKeyPath, TEST_PRIVATE_KEY, { encoding: 'utf-8', mode: 0o600 });
@@ -29,6 +31,7 @@ describe('auth:token CLI integration', () => {
 		process.argv = originalArgv;
 		global.fetch = originalFetch;
 		consoleLogSpy.mockRestore();
+		consoleErrorSpy.mockRestore();
 		jest.restoreAllMocks();
 	});
 
@@ -48,6 +51,7 @@ describe('auth:token CLI integration', () => {
 		requestUrl: string;
 		requestBody: URLSearchParams;
 		stdout: Record<string, string>;
+		stderr: string;
 	}> => {
 		process.argv = [
 			'node',
@@ -71,15 +75,16 @@ describe('auth:token CLI integration', () => {
 		const requestUrl = fetchCall[0] as string;
 		const requestBody = fetchCall[1].body as URLSearchParams;
 		const stdout = JSON.parse(consoleLogSpy.mock.calls[0][0]) as Record<string, string>;
+		const stderr = consoleErrorSpy.mock.calls[0][0] as string;
 
-		return { requestUrl, requestBody, stdout };
+		return { requestUrl, requestBody, stdout, stderr };
 	};
 
 	it.each([
 		['SANDBOX', 'https://test.salesforce.com'],
 		['PROD', 'https://login.salesforce.com'],
 	])('generates a token for %s using the expected Salesforce auth URL', async (env, expectedAuthUrl) => {
-		const { requestUrl, requestBody, stdout } = await runAuthToken(env);
+		const { requestUrl, requestBody, stdout, stderr } = await runAuthToken(env);
 
 		expect(requestUrl).toBe(`${expectedAuthUrl}/services/oauth2/token`);
 		expect(requestBody.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
@@ -100,5 +105,6 @@ describe('auth:token CLI integration', () => {
 			issuedAt: expect.any(String),
 			username: 'cli-user@example.com',
 		});
+		expect(stderr).toMatch(/^⏱️ Command completed in \d+\.\d{2} seconds\.$/);
 	});
 });
