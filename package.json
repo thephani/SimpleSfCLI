@@ -2,6 +2,14 @@
 	"name": "simple-sf-cli",
 	"version": "2.7.6",
 	"description": "A simplified Salesforce CLI plugin",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/thephani/SimpleSfCLI.git"
+	},
+	"bugs": {
+		"url": "https://github.com/thephani/SimpleSfCLI/issues"
+	},
+	"homepage": "https://github.com/thephani/SimpleSfCLI#readme",
 	"type": "commonjs",
 	"main": "dist/cli.js",
 	"bin": {
