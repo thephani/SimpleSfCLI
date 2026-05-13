@@ -26,9 +26,10 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  verify:
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -49,34 +50,11 @@ jobs:
         run: npm test
 
       - name: Run npm publish dry-run
+        if: github.event_name == 'pull_request'
         run: npm publish --dry-run
 
-  publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
-
-      - name: Run tests
-        run: npm test
-
       - name: Publish to NPM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
