@@ -94,23 +94,23 @@ export class MDAPIService extends BaseService {
 
     const { fieldData, otherFiles } = this.categorizeFiles(changedFiles);
 
+    console.log(`Copying file: ${otherFiles}`);
+    await this.copyFiles(otherFiles);
+
     if (Object.keys(fieldData).length) {
       this.xmlHelper.generateCustomObjectForFields(fieldData);
     }
 
-    console.log(`Copying file: ${otherFiles}`);
-    await this.copyFiles(otherFiles);
-
     const metadataTypes: MetadataType[] = [];
     const excludedComponents: string[] = [];
 
-      await this.processMetadataFiles(
-        changedFiles,
-        excludeList,
-        metadataTypes,
-        excludedComponents,
-        runTests,
-      );
+    await this.processMetadataFiles(
+      changedFiles,
+      excludeList,
+      metadataTypes,
+      excludedComponents,
+      runTests,
+    );
 
     if (!metadataTypes.length) {
       throw new Error(
