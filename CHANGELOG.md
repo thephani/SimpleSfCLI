@@ -2,6 +2,14 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## 2.7.7 - 2026-06-24
+
+- Fixed MDAPI conversion for deployments that add a new custom object and fields in the same delta by copying the object payload first, then merging changed fields into `objects/<Object>.object`.
+- Fixed field-only deployments for existing objects so changed fields are emitted as declaration-free `<fields>` nodes inside generated MDAPI object payloads.
+- Fixed object settings-only deployments so they continue to package only the parent `CustomObject` without invoking field generation.
+- Resolved Salesforce parser failures such as `The processing instruction target matching "[xX][mM][lL]" is not allowed` by stripping nested XML declarations from generated field fragments before merging.
+- Added regression coverage for new object plus fields, field-only existing object changes, object settings-only changes, and XML declaration-free field merging.
+
 ## 2.7.5 - 2026-05-13
 
 - Fixed `auth:token --env PROD` and `--env PRODUCTION` so production JWT auth uses `https://login.salesforce.com` instead of falling back to the sandbox login URL.

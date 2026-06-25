@@ -80,6 +80,14 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 
 ## What's New
 
+### 2.7.7 - 2026-06-24
+
+- Fixed custom object deployments where a new object and its fields are added together, ensuring the copied object metadata and generated `<fields>` nodes land in the same MDAPI `objects/<Object>.object` payload.
+- Fixed field-only changes on existing objects so changed fields are still declared as `CustomField` members and emitted as valid Metadata API object payloads.
+- Preserved object settings-only deployments so they package only the parent `CustomObject` and do not generate field payloads.
+- Prevented Salesforce XML parser failures caused by nested `<?xml ...?>` declarations inside generated `<fields>` fragments.
+- Added regression coverage for new object plus fields, field-only existing object changes, object settings-only changes, and declaration-free field merging.
+
 ### 2.7.4 - 2026-04-27
 
 - Fixed field-only delta deployments so changed fields are declared as `CustomField` members, not parent `CustomObject` members.
@@ -806,8 +814,9 @@ Error: No supported metadata found
 ```
 Must specify a non-empty label for the CustomObject
 Not in package.xml
+The processing instruction target matching "[xX][mM][lL]" is not allowed.
 ```
-**Solution:** Upgrade to `2.7.4` or later and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`.
+**Solution:** Upgrade to `2.7.4` or later, or the latest unreleased source build for object-plus-fields fixes, and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`. Generated `.simpleSfCli_out/objects/<Object>.object` files must contain `<fields>` nodes without nested `<?xml ...?>` declarations.
 
 **5. Certificate Issues**
 ```
