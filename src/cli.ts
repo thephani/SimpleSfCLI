@@ -36,6 +36,7 @@ class CLI {
 			.option('-s, --source <sourceDir>', 'Path to the SFDX source directory')
 			.option('-b, --baseBranch <baseBranch>', 'Base branch or git ref for delta comparison', this.config.baseBranch)
 			.option('-r, --targetBranch <targetBranch>', 'Target branch or git ref for delta comparison', this.config.targetBranch)
+			.option('-m, --manifest <path>', 'Path to package.xml manifest for manifest-based deployment')
 			.option('-v, --validateOnly', 'Validate only, do not deploy')
 			.option('-x, --exclude <types...>', 'List of metadata types to exclude')
 			.option('-t, --testLevel <level>', 'Specifies which tests are run as part of a deployment', 'NoTestRun');
@@ -214,6 +215,14 @@ class CLI {
 
 		if (missingFields.length > 0) {
 			throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+		}
+
+		if (config.manifest) {
+			const isCustomBase = config.baseBranch !== this.config.baseBranch;
+			const isCustomTarget = config.targetBranch !== this.config.targetBranch;
+			if (isCustomBase || isCustomTarget) {
+				throw new Error('--manifest cannot be combined with --baseBranch or --targetBranch.');
+			}
 		}
 	}
 

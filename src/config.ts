@@ -37,6 +37,7 @@ const config: CommandArgsConfig = {
   
   // Deployment options
   quickDeployId: undefined,
+  manifest: undefined,
   testLevel: 'NoTestRun',
   
   // Test coverage configuration
