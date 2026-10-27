@@ -919,7 +919,61 @@ Deployment commands return a nonzero exit code for failed, canceled or partially
 successful terminal results. A delta with no deployable changes exits successfully
 without submitting a deployment. Mixed updates and deletions use one ZIP with
 `package.xml` and `destructiveChangesPost.xml` at the root. Deletions run after
-additions and updates within that deployment. `--validateOnly` validates the entire
+additions and updates within that deployment. Removing an internal LWC file
+redeploys the surviving bundle; removing the whole bundle creates its destructive
+entry. Files restored locally after a committed deletion are not deleted.
+`--validateOnly` validates the entire
 package, including deletions, without applying it.
 
 Both `--exclude Profile,CustomField` and `--exclude Profile CustomField` are supported.
+
+### Running and extending the integration suite
+
+Use Node.js 24 (the CI version) and Git. Install the tracked dependency versions
+with `npm ci`, then run:
+
+```bash
+# Existing unit tests and auth tests with simulated HTTP
+npm test -- --runInBand --modulePathIgnorePatterns .kilo
+
+# Builds dist and runs real-file packaging and CLI integration tests
+npm run test:integration
+
+# Rerun one suite
+npm run test:integration -- --runTestsByPath test/integration/packaging.integration.test.cjs
+```
+
+The integration tests create disposable Git repositories, exercise committed,
+staged, unstaged and untracked changes, sign JWTs with disposable keys, and inspect
+actual XML and ZIP payloads. The CLI runs in a child process. Only its Salesforce
+HTTP responses are simulated; unexpected requests fail instead of using the
+network. Unit tests still provide fast checks of individual functions.
+
+Add representative source files under `test/fixtures/metadata/` and a regression
+case under `test/integration/` when fixing packaging behavior. Reproduce the bug
+with a failing test before applying its fix. Fixtures must use fictional metadata,
+not customer data, org credentials or exported production tokens. Compare parsed
+XML and archive entries rather than ZIP bytes, timestamps or XML formatting.
+
+Tests remove temporary repositories on completion. On failure they retain the
+fixture, generated metadata, captured ZIP, and child stdout/stderr under
+`test-results/integration/`; disposable private keys and `.git` are excluded.
+The machine-readable report is `test-results/integration.json`. These files are
+ignored by Git. Download the failure artifact from the Actions run to inspect its
+manifest and ZIP, then rerun the named suite locally.
+
+The separate **Real-file integration tests** workflow runs on PRs to `main`, pushes
+to `main`, manual dispatch, and daily at **07:23 UTC** (`23 7 * * *`). Scheduled runs
+use the default branch and can be delayed by GitHub. The workflow uploads reports
+and failure diagnostics for seven days. It never publishes an NPM package; the
+existing package workflow runs the integration suite before publishing.
+
+Adding the workflow does not make its check required in branch protection. After
+merge, verify a manual run and the first genuine scheduled run before calling
+daily execution verified. In public repositories GitHub can disable scheduled
+workflows after 60 days without repository activity.
+
+Live Salesforce acceptance is a separate, opt-in test layer requiring a dedicated
+test org and known metadata prerequisites. The credential-free suite does not
+validate org permissions, Salesforce's interpretation of metadata, or quick-deploy
+eligibility. No live Salesforce validation is performed by these workflows.

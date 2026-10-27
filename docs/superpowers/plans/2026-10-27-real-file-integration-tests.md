@@ -1,6 +1,6 @@
 # Real-file Integration Tests and Daily CI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Use one implementer unless the user requests delegation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Use one implementer unless the user requests delegation.
 
 **Goal:** Detect packaging and deployment-orchestration regressions using real source files, Git history, XML parsing, ZIP inspection, and the built CLI, on every pull request and once daily.
 
@@ -88,11 +88,11 @@ Production fixes are limited to `src/services/MDAPIService.ts`, `src/helper/xmlH
 - `HttpStep` is `{ method: string, url: string, status: number, body: string, contentType: string }`. Match calls exactly in sequence. Unexpected calls throw and are recorded; the parent asserts both zero unmatched requests and complete script consumption.
 - `readZip(zipPath: string): Map<string, Buffer>` exposes normalized archive entry names and uncompressed contents. `parseXml(xml: string): object` first calls an XML validator, then parses with stable array handling. Do not use production XML generation to generate expected results.
 
-- [ ] Write harness tests: two projects never share paths/state; fixture Git commits work without global identity; a child can load built modules from a different `cwd`; unexpected HTTP calls and unused response steps fail; timeout kills/reaps the child.
-- [ ] Run `npm run test:integration -- --runTestsByPath test/integration/harness.integration.test.cjs`; expect failure before the harness exists.
-- [ ] Implement the helpers and preload. Generate a disposable RSA key with Node crypto for each project; preload replaces only `global.fetch` in the child. Return fake token/instance data, realistic SOAP initiation bodies, and scripted REST status bodies. Capture the real SOAP ZIP as bytes on submission. Assert `checkOnly` separately from payload correctness.
-- [ ] Add `test:integration` as `npm run build && jest --config jest.integration.config.cjs --runInBand`. Configure `.kilo` ignoring, JSON test reports under `test-results/`, and 30-second per-test limits. Keep current `npm test` unchanged. Preserve failed fixtures under `test-results/integration/<case>/`; remove success fixtures and all original temporary directories in `finally`.
-- [ ] Add dev-only XML/ZIP readers; remove the lockfile ignore entry, review the resulting lockfile, and track it. Exclude `test-results/` from Git. Run harness tests successfully and confirm `git status` has no generated output. Commit only this deliverable's files.
+- [x] Write harness tests: two projects never share paths/state; fixture Git commits work without global identity; a child can load built modules from a different `cwd`; unexpected HTTP calls and unused response steps fail; timeout kills/reaps the child.
+- [x] Run `npm run test:integration -- --runTestsByPath test/integration/harness.integration.test.cjs`; expect failure before the harness exists.
+- [x] Implement the helpers and preload. Generate a disposable RSA key with Node crypto for each project; preload replaces only `global.fetch` in the child. Return fake token/instance data, realistic SOAP initiation bodies, and scripted REST status bodies. Capture the real SOAP ZIP as bytes on submission. Assert `checkOnly` separately from payload correctness.
+- [x] Add `test:integration` as `npm run build && jest --config jest.integration.config.cjs --runInBand`. Configure `.kilo` ignoring, JSON test reports under `test-results/`, and 30-second per-test limits. Keep current `npm test` unchanged. Preserve failed fixtures under `test-results/integration/<case>/`; remove success fixtures and all original temporary directories in `finally`.
+- [x] Add dev-only XML/ZIP readers; remove the lockfile ignore entry, review the resulting lockfile, and track it. Exclude `test-results/` from Git. Run harness tests successfully and confirm `git status` has no generated output. Commit only this deliverable's files.
 
 ## Task 2: Add packaging acceptance cases and fix exposed conversion defects
 
@@ -102,16 +102,16 @@ Production fixes are limited to `src/services/MDAPIService.ts`, `src/helper/xmlH
 
 **Interfaces:** Consume Task 1's fixture/Git/inspection helpers. Invoke compiled `MDAPIService.convertToMDAPI(excludeList)` and `ArchiverService.zipDirectory(sourceDir, zipPath)` in an isolated child with that fixture as `cwd`. Preserve the existing public method signatures.
 
-- [ ] Add table-driven real-file cases with explicit expected members and archive paths:
+- [x] Add table-driven real-file cases with explicit expected members and archive paths:
   - Field-only: `Demo__c.Status__c` is a `CustomField` member; `objects/Demo__c.object` contains the field; no `CustomObject` member or raw `objects/Demo__c/fields/` entry.
   - Object plus fields: `CustomObject: Demo__c` and `CustomField: Demo__c.Status__c` are listed; label/settings and field nodes both survive in one well-formed object document. Object-only retains its settings and contains no generated fields.
   - `.forceignore` and type exclusions: ignored field plus unrelated Apex change, excluded Profile plus included Apex change, and a copied LWC bundle with an ignored test file. Forbidden files and field names must be absent from manifests and payloads, not merely omitted from `package.xml`.
   - Git state matrix: apply the same field change as committed, staged, unstaged, and untracked; assert identical semantic output. Use explicit baseline/target refs for normal cases and clear CI auto-detection variables.
   - Invalid baseline fails conversion with an actionable ref error. A target string containing shell metacharacters is rejected without creating a harmless sentinel file in the fixture. A fixture directory with spaces works.
-- [ ] Run that file and record which assertions fail against current production code. Existing behaviors may pass; the object-plus-field and filter regressions must reproduce the reviewed defects.
-- [ ] Fix only demonstrated causes: merge changed field fragments after loading/copying object settings; preserve repeated XML nodes and entity content; filter before payload generation and copying; apply ignore rules inside bundles; execute Git with argument arrays and propagate comparison failures. Do not catch required Git comparison errors and turn them into empty changes. Keep optional remote-base detection fallback distinct from invalid explicit refs.
-- [ ] Run packaging tests, the focused XML/MDAPI unit tests required by `AGENTS.md`, and `npx tsc --noEmit`. Assert one XML declaration per document, independently valid XML, and exact expected members. Never compare ZIP bytes/timestamps or XML whitespace.
-- [ ] Add specific runtime-fix release notes and version/lockfile updates; commit the tests and their focused fixes together. Do not include unrelated version/API refactoring.
+- [x] Run that file and record which assertions fail against current production code. Existing behaviors may pass; the object-plus-field and filter regressions must reproduce the reviewed defects.
+- [x] Fix only demonstrated causes: merge changed field fragments after loading/copying object settings; preserve repeated XML nodes and entity content; filter before payload generation and copying; apply ignore rules inside bundles; execute Git with argument arrays and propagate comparison failures. Do not catch required Git comparison errors and turn them into empty changes. Keep optional remote-base detection fallback distinct from invalid explicit refs.
+- [x] Run packaging tests, the focused XML/MDAPI unit tests required by `AGENTS.md`, and `npx tsc --noEmit`. Assert one XML declaration per document, independently valid XML, and exact expected members. Never compare ZIP bytes/timestamps or XML whitespace.
+- [x] Add specific runtime-fix release notes and version/lockfile updates; commit the tests and their focused fixes together. Do not include unrelated version/API refactoring.
 
 ## Task 3: Test the built CLI and make deployment results trustworthy
 
@@ -121,11 +121,11 @@ Production fixes are limited to `src/services/MDAPIService.ts`, `src/helper/xmlH
 
 **Interfaces:** Consume `runCli`, `HttpStep`, and ZIP/XML inspectors from Task 1. The child runs the actual `dist/cli.js deploy` with disposable JWT credentials. No prototype/service stubs. Fake status bodies include the real `deployResult` wrapper and complete count/detail fields.
 
-- [ ] Add success/failure cases: `Succeeded` exits 0; terminal `Failed`, `Canceled`, and `SucceededPartial` exit nonzero; auth HTTP failure exits nonzero and never submits a deployment. A failed-test response lacking a `failures` list must report failure without masking it with a property-access exception.
-- [ ] Add request/payload cases: `--validateOnly` sends `checkOnly=true`; default sends false; comma-separated and space-separated `--exclude` forms produce the same filtered ZIP; excluded content is absent. A no-source-change run exits 0 with an explicit no-changes message and no deploy submission, distinct from a Git-comparison failure.
-- [ ] Add mixed and deletion-only cases from real Git deletions. Mixed case submits exactly one ZIP with root `package.xml`, root `destructiveChangesPost.xml`, changed source payloads, and no nested `destructiveChanges/` directory. Deletion-only includes an empty root package manifest plus post-deletion manifest. Deleted members appear only in the destructive manifest. A rejected combined request exits nonzero.
-- [ ] Run these tests to capture current failures. Implement terminal-status checking, safe missing-failure diagnostics, exclusion normalization, explicit no-op handling, and the proposed single-package post-deletion layout. Preserve `rollbackOnError=true`, `singlePackage=true`, authentication flags and production test-level behavior. Poll the one submitted request to completion.
-- [ ] Run the CLI and packaging suites, all existing tests, TypeScript checks, build, and `node dist/cli.js --help`. Add release notes describing changed mixed-deletion ordering and CLI exit behavior; update version/lockfile for the release. Commit this independently reviewable behavior change.
+- [x] Add success/failure cases: `Succeeded` exits 0; terminal `Failed`, `Canceled`, and `SucceededPartial` exit nonzero; auth HTTP failure exits nonzero and never submits a deployment. A failed-test response lacking a `failures` list must report failure without masking it with a property-access exception.
+- [x] Add request/payload cases: `--validateOnly` sends `checkOnly=true`; default sends false; comma-separated and space-separated `--exclude` forms produce the same filtered ZIP; excluded content is absent. A no-source-change run exits 0 with an explicit no-changes message and no deploy submission, distinct from a Git-comparison failure.
+- [x] Add mixed and deletion-only cases from real Git deletions. Mixed case submits exactly one ZIP with root `package.xml`, root `destructiveChangesPost.xml`, changed source payloads, and no nested `destructiveChanges/` directory. Deletion-only includes an empty root package manifest plus post-deletion manifest. Deleted members appear only in the destructive manifest. A rejected combined request exits nonzero.
+- [x] Run these tests to capture current failures. Implement terminal-status checking, safe missing-failure diagnostics, exclusion normalization, explicit no-op handling, and the proposed single-package post-deletion layout. Preserve `rollbackOnError=true`, `singlePackage=true`, authentication flags and production test-level behavior. Poll the one submitted request to completion.
+- [x] Run the CLI and packaging suites, all existing tests, TypeScript checks, build, and `node dist/cli.js --help`. Add release notes describing changed mixed-deletion ordering and CLI exit behavior; update version/lockfile for the release. Commit this independently reviewable behavior change.
 
 ## Task 4: Run the suite on PRs and daily without publishing
 
@@ -135,10 +135,10 @@ Production fixes are limited to `src/services/MDAPIService.ts`, `src/helper/xmlH
 
 **Interfaces:** The workflow consumes `npm run test:integration`; artifacts are under `test-results/`. Tests require no Salesforce or NPM secrets. Job name is stable: `real-file-integration`.
 
-- [ ] Add workflow triggers: `pull_request` targeting `main`, `push` to `main`, `workflow_dispatch`, and `schedule: [{ cron: '23 7 * * *' }]`. Do not use path filters initially: avoid silently missing fixture, lockfile, or harness changes.
-- [ ] Use Ubuntu and Node 24 to match existing CI. Use `contents: read`, `npm ci`, a 15-minute job timeout, and no publish step or NPM token. Use the existing supported checkout/setup action majors; verify the artifact action's supported version at implementation time. Separate concurrent runs by event/ref so PR cancellation cannot cancel a daily run.
-- [ ] Run existing tests and `npm run test:integration`. Upload the integration JSON report on every outcome and diagnostic fixtures/captured packages on failures, retaining artifacts for seven days and including hidden `.simpleSfCli_out` content intentionally. Summarize case counts and failures in the GitHub job summary. Never use `continue-on-error` for the test job.
-- [ ] Put the same integration command before the existing publish step so pushing to `main` cannot publish while that run's integration tests fail. Keep the dedicated scheduled workflow separate; do not add schedules to the publishing workflow. Keep PR publish dry-run behavior.
+- [x] Add workflow triggers: `pull_request` targeting `main`, `push` to `main`, `workflow_dispatch`, and `schedule: [{ cron: '23 7 * * *' }]`. Do not use path filters initially: avoid silently missing fixture, lockfile, or harness changes.
+- [x] Use Ubuntu and Node 24 to match existing CI. Use `contents: read`, `npm ci`, a 15-minute job timeout, and no publish step or NPM token. Use the existing supported checkout/setup action majors; verify the artifact action's supported version at implementation time. Separate concurrent runs by event/ref so PR cancellation cannot cancel a daily run.
+- [x] Run existing tests and `npm run test:integration`. Upload the integration JSON report on every outcome and diagnostic fixtures/captured packages on failures, retaining artifacts for seven days and including hidden `.simpleSfCli_out` content intentionally. Summarize case counts and failures in the GitHub job summary. Never use `continue-on-error` for the test job.
+- [x] Put the same integration command before the existing publish step so pushing to `main` cannot publish while that run's integration tests fail. Keep the dedicated scheduled workflow separate; do not add schedules to the publishing workflow. Keep PR publish dry-run behavior.
 - [ ] Validate workflow syntax; run local commands with Node 24; verify one real PR run. After merge, manually run the workflow and record its run URL, then verify the first genuine scheduled run's event type and UTC timestamp. Before that event, report “configured; scheduled execution unverified.” Do not claim a manual run proves scheduling. Making the check required in branch protection is a separate repository-setting action, not assumed done by adding YAML.
 
 ## Task 5: Document the operating routine and close the acceptance gate
@@ -149,11 +149,11 @@ Production fixes are limited to `src/services/MDAPIService.ts`, `src/helper/xmlH
 
 **Interfaces:** Document existing `npm test` and new `npm run test:integration` without introducing another test runner or deployment command.
 
-- [ ] Document what is real versus simulated, Git/Node requirements, fixture layout, the daily UTC schedule, and how to download failure artifacts and rerun one case with `--runTestsByPath`.
-- [ ] Require each future packaging bug fix to include a small real-file scenario reproducing the user's metadata shape, without customer data or credentials. Run scenarios every PR; add cases when behavior changes, rather than manufacturing one new test each day.
-- [ ] Run the final verification commands below from the exact final branch. Check the diff for unrelated changes, generated `dist` output, temporary artifacts, disabled tests and unexpected dependencies. Confirm a failing simulated deployment and an invalid ref each actually make the test command fail when their safeguards are removed, then restore safeguards and rerun affected tests.
-- [ ] Record commands, counts, actual durations and CI run links. Keep local, simulated HTTP, PR CI, manual CI and scheduled CI evidence separately labeled. Record live Salesforce validation as not performed.
-- [ ] Hand over the reviewed branch/PR if separately requested. Do not merge, publish or change orgs as part of implementing this test plan.
+- [x] Document what is real versus simulated, Git/Node requirements, fixture layout, the daily UTC schedule, and how to download failure artifacts and rerun one case with `--runTestsByPath`.
+- [x] Require each future packaging bug fix to include a small real-file scenario reproducing the user's metadata shape, without customer data or credentials. Run scenarios every PR; add cases when behavior changes, rather than manufacturing one new test each day.
+- [x] Run the final verification commands below from the exact final branch. Check the diff for unrelated changes, generated `dist` output, temporary artifacts, disabled tests and unexpected dependencies. Confirm a failing simulated deployment and an invalid ref each actually make the test command fail when their safeguards are removed, then restore safeguards and rerun affected tests.
+- [x] Record commands, counts, actual durations and CI run links. Keep local, simulated HTTP, PR CI, manual CI and scheduled CI evidence separately labeled. Record live Salesforce validation as not performed.
+- [x] Hand over the reviewed branch/PR if separately requested. Do not merge, publish or change orgs as part of implementing this test plan.
 
 ## Final verification commands
 
@@ -192,3 +192,23 @@ Phase 1 estimate: **11–17 engineer hours**, depending on conversion fixes expo
 - Lockfile tracking precedes `npm ci`; the daily job cannot publish; publishing has its own integration gate.
 - Daily execution, live validation, version release and branch protection are not claimed complete by a local test run.
 - Proposed scope and post-deletion ordering are visible for user review. No implementation, deployment or scheduling has been performed while writing this plan.
+
+
+## Execution status — 2026-10-27
+
+Implemented on `feat/real-file-integration-tests` in the native isolated worktree.
+The original checkout and its untracked `AGENTS.md` were preserved. Existing unit
+tests were retained. Independent review found and reproduced two deletion cases;
+new red/green regressions now cover partial LWC deletion and committed deletion
+followed by local restoration.
+
+Local acceptance: Node 24.22.1, clean `npm ci`, 199 existing tests and 37 integration
+tests passing, zero skipped integration cases, TypeScript/build/help/version checks
+passing. The integration suite takes approximately 14 seconds. Mutation checks
+confirmed that removing failure-status and Git-error safeguards makes four
+regression tests fail; generated modules were restored afterward.
+
+Task 4's hosted execution item remains open: no push, PR, merge, manual CI run,
+scheduled CI run, branch-protection update, NPM publish or live Salesforce call was
+performed. The workflow is configured for 07:23 UTC; actual scheduling is unverified.
+Detailed evidence is in `docs/testing/real-file-integration-validation.md`.

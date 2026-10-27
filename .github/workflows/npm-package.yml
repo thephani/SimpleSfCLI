@@ -5,6 +5,10 @@ on:
     paths:
       - 'src/**'
       - 'package.json'
+      - 'package-lock.json'
+      - 'test/**'
+      - 'jest.integration.config.cjs'
+      - '.github/workflows/integration-tests.yml'
       - 'tsconfig.json'
       - 'jest.config.ts'
       - 'jest.setup.ts'
@@ -16,6 +20,10 @@ on:
     paths:
       - 'src/**'
       - 'package.json'
+      - 'package-lock.json'
+      - 'test/**'
+      - 'jest.integration.config.cjs'
+      - '.github/workflows/integration-tests.yml'
       - 'tsconfig.json'
       - 'jest.config.ts'
       - 'jest.setup.ts'
@@ -41,13 +49,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
         run: npm run build
 
       - name: Run tests
         run: npm test
+
+      - name: Run real-file integration tests
+        run: npm run test:integration
 
       - name: Run npm publish dry-run
         if: github.event_name == 'pull_request'
