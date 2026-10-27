@@ -2,6 +2,22 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## 2.7.8 - 2026-10-27
+
+- Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.
+- Added a separate credential-free PR/push/manual/daily integration workflow at 07:23 UTC, seven-day diagnostics, and an integration gate before NPM publishing.
+- Integration runs clear stale reports and preserve serializable Git diagnostics when fixture setup fails.
+- Tracks the dependency lockfile for reproducible `npm ci` installs.
+- Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
+- Applies `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.
+- Uses argument-array Git execution and fails explicitly on invalid comparison refs instead of silently packaging a partial delta.
+- Failed, canceled, and partially successful deployments now exit nonzero; no deployable changes return success without a deployment request.
+- Mixed updates/deletions and deletion-only deltas now use one ZIP with root `package.xml` and `destructiveChangesPost.xml`; deletions run after additions/updates. This replaces the nested destructive package handling.
+- Handles partial LWC file deletions by redeploying the surviving bundle, and avoids destructive entries for files restored in the working tree.
+- Accepts comma-separated and space-separated metadata-type exclusions consistently.
+- Handles missing test failure arrays without masking the deployment result.
+- Corrected the CLI version display to match the package version.
+
 ## 2.7.7 - 2026-06-24
 
 - Fixed MDAPI conversion for deployments that add a new custom object and fields in the same delta by copying the object payload first, then merging changed fields into `objects/<Object>.object`.

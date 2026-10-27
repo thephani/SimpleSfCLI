@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { MetadataType } from 'types/index.type';
-import { FieldProperties, GroupedData } from 'types/xml.type';
+import { GroupedData } from 'types/xml.type';
 
 import xmlbuilder from 'xmlbuilder';
 
@@ -88,23 +88,22 @@ export class XmlHelper {
 	 */
 	public generateCustomObjectForFields(groupedData: GroupedData): void {
 		try {
-			Object.keys(groupedData).forEach((objectName) => {
-				console.log(`Processing object: ${objectName}`);
-
-				const fields = groupedData[objectName].fields;
-				const fieldXml = fields.map((field) => {
+			for (const [objectName, { fields }] of Object.entries(groupedData)) {
+				const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' })
+					.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
+				for (const field of fields) {
 					const sourceFilePath = path.join(this.sourceDirectory, 'objects', objectName, 'fields', `${field}.field-meta.xml`);
-					const existingXmlContent = fs.readFileSync(sourceFilePath, 'utf-8');
-
-					return this.createFieldsNodeXml(existingXmlContent, sourceFilePath);
-				});
-
-				const updatedXml = this.mergeFieldsIntoCustomObject(objectName, fieldXml);
-				this.saveUpdatedXml(objectName, updatedXml);
-			});
+					const content = fs.readFileSync(sourceFilePath, 'utf-8');
+					const match = content.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
+					if (!match) throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
+					// Preserve repeated elements, attributes and encoded XML content.
+					customObjectXml.ele('fields').raw(match[1].trim());
+				}
+				this.saveUpdatedXml(objectName, customObjectXml.end({ pretty: true }));
+			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			throw new Error(`Error transforming XML files: ${errorMessage}`);
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			throw new Error(`Error transforming XML files: ${message}`);
 		}
 	}
 
@@ -160,22 +159,6 @@ export class XmlHelper {
 		this.outputDirectory = directory;
 	}
 
-	/**
-	 * Extracts field properties from the given XML content.
-	 */
-	private extractFieldProperties(xmlContent: string): FieldProperties {
-		const fieldProperties: FieldProperties = {};
-		const propertyRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
-		let match;
-
-		while ((match = propertyRegex.exec(xmlContent)) !== null) {
-			const [, key, value] = match;
-			fieldProperties[key] = value.trim();
-		}
-
-		return fieldProperties;
-	}
-
 	private getFieldFullName(filePath: string): string | null {
 		if (!fs.existsSync(filePath)) {
 			return null;
@@ -186,51 +169,6 @@ export class XmlHelper {
 		const fullName = fullNameMatch?.[1]?.trim();
 
 		return fullName || null;
-	}
-
-	private createFieldsNodeXml(xmlContent: string, sourceFilePath: string): string {
-		const match = xmlContent.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
-		if (!match) {
-			throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
-		}
-
-		const fieldProperties = this.extractFieldProperties(match[1]);
-		const fieldsNode = xmlbuilder.create('fields');
-		Object.entries(fieldProperties).forEach(([key, value]) => {
-			fieldsNode
-				.ele(key)
-				.raw(value as string)
-				.up();
-		});
-
-		return this.stripXmlDeclaration(fieldsNode.end({ pretty: true }));
-	}
-
-	private stripXmlDeclaration(xmlContent: string): string {
-		return xmlContent.replace(/^\s*<\?xml[\s\S]*?\?>\s*/i, '');
-	}
-
-	private mergeFieldsIntoCustomObject(objectName: string, fieldXml: string[]): string {
-		const outputPath = path.join(this.outputDirectory, 'objects', `${objectName}.object`);
-
-		if (!fs.existsSync(outputPath)) {
-			const customObjectXml = xmlbuilder
-				.create('CustomObject', { encoding: 'UTF-8' })
-				.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
-
-			fieldXml.forEach((field) => customObjectXml.raw(`\n${field}`));
-			return customObjectXml.end({ pretty: true });
-		}
-
-		const existingObjectXml = fs.readFileSync(outputPath, 'utf-8');
-		if (!existingObjectXml.match(/<\/CustomObject>\s*$/)) {
-			throw new Error(`Invalid XML structure in file: ${outputPath}`);
-		}
-
-		return existingObjectXml.replace(
-			/\s*<\/CustomObject>\s*$/,
-			`\n${fieldXml.join('\n')}\n</CustomObject>`,
-		);
 	}
 
 	/**
@@ -245,6 +183,14 @@ export class XmlHelper {
 			}
 
 			const outputPath = path.join(outputDir, `${objectName}.object`);
+			if (fs.existsSync(outputPath)) {
+				const objectXml = fs.readFileSync(outputPath, 'utf-8');
+				const fieldsContent = updatedXml.match(/<CustomObject[^>]*>([\s\S]*)<\/CustomObject>/)?.[1];
+				if (!fieldsContent || !/<\/CustomObject>\s*$/.test(objectXml)) {
+					throw new Error(`Invalid CustomObject payload: ${outputPath}`);
+				}
+				updatedXml = objectXml.replace(/<\/CustomObject>\s*$/, `${fieldsContent}\n</CustomObject>`);
+			}
 			fs.writeFileSync(outputPath, updatedXml, 'utf-8');
 			// console.log(`Saved updated XML for ${objectName} to: ${outputPath}`);
 		} catch (error) {

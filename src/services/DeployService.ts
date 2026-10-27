@@ -65,7 +65,7 @@ export class DeployService extends BaseService {
       if(status.status === 'Failed') {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
         // Create a new array with only the selected properties
-        const failedTests = status.details.runTestResult?.failures.map(({ stackTrace }) => ({ stackTrace }));
+        const failedTests = status.details?.runTestResult?.failures?.map(({ stackTrace }) => ({ stackTrace }));
         if (failedTests?.length) {
           console.table(failedTests);
         }
@@ -77,6 +77,9 @@ export class DeployService extends BaseService {
       }
 
       if (status.done) {
+        if (status.status !== 'Succeeded') {
+          throw new Error(`Deployment ${deployId} ended with status ${status.status}`);
+        }
         return status;
       }
 

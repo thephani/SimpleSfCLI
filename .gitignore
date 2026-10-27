@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
 converage/
 lib/
 AGENTS.md
@@ -46,3 +45,5 @@ ApexTestCoverage.json
 # Temporary files
 tmp/
 temp/
+# Integration test diagnostics
+test-results/
