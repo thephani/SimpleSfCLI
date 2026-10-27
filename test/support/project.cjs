@@ -22,21 +22,34 @@ async function createProject(testName) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'simpleSfCli real files '));
   const safeName = testName.replace(/[^a-zA-Z0-9-]/g, '-');
   const stateDir = path.join(root, '.harness');
-  await fs.cp(fixtureRoot, root, { recursive: true });
-  await fs.mkdir(stateDir);
-  await fs.writeFile(path.join(root, '.gitignore'), '.harness/\n.simpleSfCli_out/\ndeploy.zip\n');
-  const git = args => execFileSync('git', ['-c', 'core.hooksPath=' + os.devNull, '-c', 'commit.gpgsign=false', ...args], { cwd: root, env: cleanEnv(), encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] });
-  git(['init', '-q', '-b', 'fixture']);
-  git(['config', 'user.name', 'Integration Test']);
-  git(['config', 'user.email', 'integration@example.invalid']);
-  git(['config', 'core.autocrlf', 'false']);
-  git(['config', 'diff.renames', 'false']);
-  git(['add', '.']);
-  git(['commit', '-qm', 'baseline']);
-  git(['tag', 'fixture-base']);
-  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
-  const privateKeyPath = path.join(stateDir, 'server.key');
-  await fs.writeFile(privateKeyPath, privateKey, { mode: 0o600 });
+  const git = args => {
+    try {
+      return execFileSync('git', ['-c', 'core.hooksPath=' + os.devNull, '-c', 'commit.gpgsign=false', ...args], { cwd: root, env: cleanEnv(), encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (error) {
+      // Node process errors can contain circular properties that break Jest JSON reports.
+      throw new Error(`Fixture Git command failed (${args.join(' ')}): ${error.message}`);
+    }
+  };
+  let privateKeyPath;
+  try {
+    await fs.cp(fixtureRoot, root, { recursive: true });
+    await fs.mkdir(stateDir);
+    await fs.writeFile(path.join(root, '.gitignore'), '.harness/\n.simpleSfCli_out/\ndeploy.zip\n');
+    git(['init', '-q', '-b', 'fixture']);
+    git(['config', 'user.name', 'Integration Test']);
+    git(['config', 'user.email', 'integration@example.invalid']);
+    git(['config', 'core.autocrlf', 'false']);
+    git(['config', 'diff.renames', 'false']);
+    git(['add', '.']);
+    git(['commit', '-qm', 'baseline']);
+    git(['tag', 'fixture-base']);
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+    privateKeyPath = path.join(stateDir, 'server.key');
+    await fs.writeFile(privateKeyPath, privateKey, { mode: 0o600 });
+  } catch (error) {
+    await fs.rm(root, { recursive: true, force: true });
+    throw error;
+  }
   let disposed = false;
   return {
     root, source, stateDir, privateKeyPath,

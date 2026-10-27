@@ -24,7 +24,8 @@
 		"prebuild": "npm run clean",
 		"prepare": "npm run build",
 		"test": "jest --collectCoverage --verbose --silent",
-		"test:integration": "npm run build && jest --config jest.integration.config.cjs --runInBand --json --outputFile=test-results/integration.json"
+		"test:integration": "npm run build && jest --config jest.integration.config.cjs --runInBand --json --outputFile=test-results/integration.json",
+		"pretest:integration": "node -e \"require('node:fs').rmSync('test-results/integration.json', {force: true})\""
 	},
 	"dependencies": {
 		"archiver": "^7.0.1",

@@ -6,6 +6,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 
 - Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.
 - Added a separate credential-free PR/push/manual/daily integration workflow at 07:23 UTC, seven-day diagnostics, and an integration gate before NPM publishing.
+- Integration runs clear stale reports and preserve serializable Git diagnostics when fixture setup fails.
 - Tracks the dependency lockfile for reproducible `npm ci` installs.
 - Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
 - Applies `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.

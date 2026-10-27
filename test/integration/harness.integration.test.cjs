@@ -21,6 +21,7 @@ describe('real-file harness', () => {
     const b = await project('second');
     expect(a.root).not.toBe(b.root);
     expect(a.git(['log', '-1', '--format=%s']).trim()).toBe('baseline');
+    expect(() => a.git(['not-a-git-command'])).toThrow('Fixture Git command failed');
     await a.write('only-a.txt', 'isolated');
     expect(fs.existsSync(path.join(b.root, 'only-a.txt'))).toBe(false);
     const result = await runCli(a, { args: ['--help'], responses: [] });

@@ -955,7 +955,8 @@ with a failing test before applying its fix. Fixtures must use fictional metadat
 not customer data, org credentials or exported production tokens. Compare parsed
 XML and archive entries rather than ZIP bytes, timestamps or XML formatting.
 
-Tests remove temporary repositories on completion. On failure they retain the
+Tests remove temporary repositories on completion. When a scenario fails after
+setup, they retain the
 fixture, generated metadata, captured ZIP, and child stdout/stderr under
 `test-results/integration/`; disposable private keys and `.git` are excluded.
 The machine-readable report is `test-results/integration.json`. These files are

@@ -183,15 +183,15 @@ export class XmlHelper {
 			}
 
 			const outputPath = path.join(outputDir, `${objectName}.object`);
-            if (fs.existsSync(outputPath)) {
-                const objectXml = fs.readFileSync(outputPath, 'utf-8');
-                const fieldsContent = updatedXml.match(/<CustomObject[^>]*>([\s\S]*)<\/CustomObject>/)?.[1];
-                if (!fieldsContent || !/<\/CustomObject>\s*$/.test(objectXml)) {
-                    throw new Error(`Invalid CustomObject payload: ${outputPath}`);
-                }
-                updatedXml = objectXml.replace(/<\/CustomObject>\s*$/, `${fieldsContent}\n</CustomObject>`);
-            }
-            fs.writeFileSync(outputPath, updatedXml, 'utf-8');
+			if (fs.existsSync(outputPath)) {
+				const objectXml = fs.readFileSync(outputPath, 'utf-8');
+				const fieldsContent = updatedXml.match(/<CustomObject[^>]*>([\s\S]*)<\/CustomObject>/)?.[1];
+				if (!fieldsContent || !/<\/CustomObject>\s*$/.test(objectXml)) {
+					throw new Error(`Invalid CustomObject payload: ${outputPath}`);
+				}
+				updatedXml = objectXml.replace(/<\/CustomObject>\s*$/, `${fieldsContent}\n</CustomObject>`);
+			}
+			fs.writeFileSync(outputPath, updatedXml, 'utf-8');
 			// console.log(`Saved updated XML for ${objectName} to: ${outputPath}`);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';

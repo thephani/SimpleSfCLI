@@ -29,7 +29,12 @@ No production source was left mutated.
 One repeated packaging run timed out after the host showed an elapsed interval of
 about 595 seconds in its first case; the other 13 cases passed. A fresh unchanged
 run passed all 14 in about six seconds. Timeouts were retained rather than raised
-or suppressed. Later full Node 24 runs passed normally.
+or suppressed. A later run hit a bounded Git fixture setup timeout; Node's process error contained
+circular properties and prevented Jest JSON serialization. The harness now wraps
+Git errors as plain diagnostic errors, cleans failed setup directories, and removes
+the previous JSON report before each integration command. A new regression checks
+the Git-error diagnostic. No timeout was increased or disabled. Subsequent full
+Node 24 verification passed with a freshly written report.
 
 ## Boundaries and outstanding hosted checks
 
