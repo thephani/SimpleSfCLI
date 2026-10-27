@@ -25,7 +25,7 @@ async function createProject(testName) {
   await fs.cp(fixtureRoot, root, { recursive: true });
   await fs.mkdir(stateDir);
   await fs.writeFile(path.join(root, '.gitignore'), '.harness/\n.simpleSfCli_out/\ndeploy.zip\n');
-  const git = args => execFileSync('git', ['-c', 'core.hooksPath=' + os.devNull, '-c', 'commit.gpgsign=false', ...args], { cwd: root, env: cleanEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const git = args => execFileSync('git', ['-c', 'core.hooksPath=' + os.devNull, '-c', 'commit.gpgsign=false', ...args], { cwd: root, env: cleanEnv(), encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] });
   git(['init', '-q', '-b', 'fixture']);
   git(['config', 'user.name', 'Integration Test']);
   git(['config', 'user.email', 'integration@example.invalid']);
@@ -83,9 +83,13 @@ function runNode(project, args, { timeoutMs = 20000, env = {} } = {}) {
     child.stderr.on('data', data => { stderr = (stderr + data).slice(-limit); });
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
     child.on('error', error => { clearTimeout(timer); reject(error); });
-    child.on('close', (exitCode, signal) => {
+    child.on('close', async (exitCode, signal) => {
       clearTimeout(timer);
-      resolve({ exitCode, signal, stdout, stderr, timedOut });
+      try {
+        await fs.writeFile(path.join(project.stateDir, 'stdout.txt'), stdout);
+        await fs.writeFile(path.join(project.stateDir, 'stderr.txt'), stderr);
+        resolve({ exitCode, signal, stdout, stderr, timedOut });
+      } catch (error) { reject(error); }
     });
   });
 }
@@ -98,8 +102,6 @@ async function runCli(project, { args, responses, timeoutMs }) {
   const authArgs = args.includes('--help') || args.includes('--version') ? [] : ['--username', 'fixture@example.invalid', '--clientId', 'fixture-client', '--privateKey', project.privateKeyPath];
   const result = await runNode(project, ['--require', path.join(__dirname, 'salesforce-fetch.cjs'), cliPath, ...args, ...authArgs], { timeoutMs, env: { SIMPLESFCLI_TEST_SCENARIO: scenario, SIMPLESFCLI_TEST_CAPTURE_DIR: project.stateDir } });
   const transport = syncFs.existsSync(report) ? JSON.parse(await fs.readFile(report, 'utf8')) : { requests: [], errors: ['Transport report missing'], capturedZips: [] };
-  await fs.writeFile(path.join(project.stateDir, 'stdout.txt'), result.stdout);
-  await fs.writeFile(path.join(project.stateDir, 'stderr.txt'), result.stderr);
   return { ...result, requests: transport.requests, capturedZips: transport.capturedZips, transportErrors: transport.errors };
 }
 

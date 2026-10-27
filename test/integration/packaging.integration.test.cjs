@@ -88,4 +88,28 @@ describe('real Git → MDAPI → ZIP', () => {
     expect(fs.existsSync(path.join(p.root, 'sentinel'))).toBe(false);
     expect(fs.existsSync(p.zipPath)).toBe(false);
   }));
+  test('redeploys a surviving LWC bundle when an internal file is deleted', () => withProject('partial-lwc-delete', async p => {
+    await p.write(`${source}/lwc/demo/helper.js`, 'export const helper = true;');
+    p.git(['add', '.']); p.git(['commit', '-qm', 'bundle helper baseline']); p.git(['tag', '-f', 'fixture-base']);
+    await p.remove(`${source}/lwc/demo/helper.js`);
+    const files = await zip(p);
+    expect(files.has('destructiveChangesPost.xml')).toBe(false);
+    expect(members(files.get('package.xml'))).toEqual({ LightningComponentBundle: ['demo'] });
+    expect(files.has('lwc/demo/demo.js')).toBe(true);
+    expect(files.has('lwc/demo/helper.js')).toBe(false);
+  }));
+  test('deletes an LWC bundle only when the whole bundle was removed', () => withProject('whole-lwc-delete', async p => {
+    await p.remove(`${source}/lwc/demo`);
+    const files = await zip(p);
+    expect(members(files.get('destructiveChangesPost.xml'))).toEqual({ LightningComponentBundle: ['demo'] });
+    expect(members(files.get('package.xml'))).toEqual({});
+  }));
+  test('does not delete a committed deletion restored in the working tree', () => withProject('restored-deletion', async p => {
+    await p.remove(cls); p.git(['add', '.']); p.git(['commit', '-qm', 'delete class']);
+    await p.write(cls, original(cls));
+    const files = await zip(p);
+    expect(members(files.get('package.xml'))).toEqual({ ApexClass: ['Keep'] });
+    expect(files.has('classes/Keep.cls')).toBe(true);
+    expect(files.has('destructiveChangesPost.xml')).toBe(false);
+  }));
 });

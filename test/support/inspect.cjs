@@ -2,6 +2,7 @@ const AdmZip = require('adm-zip');
 const { XMLValidator, XMLParser } = require('fast-xml-parser');
 function parseXml(xml) {
   const text = Buffer.isBuffer(xml) ? xml.toString('utf8') : xml;
+  if (typeof text !== 'string') throw new Error('Expected XML payload is missing');
   const validation = XMLValidator.validate(text);
   if (validation !== true) throw new Error(`Invalid XML: ${validation.err.msg}`);
   if ((text.match(/<\?xml\s/g) || []).length > 1) throw new Error('Nested XML declaration');

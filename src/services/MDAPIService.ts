@@ -31,8 +31,8 @@ export class MDAPIService extends BaseService {
       await this.initializeDirectories();
 
       const runTests: string[] = [];
-      await this.processDeletedMetadata(excludeList);
-      await this.processModifiedMetadata(excludeList, runTests);
+      const survivingBundles = await this.processDeletedMetadata(excludeList);
+      await this.processModifiedMetadata(excludeList, runTests, survivingBundles);
 
       // console.log('✅ Conversion completed successfully.');
       return runTests;
@@ -56,11 +56,24 @@ export class MDAPIService extends BaseService {
     // console.log(`📁 Cleanedup directories`);
   }
 
-  private async processDeletedMetadata(excludeList: string[]): Promise<void> {
-    const deletedFiles = await this.getGitFiles("D");
+  private async processDeletedMetadata(excludeList: string[]): Promise<string[]> {
+    const survivingBundles: string[] = [];
+    const deletedFiles = (await this.getGitFiles("D")).filter((file) => {
+      // A committed/staged deletion can have been restored in the working tree.
+      if (fs.existsSync(file)) return false;
+      const relativePath = this.toRelativeSourcePath(file);
+      if (relativePath.startsWith('lwc/')) {
+        const bundle = relativePath.split('/')[1];
+        if (bundle && fs.existsSync(path.join(this.config.source, 'lwc', bundle))) {
+          survivingBundles.push(file);
+          return false;
+        }
+      }
+      return true;
+    });
     if (!deletedFiles.length) {
-      console.log("ℹ️  No deleted files detected");
-      return;
+      console.log("ℹ️  No deleted components detected");
+      return survivingBundles;
     }
 
     const metadataTypes: MetadataType[] = [];
@@ -77,13 +90,15 @@ export class MDAPIService extends BaseService {
     if (metadataTypes.length) {
       await this.generateDestructivePackages(metadataTypes);
     }
+    return survivingBundles;
   }
 
   private async processModifiedMetadata(
     excludeList: string[],
     runTests: string[],
+    survivingBundles: string[] = [],
   ): Promise<void> {
-    const changedFiles = await this.getGitFiles("AM");
+    const changedFiles = [...new Set([...(await this.getGitFiles("AM")), ...survivingBundles])];
     if (!changedFiles.length) {
       return;
     }
