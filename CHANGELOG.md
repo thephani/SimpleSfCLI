@@ -8,6 +8,10 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
 - Applies `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.
 - Uses argument-array Git execution and fails explicitly on invalid comparison refs instead of silently packaging a partial delta.
+- Failed, canceled, and partially successful deployments now exit nonzero; no deployable changes return success without a deployment request.
+- Mixed updates/deletions and deletion-only deltas now use one ZIP with root `package.xml` and `destructiveChangesPost.xml`; deletions run after additions/updates. This replaces the nested destructive package handling.
+- Accepts comma-separated and space-separated metadata-type exclusions consistently.
+- Handles missing test failure arrays without masking the deployment result.
 - Corrected the CLI version display to match the package version.
 
 ## 2.7.5 - 2026-05-13

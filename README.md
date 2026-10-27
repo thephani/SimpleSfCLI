@@ -913,3 +913,13 @@ Object-plus-field deltas retain object settings and changed fields in the same
 MDAPI object payload. `.forceignore` and metadata-type exclusions remove content
 from both manifests and archives, including files within LWC bundles. Invalid Git
 comparison refs fail instead of producing a partial deployment package.
+
+
+Deployment commands return a nonzero exit code for failed, canceled or partially
+successful terminal results. A delta with no deployable changes exits successfully
+without submitting a deployment. Mixed updates and deletions use one ZIP with
+`package.xml` and `destructiveChangesPost.xml` at the root. Deletions run after
+additions and updates within that deployment. `--validateOnly` validates the entire
+package, including deletions, without applying it.
+
+Both `--exclude Profile,CustomField` and `--exclude Profile CustomField` are supported.

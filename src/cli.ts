@@ -136,8 +136,8 @@ class CLI {
 					};
 
 					// Initialize deployment
-					const result: any = await client.deploy(deployOptions);
-					console.log('Deployment completed:', result.id);
+					const result = await client.deploy(deployOptions);
+					if (result) console.log('Deployment completed:', result.id);
 					this.logCommandDuration(timer);
 				} catch (error) {
 					this.handleError('Deployment failed', error);
@@ -164,6 +164,10 @@ class CLI {
 
 	private getUpdatedConfig(options: any, logging: { logUsername?: boolean } = {}): CommandArgsConfig {
 		const updatedConfig = { ...this.config, ...options };
+		if (options.exclude) {
+			updatedConfig.exclude = options.exclude.flatMap((value: string) => value.split(','))
+				.map((value: string) => value.trim()).filter(Boolean);
+		}
 		const { logUsername = true } = logging;
 		updatedConfig.env = this.normalizeEnv(options.env ?? updatedConfig.env);
 

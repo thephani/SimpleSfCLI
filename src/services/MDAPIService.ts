@@ -53,9 +53,6 @@ export class MDAPIService extends BaseService {
     }
 
     await fs.promises.mkdir(cliOuputFolder, { recursive: true });
-    await fs.promises.mkdir(path.join(cliOuputFolder, "destructiveChanges"), {
-      recursive: true,
-    });
     // console.log(`📁 Cleanedup directories`);
   }
 
@@ -88,7 +85,6 @@ export class MDAPIService extends BaseService {
   ): Promise<void> {
     const changedFiles = await this.getGitFiles("AM");
     if (!changedFiles.length) {
-      console.log("if no deleted files detected, exit here");
       return;
     }
 
@@ -117,9 +113,8 @@ export class MDAPIService extends BaseService {
       );
 
     if (!metadataTypes.length) {
-      throw new Error(
-        `No supported metadata found. Supported types: ${Object.values(METADATA_TYPES)}`,
-      );
+      this.logExcludedComponents(excludedComponents);
+      return;
     }
 
     await this.generatePackageXml(metadataTypes);
@@ -245,29 +240,15 @@ export class MDAPIService extends BaseService {
     }
   }
 
-  private async generateDestructivePackages(
-    types: MetadataType[],
-  ): Promise<void> {
-    const destructiveDir = path.join(
-      this.config.cliOuputFolder,
-      "destructiveChanges",
-    );
-
-    const destructiveXml = this.xmlHelper.createPackageXml(types);
+  private async generateDestructivePackages(types: MetadataType[]): Promise<void> {
     await fs.promises.writeFile(
-      path.join(destructiveDir, "destructiveChanges.xml"),
-      destructiveXml,
+      path.join(this.config.cliOuputFolder, "destructiveChangesPost.xml"),
+      this.xmlHelper.createPackageXml(types),
     );
-
-    console.log("\n🗑️  Generated destructiveChanges.xml:");
-    console.log("----------------------------------");
-    console.log(destructiveXml);
-    console.log("----------------------------------\n");
-
-    const emptyXml = this.xmlHelper.createEmptyPackageXml();
+    // Modified metadata may replace this with a populated manifest afterward.
     await fs.promises.writeFile(
-      path.join(destructiveDir, "package.xml"),
-      emptyXml,
+      path.join(this.config.cliOuputFolder, "package.xml"),
+      this.xmlHelper.createEmptyPackageXml(),
     );
   }
 
