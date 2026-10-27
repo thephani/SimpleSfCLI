@@ -2,6 +2,14 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## 2.7.7 - 2026-10-27
+
+- Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.
+- Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
+- Applies `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.
+- Uses argument-array Git execution and fails explicitly on invalid comparison refs instead of silently packaging a partial delta.
+- Corrected the CLI version display to match the package version.
+
 ## 2.7.5 - 2026-05-13
 
 - Fixed `auth:token --env PROD` and `--env PRODUCTION` so production JWT auth uses `https://login.salesforce.com` instead of falling back to the sandbox login URL.

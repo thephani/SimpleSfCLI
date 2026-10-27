@@ -902,3 +902,14 @@ See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the late
 ---
 
 **Simple SF CLI** - Empowering Salesforce deployments with speed and simplicity.
+
+
+### Real-file packaging regression tests
+
+Run `npm run test:integration` to build the CLI and test real Git history,
+source files, XML and ZIP archives in disposable repositories. Salesforce HTTP
+responses are simulated; these tests do not prove Salesforce server acceptance.
+Object-plus-field deltas retain object settings and changed fields in the same
+MDAPI object payload. `.forceignore` and metadata-type exclusions remove content
+from both manifests and archives, including files within LWC bundles. Invalid Git
+comparison refs fail instead of producing a partial deployment package.
