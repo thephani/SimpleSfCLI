@@ -111,6 +111,9 @@ export class MDAPIService extends BaseService {
 
     await this.copyFiles(otherFiles);
 
+    console.log(`Copying file: ${otherFiles}`);
+    await this.copyFiles(otherFiles);
+
     if (Object.keys(fieldData).length) {
       this.xmlHelper.generateCustomObjectForFields(fieldData);
     }

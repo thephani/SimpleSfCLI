@@ -2,6 +2,7 @@
 node_modules/
 converage/
 lib/
+AGENTS.md
 
 # Build output
 dist/

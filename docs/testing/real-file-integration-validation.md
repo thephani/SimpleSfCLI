@@ -6,10 +6,10 @@ Date: 2026-10-27. Branch: `feat/real-file-integration-tests`.
 
 - Runtime: official Node.js 24.22.1 macOS arm64 binary; downloaded archive matched the published SHA256. Existing CI targets Node 24 on Ubuntu; Linux hosted execution remains unverified.
 - `npm ci`: passed using the tracked lockfile. A task-specific cache was used because the user's default cache had permission-denied entries; no global configuration or ownership changes were made.
-- `npm test -- --runInBand --modulePathIgnorePatterns .kilo`: 8 suites, 199 tests passed.
+- `npm test -- --runInBand --modulePathIgnorePatterns .kilo`: 8 suites, 202 tests passed.
 - Focused XML/MDAPI unit tests: 48 passed during implementation; final full unit run also includes these cases.
 - `npm run test:integration`: 3 suites, 37 tests passed with zero skipped tests. Breakdown: 5 harness, 17 packaging, 15 built CLI tests. Approximately 14 seconds after build.
-- `npx tsc --noEmit`, build, `node dist/cli.js --help`, and version display `2.7.7`: passed.
+- `npx tsc --noEmit`, build, `node dist/cli.js --help`, and version display `2.7.8`: passed.
 - Both workflow YAML documents parsed successfully; workflow summary code was exercised with missing, passing and failing report inputs.
 - `git diff --check`: passed.
 
@@ -47,8 +47,10 @@ The separate workflow has PR/main-push/manual/daily triggers and a proposed dail
 cadence of 07:23 UTC. Its reports and failure fixtures are retained seven days.
 The publishing workflow runs integration tests before its existing publish step.
 
-No branch was pushed and no PR, merge, publish, live Salesforce validation or org
-mutation was performed. Actual PR/manual/scheduled CI execution and branch
+The feature branch is being prepared for the user-requested push and PR targeting
+`main`. The newer `main` XML conversion fix and its three additional unit tests
+were integrated, and the release version is now 2.7.8. No merge into `main`, NPM
+publish, live Salesforce validation or org mutation was performed. Actual PR/manual/scheduled CI execution and branch
 protection are not verified. After separately authorized publication of the
 branch, record real run links here; after merge, verify a true scheduled event
 before claiming daily execution works.

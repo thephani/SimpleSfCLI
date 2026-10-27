@@ -564,14 +564,57 @@ describe('MDAPIService', () => {
 	});
 
 	describe('field package generation', () => {
+		beforeEach(() => {
+			(XmlHelper.prototype.generatePackageMember as jest.Mock).mockImplementation((filePath: string) => {
+				const match = filePath.match(/objects\/([^/]+)\/fields\/([^/]+)\.field-meta\.xml$/);
+				if (!match) {
+					return null;
+				}
+
+				return {
+					name: 'CustomField',
+					members: [`${match[1]}.${match[2]}`],
+				};
+			});
+		});
+
+		it('should package a new custom object along with its fields', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Checklist_Step__c/Checklist_Step__c.object-meta.xml',
+				'force-app/main/default/objects/Checklist_Step__c/fields/Opportunity__c.field-meta.xml',
+				'force-app/main/default/objects/Checklist_Step__c/fields/Order__c.field-meta.xml',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/objects/Checklist_Step__c/Checklist_Step__c.object-meta.xml',
+				path.join(mockConfig.cliOuputFolder, 'objects', 'Checklist_Step__c.object'),
+			);
+			expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalledWith({
+				Checklist_Step__c: {
+					fields: ['Opportunity__c', 'Order__c'],
+				},
+			});
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomObject',
+					members: ['Checklist_Step__c'],
+				},
+				{
+					name: 'CustomField',
+					members: [
+						'Checklist_Step__c.Opportunity__c',
+						'Checklist_Step__c.Order__c',
+					],
+				},
+			]);
+		});
+
 		it('should package field-only object deltas as CustomField members', async () => {
 			(service as any).getGitFiles = jest.fn().mockResolvedValue([
 				'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml',
 			]);
-			(XmlHelper.prototype.generatePackageMember as jest.Mock).mockReturnValue({
-				name: 'CustomField',
-				members: ['Program__c.Partner_Status__c'],
-			});
 
 			await (service as any).processModifiedMetadata([], []);
 
@@ -580,10 +623,34 @@ describe('MDAPIService', () => {
 					fields: ['Partner_Status__c'],
 				},
 			});
+			expect(fs.promises.copyFile).not.toHaveBeenCalledWith(
+				'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml',
+				expect.any(String),
+			);
 			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
 				{
 					name: 'CustomField',
 					members: ['Program__c.Partner_Status__c'],
+				},
+			]);
+		});
+
+		it('should package object settings-only changes as CustomObject members', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Checklist_Task__c/Checklist_Task__c.object-meta.xml',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/objects/Checklist_Task__c/Checklist_Task__c.object-meta.xml',
+				path.join(mockConfig.cliOuputFolder, 'objects', 'Checklist_Task__c.object'),
+			);
+			expect(XmlHelper.prototype.generateCustomObjectForFields).not.toHaveBeenCalled();
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomObject',
+					members: ['Checklist_Task__c'],
 				},
 			]);
 		});

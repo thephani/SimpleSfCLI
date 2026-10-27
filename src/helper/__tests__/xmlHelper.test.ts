@@ -151,6 +151,66 @@ describe('XmlHelper', () => {
 
 			// Verify file writing
 			expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fields>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fullName>TestField</fullName>'),
+				'utf-8',
+			);
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml.match(/<\?xml/g)).toHaveLength(1);
+		});
+
+		it('should merge fields into an existing custom object payload', () => {
+			const objectXml = `
+				<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+					<label>Account</label>
+					<pluralLabel>Accounts</pluralLabel>
+				</CustomObject>
+			`;
+			const fieldXml = `
+				<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+					<fullName>CustomField1__c</fullName>
+					<label>Custom Field 1</label>
+					<type>Text</type>
+					<length>255</length>
+				</CustomField>
+			`;
+
+			(fs.existsSync as jest.Mock).mockImplementation((filePath: string) => (
+				filePath === './.test_output/objects/Account.object'
+			));
+			(fs.readFileSync as jest.Mock).mockImplementation((filePath: string) => (
+				filePath === './.test_output/objects/Account.object' ? objectXml : fieldXml
+			));
+
+			xmlHelper.generateCustomObjectForFields({
+				Account: {
+					fields: ['CustomField1__c'],
+				},
+			});
+
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<label>Account</label>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fields>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fullName>CustomField1__c</fullName>'),
+				'utf-8',
+			);
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml).not.toContain('<?xml');
 		});
 
 		it('should handle errors in XML processing', () => {

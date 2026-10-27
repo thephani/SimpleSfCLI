@@ -32,7 +32,7 @@ const config: CommandArgsConfig = {
   sfVersion: 'v60.0',
   
   // CLI information
-  cliVersion: '2.7.7',
+  cliVersion: '2.7.8',
   cliOuputFolder: '.simpleSfCli_out',
   
   // Deployment options

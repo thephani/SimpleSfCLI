@@ -212,3 +212,12 @@ Task 4's hosted execution item remains open: no push, PR, merge, manual CI run,
 scheduled CI run, branch-protection update, NPM publish or live Salesforce call was
 performed. The workflow is configured for 07:23 UTC; actual scheduling is unverified.
 Detailed evidence is in `docs/testing/real-file-integration-validation.md`.
+
+
+### PR preparation refresh
+
+The user subsequently authorized pushing the feature branch and opening a PR to
+`main`. Integrated main commit `89081f5` (existing XML fix and regression tests),
+retained repeated-field XML preservation, and advanced this release to `2.7.8`
+because `main` already uses `2.7.7`. Refreshed local verification includes 202 unit
+tests plus the same 37 integration cases. Hosted CI remains pending the PR run.
