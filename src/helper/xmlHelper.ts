@@ -4,6 +4,7 @@ import { MetadataType } from 'types/index.type';
 import { GroupedData } from 'types/xml.type';
 
 import xmlbuilder from 'xmlbuilder';
+import { CUSTOM_OBJECT_CHILDREN } from './constants.js';
 
 export class XmlHelper {
 	private sourceDirectory: string;
@@ -65,39 +66,49 @@ export class XmlHelper {
 	 * Generates package member details from a given file path.
 	 */
 	public generatePackageMember(filePath: string): MetadataType | null {
-		const customFieldRegEx = /objects\/([^/]+)\/fields\/([^/]+)\.field-meta\.xml$/;
-		const match = filePath.match(customFieldRegEx);
+		for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+			const match = filePath.match(childConfig.regex);
+			if (match) {
+				const objectName = match[1];
+				const childName = this.getFieldFullName(filePath) ?? match[2];
 
-		if (!match) {
-			console.error('File path does not match the expected pattern:', filePath);
-			return null;
+				return {
+					name: childConfig.typeName,
+					members: [childName.includes('.') ? childName : `${objectName}.${childName}`],
+				};
+			}
 		}
 
-		//1. first captured group (object name) 2. second captured group (field name)
-		const objectName = match[1];
-		const fieldName = this.getFieldFullName(filePath) ?? match[2];
-
-		return {
-			name: 'CustomField',
-			members: [fieldName.includes('.') ? fieldName : `${objectName}.${fieldName}`],
-		};
+		console.error('File path does not match the expected pattern:', filePath);
+		return null;
 	}
 
 	/**
-	 * Transforms XML structure to rename root node to `<CustomObject>` and nests content under `<fields>`.
+	 * Transforms XML structure to rename root node to `<CustomObject>` and nests child content under its respective child elements.
 	 */
 	public generateCustomObjectForFields(groupedData: GroupedData): void {
 		try {
-			for (const [objectName, { fields }] of Object.entries(groupedData)) {
+			for (const [objectName, objectData] of Object.entries(groupedData)) {
 				const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' })
 					.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
-				for (const field of fields) {
-					const sourceFilePath = path.join(this.sourceDirectory, 'objects', objectName, 'fields', `${field}.field-meta.xml`);
-					const content = fs.readFileSync(sourceFilePath, 'utf-8');
-					const match = content.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
-					if (!match) throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
-					// Preserve repeated elements, attributes and encoded XML content.
-					customObjectXml.ele('fields').raw(match[1].trim());
+				for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+					const items = objectData[childConfig.folder];
+					if (!Array.isArray(items)) continue;
+					for (const itemName of items) {
+						const sourceFilePath = path.join(
+							this.sourceDirectory,
+							'objects',
+							objectName,
+							childConfig.folder,
+							`${itemName}${childConfig.extension}`,
+						);
+						const content = fs.readFileSync(sourceFilePath, 'utf-8');
+						const tagRegex = new RegExp(`<${childConfig.typeName}[^>]*>([\\s\\S]*?)<\\/${childConfig.typeName}>`);
+						const match = content.match(tagRegex);
+						if (!match) throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
+						// Preserve repeated elements, attributes and encoded XML content.
+						customObjectXml.ele(childConfig.folder).raw(match[1].trim());
+					}
 				}
 				this.saveUpdatedXml(objectName, customObjectXml.end({ pretty: true }));
 			}

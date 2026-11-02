@@ -5,13 +5,15 @@ import { CommandArgsConfig } from "types/config.type.js";
 import { MetadataType } from "types/index.type.js";
 import { GroupedData } from "types/xml.type.js";
 import {
-  MEMBERTYPE_REGEX,
+  CUSTOM_OBJECT_CHILDREN,
   METADATA_EXTENSIONS,
   METADATA_TYPES,
 } from "../helper/constants.js";
 import { ForceIgnoreHelper } from "../helper/forceignoreHelper.js";
 import { XmlHelper } from "../helper/xmlHelper.js";
 import { BaseService } from "./BaseService.js";
+
+const BUNDLE_DIRECTORIES = ["lwc", "aura", "experiences"] as const;
 
 export class MDAPIService extends BaseService {
   private xmlHelper: XmlHelper;
@@ -58,19 +60,41 @@ export class MDAPIService extends BaseService {
 
   private async processDeletedMetadata(excludeList: string[]): Promise<string[]> {
     const survivingBundles: string[] = [];
-    const deletedFiles = (await this.getGitFiles("D")).filter((file) => {
+    const candidateDeletedFiles = (await this.getGitFiles("D")).filter((file) => {
       // A committed/staged deletion can have been restored in the working tree.
       if (fs.existsSync(file)) return false;
       const relativePath = this.toRelativeSourcePath(file);
-      if (relativePath.startsWith('lwc/')) {
-        const bundle = relativePath.split('/')[1];
-        if (bundle && fs.existsSync(path.join(this.config.source, 'lwc', bundle))) {
+      const bundleRoot = BUNDLE_DIRECTORIES.find((dir) =>
+        relativePath.startsWith(`${dir}/`),
+      );
+      if (bundleRoot) {
+        const bundle = relativePath.split("/")[1];
+        if (bundle && fs.existsSync(path.join(this.config.source, bundleRoot, bundle))) {
           survivingBundles.push(file);
           return false;
         }
       }
       return true;
     });
+
+    const deletedObjects = new Set<string>();
+    for (const file of candidateDeletedFiles) {
+      const relativePath = this.toRelativeSourcePath(file);
+      const objectMatch = relativePath.match(/^objects\/([^/]+)\/([^/]+)\.object-meta\.xml$/);
+      if (objectMatch && objectMatch[1] === objectMatch[2]) {
+        deletedObjects.add(objectMatch[1]);
+      }
+    }
+
+    const deletedFiles = candidateDeletedFiles.filter((file) => {
+      const relativePath = this.toRelativeSourcePath(file);
+      const objectChildMatch = relativePath.match(/^objects\/([^/]+)\/(.+)$/);
+      if (objectChildMatch && deletedObjects.has(objectChildMatch[1])) {
+        return relativePath === `objects/${objectChildMatch[1]}/${objectChildMatch[1]}.object-meta.xml`;
+      }
+      return true;
+    });
+
     if (!deletedFiles.length) {
       console.log("ℹ️  No deleted components detected");
       return survivingBundles;
@@ -166,20 +190,23 @@ export class MDAPIService extends BaseService {
     const fieldData: GroupedData = {};
     const otherFiles = files.filter((file) => {
       const normalizedFile = this.normalizeRepoPath(file);
-      if (!normalizedFile.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
+      const matchedChild = CUSTOM_OBJECT_CHILDREN.find((child) =>
+        normalizedFile.match(child.regex),
+      );
+      if (!matchedChild) {
         return true;
       }
 
-      const parts = normalizedFile.split("/");
-      const objectIndex = parts.indexOf("objects") + 1;
-      const fieldIndex = parts.indexOf("fields") + 1;
+      const match = normalizedFile.match(matchedChild.regex);
+      if (match) {
+        const objectName = match[1];
+        const childName = match[2];
 
-      if (objectIndex > 0 && fieldIndex > 0) {
-        const objectName = parts[objectIndex];
-        const fieldName = parts[fieldIndex].split(".")[0];
-
-        fieldData[objectName] = fieldData[objectName] || { fields: [] };
-        fieldData[objectName].fields.push(fieldName);
+        fieldData[objectName] = fieldData[objectName] || {};
+        const existing =
+          (fieldData[objectName][matchedChild.folder] as string[] | undefined) || [];
+        existing.push(childName);
+        fieldData[objectName][matchedChild.folder] = existing;
         return false;
       }
       return true;
@@ -202,18 +229,18 @@ export class MDAPIService extends BaseService {
       return;
     }
 
-    if (file.includes("/lwc/")) {
-      await this.copyLWCComponent(relativePath);
+    if (/^(lwc|aura|experiences)\/[^/]+\//.test(relativePath)) {
+      await this.copyBundleComponent(relativePath);
       return;
     }
 
     await this.copySingleFile(file, relativePath);
   }
 
-  private async copyLWCComponent(relativePath: string): Promise<void> {
-    const componentFolder = relativePath.split("/")[1];
-    const componentDir = `${this.config.source}/lwc/${componentFolder}`;
-    await this.copyBundleDirectory(componentDir, relativePath.split("/").slice(0, 2).join("/"));
+  private async copyBundleComponent(relativePath: string): Promise<void> {
+    const [bundleType, componentFolder] = relativePath.split("/");
+    const componentDir = `${this.config.source}/${bundleType}/${componentFolder}`;
+    await this.copyBundleDirectory(componentDir, `${bundleType}/${componentFolder}`);
   }
 
   private async copyBundleDirectory(directory: string, relativeDirectory: string): Promise<void> {
@@ -251,9 +278,17 @@ export class MDAPIService extends BaseService {
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
     await fs.promises.copyFile(file, targetPath);
 
-    const metadataPath = `${file}-meta.xml`;
-    if (fs.existsSync(metadataPath)) {
-      await fs.promises.copyFile(metadataPath, `${targetPath}-meta.xml`);
+    if (file.endsWith("-meta.xml")) {
+      const primaryFile = file.replace(/-meta\.xml$/, "");
+      const primaryTargetPath = targetPath.replace(/-meta\.xml$/, "");
+      if (primaryTargetPath !== targetPath && fs.existsSync(primaryFile)) {
+        await fs.promises.copyFile(primaryFile, primaryTargetPath);
+      }
+    } else {
+      const metadataPath = `${file}-meta.xml`;
+      if (fs.existsSync(metadataPath)) {
+        await fs.promises.copyFile(metadataPath, `${targetPath}-meta.xml`);
+      }
     }
   }
 
@@ -309,8 +344,10 @@ export class MDAPIService extends BaseService {
       return null;
     }
 
-    if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
-      return "CustomField";
+    for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+      if (relativePath.match(childConfig.regex)) {
+        return childConfig.typeName;
+      }
     }
 
     // Prefer the most specific folder match so prefixes like "Bot" do not
@@ -331,7 +368,18 @@ export class MDAPIService extends BaseService {
 
   private getMemberName(file: string): string | null {
     const relativePath = this.toRelativeSourcePath(file);
-    if (relativePath.startsWith("lwc/")) return relativePath.split("/")[1] || null;
+    if (/^(lwc|aura|experiences)\/[^/]+\//.test(relativePath)) {
+      return relativePath.split("/")[1] || null;
+    }
+
+    for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+      const match = relativePath.match(childConfig.regex);
+      if (match) {
+        const packageMember = this.xmlHelper.generatePackageMember(file);
+        return packageMember?.members?.[0] || `${match[1]}.${match[2]}`;
+      }
+    }
+
     const fileName = path.basename(file);
 
     for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {

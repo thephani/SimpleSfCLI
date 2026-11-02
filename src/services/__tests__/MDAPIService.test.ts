@@ -654,5 +654,169 @@ describe('MDAPIService', () => {
 				},
 			]);
 		});
+
+		it('should package decomposed CustomObject children (validationRules, recordTypes, listViews, webLinks, compactLayouts, businessProcesses, fieldSets) (F10)', async () => {
+			(XmlHelper.prototype.generatePackageMember as jest.Mock).mockReturnValue(null);
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Account/validationRules/Require_Phone.validationRule-meta.xml',
+				'force-app/main/default/objects/Account/recordTypes/Enterprise.recordType-meta.xml',
+				'force-app/main/default/objects/Account/listViews/All_Accounts.listView-meta.xml',
+				'force-app/main/default/objects/Account/webLinks/Maps_Link.webLink-meta.xml',
+				'force-app/main/default/objects/Account/compactLayouts/Compact_Account.compactLayout-meta.xml',
+				'force-app/main/default/objects/Opportunity/businessProcesses/Enterprise_Sales.businessProcess-meta.xml',
+				'force-app/main/default/objects/Account/fieldSets/Header_Fields.fieldSet-meta.xml',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalledWith({
+				Account: {
+					validationRules: ['Require_Phone'],
+					recordTypes: ['Enterprise'],
+					listViews: ['All_Accounts'],
+					webLinks: ['Maps_Link'],
+					compactLayouts: ['Compact_Account'],
+					fieldSets: ['Header_Fields'],
+				},
+				Opportunity: {
+					businessProcesses: ['Enterprise_Sales'],
+				},
+			});
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{ name: 'ValidationRule', members: ['Account.Require_Phone'] },
+				{ name: 'RecordType', members: ['Account.Enterprise'] },
+				{ name: 'ListView', members: ['Account.All_Accounts'] },
+				{ name: 'WebLink', members: ['Account.Maps_Link'] },
+				{ name: 'CompactLayout', members: ['Account.Compact_Account'] },
+				{ name: 'BusinessProcess', members: ['Opportunity.Enterprise_Sales'] },
+				{ name: 'FieldSet', members: ['Account.Header_Fields'] },
+			]);
+		});
+	});
+
+	describe('bundle and companion file copying (F11)', () => {
+		beforeEach(() => {
+			(fs.promises as any).readdir = jest.fn().mockResolvedValue([
+				{ name: 'sample.cmp', isDirectory: () => false, isFile: () => true },
+				{ name: 'sampleController.js', isDirectory: () => false, isFile: () => true },
+			]);
+		});
+
+		it('should copy entire aura bundle when an aura file changes', async () => {
+			await (service as any).copyFileWithMetadata(
+				'force-app/main/default/aura/sample/sampleController.js',
+			);
+
+			expect((fs.promises as any).readdir).toHaveBeenCalledWith(
+				'force-app/main/default/aura/sample',
+				{ withFileTypes: true },
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				path.join('force-app/main/default/aura/sample', 'sample.cmp'),
+				path.join(mockConfig.cliOuputFolder, 'aura/sample/sample.cmp'),
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				path.join('force-app/main/default/aura/sample', 'sampleController.js'),
+				path.join(mockConfig.cliOuputFolder, 'aura/sample/sampleController.js'),
+			);
+		});
+
+		it('should copy entire experiences bundle when an experience file changes', async () => {
+			(fs.promises as any).readdir = jest.fn().mockResolvedValue([
+				{ name: 'home.json', isDirectory: () => false, isFile: () => true },
+			]);
+
+			await (service as any).copyFileWithMetadata(
+				'force-app/main/default/experiences/portal/views/home.json',
+			);
+
+			expect((fs.promises as any).readdir).toHaveBeenCalledWith(
+				'force-app/main/default/experiences/portal',
+				{ withFileTypes: true },
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				path.join('force-app/main/default/experiences/portal', 'home.json'),
+				path.join(mockConfig.cliOuputFolder, 'experiences/portal/home.json'),
+			);
+		});
+
+		it.each([
+			['classes/MyClass.cls-meta.xml', 'classes/MyClass.cls'],
+			['triggers/MyTrigger.trigger-meta.xml', 'triggers/MyTrigger.trigger'],
+			['pages/MyPage.page-meta.xml', 'pages/MyPage.page'],
+			['components/MyComp.component-meta.xml', 'components/MyComp.component'],
+			['staticresources/MyRes.resource-meta.xml', 'staticresources/MyRes.resource'],
+			['email/unfiled$public/MyEmail.email-meta.xml', 'email/unfiled$public/MyEmail.email'],
+		])('should copy primary source file when companion %s is changed directly', async (metaRel, primaryRel) => {
+			const metaFile = `force-app/main/default/${metaRel}`;
+			const primaryFile = `force-app/main/default/${primaryRel}`;
+			(fs.existsSync as jest.Mock).mockImplementation((p: string) => p === primaryFile);
+
+			await (service as any).copyFileWithMetadata(metaFile);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				metaFile,
+				path.join(mockConfig.cliOuputFolder, metaRel),
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				primaryFile,
+				path.join(mockConfig.cliOuputFolder, primaryRel),
+			);
+		});
+
+		it('should treat partial aura and experiences file deletions as surviving bundles when bundle dir exists', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/aura/myAura/myAuraHelper.js',
+				'force-app/main/default/experiences/myPortal/views/oldView.json',
+			]);
+			(fs.existsSync as jest.Mock).mockImplementation((p: string) => {
+				if (
+					p === path.join(mockConfig.source, 'aura', 'myAura') ||
+					p === path.join(mockConfig.source, 'experiences', 'myPortal')
+				) {
+					return true;
+				}
+				return false;
+			});
+
+			const surviving = await (service as any).processDeletedMetadata([]);
+
+			expect(surviving).toEqual([
+				'force-app/main/default/aura/myAura/myAuraHelper.js',
+				'force-app/main/default/experiences/myPortal/views/oldView.json',
+			]);
+			expect(fs.promises.writeFile).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('destructive CustomObject and child deduplication (F12)', () => {
+		it('should omit deleted child metadata when the parent CustomObject is also deleted', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Obsolete__c/Obsolete__c.object-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/fields/Status__c.field-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/validationRules/Check_Status.validationRule-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/recordTypes/Standard.recordType-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/listViews/All.listView-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/webLinks/Open_Link.webLink-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/compactLayouts/Default.compactLayout-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/businessProcesses/Sales.businessProcess-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/fieldSets/Details.fieldSet-meta.xml',
+				'force-app/main/default/objects/Active__c/fields/Removed_Field__c.field-meta.xml',
+			]);
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+
+			await (service as any).processDeletedMetadata([]);
+
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomObject',
+					members: ['Obsolete__c'],
+				},
+				{
+					name: 'CustomField',
+					members: ['Active__c.Removed_Field__c'],
+				},
+			]);
+		});
 	});
 });
