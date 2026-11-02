@@ -425,13 +425,19 @@ export class MDAPIService extends BaseService {
     base: string;
     target: string;
   } | null {
-    const rawBaseRef =
+    const rawBaseRef = this.stripRefsHeads(
       process.env.GITHUB_BASE_REF ||
-      process.env.BITBUCKET_PR_DESTINATION_BRANCH;
-    const rawTargetRef =
+      process.env.BITBUCKET_PR_DESTINATION_BRANCH ||
+      process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME ||
+      process.env.SYSTEM_PULLREQUEST_TARGETBRANCH,
+    );
+    const rawTargetRef = this.stripRefsHeads(
       process.env.GITHUB_HEAD_REF ||
       process.env.BITBUCKET_PR_SOURCE_BRANCH ||
-      process.env.BITBUCKET_BRANCH;
+      process.env.BITBUCKET_BRANCH ||
+      process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME ||
+      process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH,
+    );
 
     const baseRef = this.resolveGitRef(rawBaseRef, { remoteOnly: true });
     if (!baseRef) {
@@ -440,6 +446,13 @@ export class MDAPIService extends BaseService {
 
     const targetRef = this.resolveGitRef(rawTargetRef) ?? "HEAD";
     return { base: baseRef, target: targetRef };
+  }
+
+  private stripRefsHeads(ref: string | undefined): string | undefined {
+    if (!ref) {
+      return undefined;
+    }
+    return ref.trim().replace(/^refs\/heads\//, "");
   }
 
   private detectPullRequestBaseBranch(): string | null {

@@ -50,7 +50,8 @@ export class DeployService extends BaseService {
 
   async pollDeploymentStatus(deployId: string): Promise<DeployResult> {
     let attempt = 0;
-    const maxAttempts = 120;
+    const maxAttempts = this.config.maxPollAttempts ?? 120;
+    const pollInterval = this.config.pollInterval ?? 5000;
 
     while (attempt < maxAttempts) {
       const status = await this.getDeploymentStatus(deployId);
@@ -83,7 +84,7 @@ export class DeployService extends BaseService {
         return status;
       }
 
-      await this.wait(5000 * Math.min(attempt + 1, 6));
+      await this.wait(pollInterval * Math.min(attempt + 1, 6));
       attempt++;
     }
 

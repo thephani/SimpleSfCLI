@@ -215,21 +215,34 @@ simpleSfCli \
 
 ### Environment Variables (Recommended)
 
-For CI/CD pipelines, use shell environment variables to avoid hardcoding credentials, then pass them into CLI flags:
+For CI/CD pipelines and local convenience, `simple-sf-cli` automatically reads fallback environment variables when the corresponding CLI flags are omitted:
 
 ```bash
 # Salesforce credentials
 export SF_USERNAME="yourUser@example.com"
 export SF_CLIENT_ID="yourClientId"
 export SF_PRIVATE_KEY_PATH="./server.key"
+# Or provide an inline PEM or base64-encoded PEM directly:
+# export SF_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 
 # Deployment environment
 export SF_ENV="SANDBOX"  # or PRODUCTION
 
-# Optional: Set deployment options used by your shell scripts
+# Optional: Set deployment options
 export SF_SOURCE="force-app/main/default"
 export SF_EXCLUDE="Profile,NamedCredential,CustomMetadata"
 ```
+
+When these environment variables are set, you can invoke `simpleSfCli` without repeating credential flags:
+
+```bash
+simpleSfCli
+```
+
+`--privateKey` (and `SF_PRIVATE_KEY`) accepts:
+1. A path to a private key file on disk (`./server.key`)
+2. A raw inline PEM private key string (`-----BEGIN ...`)
+3. A base64-encoded PEM private key string
 
 Use a project-level `.forceignore` file to exclude files or folders from deployment packaging:
 
@@ -243,7 +256,7 @@ Patterns can be relative to your `--source` directory. Source-prefixed entries s
 
 ### Local Usage
 
-Simply pass credentials as command-line arguments:
+Simply pass credentials as command-line arguments (which take precedence over environment variables):
 
 ```bash
 simpleSfCli \
@@ -321,9 +334,11 @@ simpleSfCli \
     --exclude Profile,NamedCredential,CustomMetadata
 ```
 
-### Custom Source Directory
+### Custom Source Directory & `sfdx-project.json` Auto-Detection
 
-Deploy from a different SFDX source directory:
+If `sfdx-project.json` exists in the current working directory and `--source` (or `SF_SOURCE`) is not explicitly set, `simpleSfCli` automatically uses the default package directory (`packageDirectories.find(p => p.default)?.path || packageDirectories[0]?.path`) when it exists on disk, and reads `sourceApiVersion` if present. Otherwise it falls back to `force-app/main/default`.
+
+You can always override the source directory explicitly:
 
 ```bash
 simpleSfCli \
@@ -345,6 +360,27 @@ simpleSfCli \
     --validateOnly
 ```
 
+### Dry Run & Local Packaging (`--dry-run` / `package`)
+
+Convert SFDX source changes to MDAPI format and build `deploy.zip` locally without requiring Salesforce credentials or connecting to Salesforce:
+
+```bash
+# Using the package subcommand
+simpleSfCli package --baseBranch origin/main --targetBranch HEAD
+
+# Or using --dry-run on deploy
+simpleSfCli deploy --dry-run
+```
+
+### Structured JSON Output (`--json`)
+
+Use `--json` on `deploy` or `quick-deploy` to print structured deployment results (`{ status, id, done, checkOnly, numberComponentsDeployed, numberComponentsTotal, numberTestsCompleted, numberTestsTotal, details }`) to stdout:
+
+```bash
+simpleSfCli deploy --validateOnly --json
+simpleSfCli quick-deploy --quickDeployId "0Af30000000xyz" --json
+```
+
 ### Delta Deployment (Compare Branches)
 
 Deploy only changes between branches:
@@ -362,35 +398,42 @@ simpleSfCli \
 
 ## Command Options
 
-### Required Options
+### Required Options (for `deploy`, `quick-deploy`, and `auth:token`)
 
-| Flag | Description |
-|------|-------------|
-| `-u, --username <username>` | Salesforce username (required) |
-| `-c, --clientId <clientId>` | Connected App Client ID (required) |
-| `-k, --privateKey <path>` | Path to private key file (required) |
+| Flag | Environment Fallback | Description |
+|------|----------------------|-------------|
+| `-u, --username <username>` | `SF_USERNAME` | Salesforce username (not required for `package` or `--dry-run`) |
+| `-c, --clientId <clientId>` | `SF_CLIENT_ID` | Connected App Client ID (not required for `package` or `--dry-run`) |
+| `-k, --privateKey <key>` | `SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_PATH` | Path to private key file, raw PEM string, or base64-encoded PEM |
 
 ### Common Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-e, --env <environment>` | `SANDBOX` | Target environment (SANDBOX/SBX or PRODUCTION/PROD) |
-| `-s, --source <directory>` | `force-app/main/default` | SFDX source directory path |
-| `-x, --exclude <types>` | - | Comma-separated list of metadata types to exclude |
+| Flag | Default / Fallback | Description |
+|------|--------------------|-------------|
+| `-e, --env <environment>` | `SF_ENV` or `SANDBOX` | Target environment (SANDBOX/SBX or PRODUCTION/PROD) |
+| `-s, --source <directory>` | `SF_SOURCE`, `sfdx-project.json`, or `force-app/main/default` | SFDX source directory path |
+| `-x, --exclude <types...>` | `SF_EXCLUDE` | Comma- or space-separated list of metadata types to exclude |
 | `-t, --testLevel <level>` | `NoTestRun` | Test level: NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg |
+| `--tests <tests...>` | - | Comma- or space-separated Apex test classes to include (merged with auto-detected tests) |
 | `-v, --validateOnly` | `false` | Validate only, do not deploy |
+| `--dry-run`, `--dryRun` | `false` | Convert and package metadata locally without authenticating or deploying |
+| `--json` | `false` | Output structured JSON result to stdout |
+| `--apiVersion <version>` | `sfdx-project.json` or `v60.0` | Salesforce REST API version (e.g., `61.0` or `v61.0`) |
+| `--pollInterval <ms>` | `5000` | Status polling interval in milliseconds |
+| `--maxPollAttempts <count>` | `120` | Maximum number of deployment status polling attempts |
 
-### Deployment Options
+### Deployment & Subcommand Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
+| Flag / Command | Default | Description |
+|----------------|---------|-------------|
 | `-b, --baseBranch <branch>` | `HEAD~1` | Base branch for delta deployment |
 | `-r, --targetBranch <branch>` | `HEAD` | Target branch for delta deployment |
+| `package` | - | Convert SFDX metadata and create `deploy.zip` without credentials |
 | `quick-deploy -q, --quickDeployId <id>` | - | Use a validated deployment ID with the `quick-deploy` subcommand |
 | `auth:token --json` | - | Print token details as JSON |
 | `auth:token -o, --output <path>` | - | Write token details to a JSON file with `0600` permissions |
 
-Successful commands print an elapsed-time summary to stderr, for example `⏱️ Command completed in 1.23 seconds.`. This keeps `auth:token --json` stdout safe for scripts that parse JSON.
+Successful commands print an elapsed-time summary to stderr, for example `⏱️ Command completed in 1.23 seconds.`. This keeps `--json` stdout safe for scripts that parse JSON.
 
 ### Display Options
 
@@ -481,31 +524,24 @@ simpleSfCli \
   baseBranch: 'HEAD~1',
   targetBranch: 'HEAD',
   sfVersion: 'v60.0',
-  cliVersion: '0.6.0',
+  cliVersion: '2.7.8',
   cliOuputFolder: '.simpleSfCli_out',
   testLevel: 'NoTestRun',
-  coverageJson: './ApexTestCoverage.json'
+  coverageJson: './ApexTestCoverage.json',
+  pollInterval: 5000,
+  maxPollAttempts: 120
 }
 ```
 
-### Environment Variables Override
+### Environment Variables & CI Auto-Detection
 
-The CLI does not currently read configuration directly from environment variables.
-Use shell variables and pass them to flags explicitly:
-
-```bash
-export SF_ENV="PRODUCTION"
-export SF_SOURCE="custom/src"
-export SF_TEST_LEVEL="RunLocalTests"
-
-simpleSfCli \
-  --username "$SF_USERNAME" \
-  --clientId "$SF_CLIENT_ID" \
-  --privateKey "$SF_PRIVATE_KEY_PATH" \
-  --env "$SF_ENV" \
-  --source "$SF_SOURCE" \
-  --testLevel "$SF_TEST_LEVEL"
-```
+- **Credentials & Options**: `SF_USERNAME`, `SF_CLIENT_ID`, `SF_PRIVATE_KEY` (or `SF_PRIVATE_KEY_PATH`), `SF_ENV`, `SF_SOURCE`, and `SF_EXCLUDE` are automatically used when the corresponding CLI flags are not passed.
+- **PR Branch Detection**: When `--baseBranch` is not explicitly overridden, `simpleSfCli` automatically detects PR target and source branches from:
+  - **GitHub Actions**: `GITHUB_BASE_REF` and `GITHUB_HEAD_REF`
+  - **Bitbucket Pipelines**: `BITBUCKET_PR_DESTINATION_BRANCH` and `BITBUCKET_PR_SOURCE_BRANCH` / `BITBUCKET_BRANCH`
+  - **GitLab CI**: `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` and `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`
+  - **Azure DevOps**: `SYSTEM_PULLREQUEST_TARGETBRANCH` and `SYSTEM_PULLREQUEST_SOURCEBRANCH` (`refs/heads/` prefixes are automatically stripped)
+- **GitHub Step Summary**: When `GITHUB_STEP_SUMMARY` is set in the environment, `deploy` and `quick-deploy` automatically append a Markdown summary table with deployment status, ID, component counts, and test counts.
 
 ---
 

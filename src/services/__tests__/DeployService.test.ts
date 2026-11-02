@@ -209,6 +209,34 @@ describe('DeployService', () => {
                 .rejects
                 .toThrow('Deployment timed out');
         });
+
+        it('should use custom pollInterval and maxPollAttempts when configured', async () => {
+            const customService = new DeployService({
+                ...mockConfig,
+                pollInterval: 1200,
+                maxPollAttempts: 3,
+            });
+            const waitSpy = jest.spyOn(customService as any, 'wait').mockResolvedValue(undefined);
+            jest.spyOn(customService as any, 'fetchWithAuth').mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    deployResult: {
+                        id: MOCK_DEPLOY_ID,
+                        status: 'InProgress',
+                        done: false,
+                    },
+                }),
+            });
+
+            await expect(customService.pollDeploymentStatus(MOCK_DEPLOY_ID))
+                .rejects
+                .toThrow('Deployment timed out');
+
+            expect(customService['fetchWithAuth']).toHaveBeenCalledTimes(3);
+            expect(waitSpy).toHaveBeenNthCalledWith(1, 1200);
+            expect(waitSpy).toHaveBeenNthCalledWith(2, 2400);
+            expect(waitSpy).toHaveBeenNthCalledWith(3, 3600);
+        });
     });
 
     describe('generateRunTestsXml', () => {
