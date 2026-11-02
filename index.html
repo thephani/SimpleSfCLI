@@ -483,7 +483,8 @@ pipelines:
       - step:
           name: "Validate PR Delta with Simple SF CLI"
           script:
-            - npx simple-sf-cli \
+            - |
+              npx simple-sf-cli \
                 --source "$CLI_SOURCE" \
                 --exclude "$CLI_EXCLUDE" \
                 --clientId "$CLIENT_ID" \
@@ -502,7 +503,8 @@ pipelines:
 						<pre><code class="language-yaml">deploy_sandbox:
   stage: deploy
   script:
-    - npx simple-sf-cli \
+    - |
+      npx simple-sf-cli \
         --username "$SF_USERNAME" \
         --clientId "$SF_CLIENT_ID" \
         --privateKey ./server.key \
