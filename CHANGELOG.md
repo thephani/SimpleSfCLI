@@ -2,6 +2,16 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## Unreleased
+
+- Removed duplicate `copyFiles` invocation during MDAPI conversion of modified metadata.
+- Preserved explicit `--testLevel` CLI flags during production deployments while defaulting to `RunLocalTests` in `PRODUCTION` and `NoTestRun` in `SANDBOX` when omitted.
+- Unified the default Salesforce Metadata API version to `v62.0` (`62.0`) across `config.ts`, `DeployService` SOAP/REST endpoints, and `XmlHelper` manifest generation.
+- Updated `quick-deploy` to poll deployment status until completion when the initial quick-deploy response is not yet terminal.
+- Logged component failure and test failure tables for both `Failed` and `SucceededPartial` deployments, including full test failure details (`name`, `methodName`, `message`, and `stackTrace`).
+- Replaced the placeholder `XmlHelper.isValidXml` check with well-formed XML tag and structure validation.
+- Standardized relative type imports across `SalesforceClient`, `BaseService`, `MDAPIService`, and `XmlHelper`.
+
 ## 2.7.8 - 2026-10-27
 
 - Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.

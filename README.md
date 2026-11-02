@@ -298,7 +298,7 @@ simpleSfCli \
 ### Production Deployment
 
 Deploy to production (requires authentication and permissions).
-When `--env PRODUCTION` is used, the CLI forces `RunLocalTests`:
+When `--env PRODUCTION` is used, the CLI defaults `--testLevel` to `RunLocalTests` unless you explicitly pass `-t, --testLevel`:
 
 ```bash
 simpleSfCli \
@@ -480,8 +480,8 @@ simpleSfCli \
   env: 'SANDBOX',
   baseBranch: 'HEAD~1',
   targetBranch: 'HEAD',
-  sfVersion: 'v60.0',
-  cliVersion: '0.6.0',
+  sfVersion: 'v62.0',
+  cliVersion: '2.7.8',
   cliOuputFolder: '.simpleSfCli_out',
   testLevel: 'NoTestRun',
   coverageJson: './ApexTestCoverage.json'

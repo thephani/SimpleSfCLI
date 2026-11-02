@@ -1,24 +1,36 @@
 import fs from 'fs';
 import path from 'path';
-import { MetadataType } from 'types/index.type';
-import { GroupedData } from 'types/xml.type';
+import defaultConfig from '../config.js';
+import type { MetadataType } from '../types/index.type.js';
+import type { GroupedData } from '../types/xml.type.js';
 
 import xmlbuilder from 'xmlbuilder';
 
 export class XmlHelper {
 	private sourceDirectory: string;
 	private outputDirectory: string;
+	private apiVersion: string;
 
-	constructor(outputDirectory: string = './.simpleSfCli_out', sourceDirectory: string = 'force-app/main/default') {
+	constructor(
+		outputDirectory: string = './.simpleSfCli_out',
+		sourceDirectory: string = 'force-app/main/default',
+		apiVersion: string = defaultConfig.sfVersion,
+	) {
 		this.sourceDirectory = sourceDirectory;
 		this.outputDirectory = outputDirectory;
+		this.apiVersion = this.normalizeVersion(apiVersion);
 	}
 
-	public createEmptyPackageXml(version: string = '62.0'): string {
+	private normalizeVersion(version?: string): string {
+		const rawVersion = (version || defaultConfig.sfVersion || '62.0').trim();
+		return rawVersion.replace(/^v/i, '');
+	}
+
+	public createEmptyPackageXml(version: string = this.apiVersion): string {
 		try {
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
-			packageXml.ele('version', version);
+			packageXml.ele('version', this.normalizeVersion(version));
 
 			return packageXml.end({ pretty: true });
 		} catch (error) {
@@ -30,7 +42,7 @@ export class XmlHelper {
 	/**
 	 * Generates a package.xml file based on the provided metadata types and their members.
 	 */
-	public createPackageXml(metadataTypes: MetadataType[]): string {
+	public createPackageXml(metadataTypes: MetadataType[], version: string = this.apiVersion): string {
 		try {
 			// console.log('Creating package.xml with metadata types:', metadataTypes);
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
@@ -53,7 +65,7 @@ export class XmlHelper {
 				types.ele('name', name);
 			});
 
-			packageXml.ele('version', '58.0');
+			packageXml.ele('version', this.normalizeVersion(version));
 			return packageXml.end({ pretty: true });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -132,17 +144,99 @@ export class XmlHelper {
 	 * Validates if a string is valid XML.
 	 */
 	public isValidXml(xml: string): boolean {
-		try {
-			// Parse out the root element name and use that for creation
-			const rootMatch = xml.match(/<([^\s>/?]+)[\s>]/);
-			if (!rootMatch) return false;
-			
-			const rootElement = rootMatch[1];
-			xmlbuilder.create(rootElement);
-			return true;
-		} catch {
+		if (!xml || typeof xml !== 'string') {
 			return false;
 		}
+
+		let working = xml.trim();
+		if (!working.startsWith('<') || !working.endsWith('>')) {
+			return false;
+		}
+
+		// Handle optional XML declaration at the beginning
+		if (working.startsWith('<?xml')) {
+			const declMatch = working.match(/^<\?xml(?:\s+[A-Za-z_][\w:.-]*\s*=\s*(?:"[^"]*"|'[^']*'))+\s*\?>\s*/);
+			if (!declMatch) {
+				return false;
+			}
+			working = working.slice(declMatch[0].length);
+		}
+
+		// Disallow any subsequent XML declarations
+		if (/<\?xml\b/i.test(working)) {
+			return false;
+		}
+
+		// Check for unclosed comments or CDATA sections, then strip valid ones
+		const commentStarts = (working.match(/<!--/g) || []).length;
+		const commentEnds = (working.match(/-->/g) || []).length;
+		if (commentStarts !== commentEnds) {
+			return false;
+		}
+		working = working.replace(/<!--[\s\S]*?-->/g, '');
+
+		const cdataStarts = (working.match(/<!\[CDATA\[/g) || []).length;
+		const cdataEnds = (working.match(/\]\]>/g) || []).length;
+		if (cdataStarts !== cdataEnds) {
+			return false;
+		}
+		working = working.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
+
+		const stack: string[] = [];
+		let hasRoot = false;
+		let lastIndex = 0;
+		const tagRegex = /<[^>]*>/g;
+		const closingTagPattern = /^<\/([A-Za-z_][\w:.-]*)\s*>$/;
+		const openTagPattern = /^<([A-Za-z_][\w:.-]*)((?:\s+[A-Za-z_][\w:.-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*)\s*(\/?)>$/;
+
+		let match: RegExpExecArray | null;
+		while ((match = tagRegex.exec(working)) !== null) {
+			const betweenText = working.slice(lastIndex, match.index);
+			if (betweenText.includes('<') || betweenText.includes('>')) {
+				return false;
+			}
+			if (stack.length === 0 && betweenText.trim().length > 0) {
+				return false;
+			}
+
+			const token = match[0];
+			lastIndex = tagRegex.lastIndex;
+
+			const closeMatch = token.match(closingTagPattern);
+			if (closeMatch) {
+				const tagName = closeMatch[1];
+				if (stack.length === 0 || stack[stack.length - 1] !== tagName) {
+					return false;
+				}
+				stack.pop();
+				continue;
+			}
+
+			const openMatch = token.match(openTagPattern);
+			if (!openMatch) {
+				return false;
+			}
+
+			if (hasRoot && stack.length === 0) {
+				// Extra root-level element after root closed
+				return false;
+			}
+
+			const tagName = openMatch[1];
+			const selfClosing = openMatch[3] === '/';
+			hasRoot = true;
+
+			if (!selfClosing) {
+				stack.push(tagName);
+			}
+		}
+
+		const trailingText = working.slice(lastIndex);
+		if (trailingText.includes('<') || trailingText.includes('>') || trailingText.trim().length > 0) {
+			return false;
+		}
+
+		return hasRoot && stack.length === 0;
 	}
 
 	/**

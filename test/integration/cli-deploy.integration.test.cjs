@@ -10,7 +10,7 @@ const auth = { method: 'POST', url: 'https://test.salesforce.com/services/oauth2
 function responses(status = 'Succeeded', details = { componentFailures: [] }) {
   return [auth,
     { method: 'POST', url: instance + '/services/Soap/m/62.0', status: 200, contentType: 'text/xml', body: '<Envelope><id>fixture-deploy</id></Envelope>' },
-    { method: 'GET', url: instance + '/services/data/v60.0/metadata/deployRequest/fixture-deploy?includeDetails=true', status: 200, contentType: 'application/json', body: JSON.stringify({ deployResult: { id: 'fixture-deploy', done: true, status, numberComponentsDeployed: 1, numberComponentsTotal: 1, numberComponentErrors: status === 'Failed' ? 1 : 0, numberTestsCompleted: 0, numberTestsTotal: 0, numberTestErrors: 0, details } }) },
+    { method: 'GET', url: instance + '/services/data/v62.0/metadata/deployRequest/fixture-deploy?includeDetails=true', status: 200, contentType: 'application/json', body: JSON.stringify({ deployResult: { id: 'fixture-deploy', done: true, status, numberComponentsDeployed: 1, numberComponentsTotal: 1, numberComponentErrors: status === 'Failed' ? 1 : 0, numberTestsCompleted: 0, numberTestsTotal: 0, numberTestErrors: 0, details } }) },
   ];
 }
 async function changed(p) { await p.write(cls, fixture(cls).replace('baseline', 'updated')); }

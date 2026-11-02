@@ -9,7 +9,7 @@ import { AuthService } from './services/AuthService.js';
 import type { CommandArgsConfig } from './types/config.type.js';
 import type { DeployOptions } from './types/deployment.type.js';
 
-class CLI {
+export class CLI {
 	private program: Command;
 	private config: CommandArgsConfig;
 
@@ -170,11 +170,19 @@ class CLI {
 		}
 		const { logUsername = true } = logging;
 		updatedConfig.env = this.normalizeEnv(options.env ?? updatedConfig.env);
+		const isCliTestLevel =
+			typeof this.program.getOptionValueSource === 'function' &&
+			this.program.getOptionValueSource('testLevel') === 'cli';
+		const hasExplicitTestLevel = isCliTestLevel || (Boolean(options.testLevel) && options.testLevel !== 'NoTestRun');
 
-		// Update instance URL and test level for production environment
+		// Update instance URL and default test level for environment
 		if (updatedConfig.env === 'PRODUCTION') {
 			updatedConfig.instanceUrl = 'https://login.salesforce.com';
-			updatedConfig.testLevel = 'RunLocalTests';
+			if (!hasExplicitTestLevel) {
+				updatedConfig.testLevel = 'RunLocalTests';
+			}
+		} else if (!hasExplicitTestLevel) {
+			updatedConfig.testLevel = 'NoTestRun';
 		}
 
 		// Validate required fields
