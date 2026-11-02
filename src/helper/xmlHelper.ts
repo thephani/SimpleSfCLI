@@ -192,7 +192,7 @@ export class XmlHelper {
 		let match: RegExpExecArray | null;
 		while ((match = tagRegex.exec(working)) !== null) {
 			const betweenText = working.slice(lastIndex, match.index);
-			if (betweenText.includes('<') || betweenText.includes('>')) {
+			if (betweenText.includes('<') || betweenText.includes(']]>')) {
 				return false;
 			}
 			if (stack.length === 0 && betweenText.trim().length > 0) {

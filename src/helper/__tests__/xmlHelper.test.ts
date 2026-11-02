@@ -260,6 +260,10 @@ describe('XmlHelper', () => {
 			expect(xmlHelper.isValidXml(validXml)).toBe(true);
 		});
 
+		it('should return true for valid XML containing > in element text', () => {
+			expect(xmlHelper.isValidXml('<CustomField><formula>Amount > 0</formula></CustomField>')).toBe(true);
+		});
+
 		it('should return true for valid self-closing XML', () => {
 			expect(xmlHelper.isValidXml('<CustomField fullName="Test__c"/>')).toBe(true);
 		});
