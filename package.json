@@ -1,7 +1,27 @@
 {
 	"name": "simple-sf-cli",
 	"version": "2.7.8",
-	"description": "A simplified Salesforce CLI plugin",
+	"description": "Lightweight Salesforce SFDX delta deployment CLI via Metadata API — no Salesforce CLI required",
+	"license": "MIT",
+	"author": "Phani",
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"keywords": [
+		"salesforce",
+		"sfdx",
+		"sf-cli",
+		"salesforce-cli",
+		"metadata-api",
+		"mdapi",
+		"salesforce-deployment",
+		"sfdx-git-delta",
+		"delta-deployment",
+		"quick-deploy",
+		"jwt-auth",
+		"ci-cd",
+		"devops"
+	],
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/thephani/SimpleSfCLI.git"

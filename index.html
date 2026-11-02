@@ -210,9 +210,9 @@
 		<div class="hero">
 			<div class="container">
 				<h1>🚀 Simple SF CLI</h1>
-				<p>Supercharge Your Salesforce Deployments in Just Seconds!</p>
+				<p>Lightweight Salesforce SFDX Delta Deployment CLI via Metadata API — No Salesforce CLI Required</p>
 				<div class="badge">
-					<a href="https://www.npmjs.com/package/simple-sf-cli" target="_blank"> Simple-Sf-Cli NPM Package</a>
+					<a href="https://www.npmjs.com/package/simple-sf-cli" target="_blank">simple-sf-cli v2.7.8 · Node.js &gt;=18.0.0 · MIT License</a>
 				</div>
 			</div>
 		</div>
@@ -224,19 +224,27 @@
 				<div class="features">
 					<div class="feature">
 						<h3>No Salesforce CLI Required</h3>
-						<p>Say goodbye to additional dependencies and complex configurations.</p>
+						<p>Deploy directly via the Salesforce Metadata API (v60.0) without installing heavy CLI toolchains.</p>
 					</div>
 					<div class="feature">
 						<h3>Zero Installation Overhead</h3>
-						<p>Use it directly with npx - no local installations needed.</p>
+						<p>Run directly with <code>npx simple-sf-cli</code> or install globally with just 3 runtime dependencies.</p>
 					</div>
 					<div class="feature">
-						<h3>Blazing Fast Setup</h3>
-						<p>Set up in 3-5 seconds, making it perfect for CI/CD pipelines.</p>
+						<h3>PR-Aware Delta &amp; Destructive Changes</h3>
+						<p>Auto-detects PR base/target branches in GitHub Actions &amp; Bitbucket Pipelines and packages additions, updates, and post-deployment deletions (<code>destructiveChangesPost.xml</code>) in one archive.</p>
 					</div>
 					<div class="feature">
-						<h3>Built from Scratch</h3>
-						<p>With just 4 dependencies, fully customized for reliability and speed.</p>
+						<h3>Quick Deploy &amp; Token Export</h3>
+						<p>Instant <code>quick-deploy</code> for validated deployment IDs and secure <code>auth:token</code> JWT export with <code>0600</code> file permissions.</p>
+					</div>
+					<div class="feature">
+						<h3><code>.forceignore</code> &amp; Type Filtering</h3>
+						<p>Honors project <code>.forceignore</code> path rules (including inside LWC bundles) and comma- or space-separated <code>--exclude</code> metadata types.</p>
+					</div>
+					<div class="feature">
+						<h3>Version 2.7.8 Highlights</h3>
+						<p>Requires Node.js <code>&gt;=18.0.0</code>, supports <code>SANDBOX</code>/<code>SBX</code> and <code>PRODUCTION</code>/<code>PROD</code> aliases, and enforces strict nonzero exit codes on failed or partial deployments.</p>
 					</div>
 				</div>
 			</div>
@@ -246,26 +254,65 @@
 				<h2>Documentation</h2>
 				<div class="tabs">
 					<div class="tab-buttons">
-						<button class="tab-button active" onclick="showTab('quickstart')">Quick Start</button>
+						<button class="tab-button active" onclick="showTab('quickstart')">Quick Start &amp; Commands</button>
+						<button class="tab-button" onclick="showTab('delta')">Delta, Destructive &amp; Filtering</button>
 						<button class="tab-button" onclick="showTab('components')">Supported Components</button>
 						<button class="tab-button" onclick="showTab('options')">Command Options</button>
 					</div>
 
 					<div id="quickstart" class="tab-content active">
-						<h3>Option 1: Zero Installation (Recommended)</h3>
+						<h3>1. Standard / Delta Deployment (Zero Installation)</h3>
 						<code>
-							npx simple-sf-cli \ <br />
-							--source $CLI_SOURCE \<br />
-							--exclude $CLI_EXCLUDE \<br />
-							--clientId $CLIENT_ID \<br />
-							--privateKey $PRIVATE_KEY \<br />
-							--username $USER_NAME \<br />
-							--validateOnly true \<br />
-							--env PRODUCTION
+							npx simple-sf-cli \<br />
+							&nbsp;&nbsp;--username "$SF_USERNAME" \<br />
+							&nbsp;&nbsp;--clientId "$SF_CLIENT_ID" \<br />
+							&nbsp;&nbsp;--privateKey ./server.key \<br />
+							&nbsp;&nbsp;--source force-app/main/default \<br />
+							&nbsp;&nbsp;--exclude Profile,NamedCredential \<br />
+							&nbsp;&nbsp;--validateOnly \<br />
+							&nbsp;&nbsp;--env PRODUCTION
 						</code>
 
-						<h3>Option 2: Traditional Installation</h3>
+						<h3>2. Quick Deploy (Instant Validated Deployment)</h3>
+						<code>
+							npx simple-sf-cli quick-deploy \<br />
+							&nbsp;&nbsp;--username "$SF_USERNAME" \<br />
+							&nbsp;&nbsp;--clientId "$SF_CLIENT_ID" \<br />
+							&nbsp;&nbsp;--privateKey ./server.key \<br />
+							&nbsp;&nbsp;--quickDeployId "0Af30000000xyz" \<br />
+							&nbsp;&nbsp;--env PRODUCTION
+						</code>
+
+						<h3>3. Export JWT Access Token (<code>auth:token</code>)</h3>
+						<p>Export a short-lived Salesforce bearer token and instance URL to a protected <code>0600</code> JSON file or stdout (<code>--json</code>):</p>
+						<code>
+							npx simple-sf-cli auth:token \<br />
+							&nbsp;&nbsp;--username "$SF_USERNAME" \<br />
+							&nbsp;&nbsp;--clientId "$SF_CLIENT_ID" \<br />
+							&nbsp;&nbsp;--privateKey ./server.key \<br />
+							&nbsp;&nbsp;--env SANDBOX \<br />
+							&nbsp;&nbsp;--output .simpleSfCli_auth.json
+						</code>
+
+						<h3>4. Global Installation</h3>
 						<code>npm install -g simple-sf-cli</code>
+					</div>
+
+					<div id="delta" class="tab-content">
+						<h3>PR Branch Auto-Detection</h3>
+						<p>In GitHub Actions and Bitbucket Pipelines, <code>simple-sf-cli</code> automatically resolves pull request base and target branches from CI environment variables before falling back to the remote default branch or <code>HEAD~1...HEAD</code>. You can also pass explicit refs with <code>--baseBranch</code> and <code>--targetBranch</code>.</p>
+
+						<h3>Destructive Changes (<code>destructiveChangesPost.xml</code>)</h3>
+						<p>Mixed additions/updates and deletions—as well as deletion-only deltas—are packaged into a single <code>deploy.zip</code> containing root <code>package.xml</code> and <code>destructiveChangesPost.xml</code> manifests so deletions run after additions and updates. Partial LWC file deletions redeploy the surviving bundle rather than deleting the entire component.</p>
+
+						<h3><code>.forceignore</code> &amp; Metadata Exclusions</h3>
+						<p>Add a project-level <code>.forceignore</code> file to exclude specific files or directories before packaging (relative to project root or <code>--source</code>):</p>
+						<code>
+							profiles/**<br />
+							namedCredentials/**<br />
+							labels/CustomLabels.labels-meta.xml
+						</code>
+						<p>Use <code>--exclude Profile,CustomField</code> (or space-separated <code>--exclude Profile CustomField</code>) to skip entire metadata types from both <code>package.xml</code> and <code>destructiveChangesPost.xml</code>.</p>
 					</div>
 
 					<div id="components" class="tab-content">
@@ -291,68 +338,94 @@
 							<div class="component-item">StandardValueSet</div>
 							<div class="component-item">ValidationRule</div>
 							<div class="component-item">Workflow</div>
-							
 						</div>
 					</div>
 
 					<div id="options" class="tab-content">
-						Here's the updated options in the requested table format:
-
-
-<table>
-  <caption>
-    Note: * indicates required options
-  </caption>
-  <thead>
-    <tr>
-      <th>Option</th>
-      <th>Description</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>--username*</code></td>
-      <td>Salesforce username</td>
-      <td><code>user@example.com or user@example.com.sandbox</code></td>
-    </tr>
-    <tr>
-      <td><code>--clientId*</code></td>
-      <td>Salesforce client ID</td>
-      <td><code>3MVG9XXXXXXXXX</code></td>
-    </tr>
-    <tr>
-      <td><code>--privateKey*</code></td>
-      <td>Path to Salesforce private key</td>
-      <td><code>./keys/private.key</code></td>
-    </tr>
-    <tr>
-      <td><code>--env*</code></td>
-      <td>Environment type (e.g., SANDBOX [default], PRODUCTION)</td>
-      <td><code>PRODUCTION</code></td>
-    </tr>
-    <tr>
-      <td><code>--source</code></td>
-      <td>Path to the SFDX source directory</td>
-      <td><code>force-app/main/default</code></td>
-    </tr>
-    <tr>
-      <td><code>--validateOnly</code></td>
-      <td>Validates without metadata deployment</td>
-      <td><code>true</code></td>
-    </tr>
-    <tr>
-      <td><code>--exclude</code></td>
-      <td>List of metadata types to exclude</td>
-      <td><code>NamedCredentials,Workflow</code></td>
-    </tr>
-    <tr>
-      <td><code>--testLevel</code></td>
-      <td>Specifies which tests are run as part of a deployment</td>
-      <td><code>NoTestRun,RunLocalTests, RunAllTests,RunSpecifiedtests</code></td>
-    </tr>
-  </tbody>
-</table>
+						<table>
+							<caption>
+								Note: * indicates required options (Version 2.7.8 · Node.js &gt;=18.0.0)
+							</caption>
+							<thead>
+								<tr>
+									<th>Command / Option</th>
+									<th>Description</th>
+									<th>Example / Default</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td><code>-u, --username*</code></td>
+									<td>Salesforce username</td>
+									<td><code>user@example.com</code></td>
+								</tr>
+								<tr>
+									<td><code>-c, --clientId*</code></td>
+									<td>Connected App Consumer Key (Client ID)</td>
+									<td><code>3MVG9XXXXXXXXX</code></td>
+								</tr>
+								<tr>
+									<td><code>-k, --privateKey*</code></td>
+									<td>Path to RSA private key file for JWT auth</td>
+									<td><code>./keys/private.key</code></td>
+								</tr>
+								<tr>
+									<td><code>-e, --env</code></td>
+									<td>Target environment (<code>SANDBOX</code>/<code>SBX</code> or <code>PRODUCTION</code>/<code>PROD</code>)</td>
+									<td><code>SANDBOX</code> (default)</td>
+								</tr>
+								<tr>
+									<td><code>-s, --source</code></td>
+									<td>Path to the SFDX source directory</td>
+									<td><code>force-app/main/default</code></td>
+								</tr>
+								<tr>
+									<td><code>-b, --baseBranch</code></td>
+									<td>Base git ref for delta comparison (auto-detected in PR CI)</td>
+									<td><code>HEAD~1</code></td>
+								</tr>
+								<tr>
+									<td><code>-r, --targetBranch</code></td>
+									<td>Target git ref for delta comparison (auto-detected in PR CI)</td>
+									<td><code>HEAD</code></td>
+								</tr>
+								<tr>
+									<td><code>-v, --validateOnly</code></td>
+									<td>Validate package (including <code>destructiveChangesPost.xml</code>) without deploying</td>
+									<td><code>false</code></td>
+								</tr>
+								<tr>
+									<td><code>-x, --exclude</code></td>
+									<td>Comma- or space-separated metadata types to exclude (use <code>.forceignore</code> for paths)</td>
+									<td><code>Profile,NamedCredential</code></td>
+								</tr>
+								<tr>
+									<td><code>-t, --testLevel</code></td>
+									<td>Test level (forced to <code>RunLocalTests</code> in <code>PRODUCTION</code>)</td>
+									<td><code>NoTestRun, RunLocalTests, RunAllTestsInOrg, RunSpecifiedTests</code></td>
+								</tr>
+								<tr>
+									<td><code>quick-deploy -q, --quickDeployId*</code></td>
+									<td>Quick-deploy a previously validated deployment ID</td>
+									<td><code>0Af30000000xyz</code></td>
+								</tr>
+								<tr>
+									<td><code>auth:token --json</code></td>
+									<td>Print JWT access token and instance URL as JSON to stdout</td>
+									<td><code>--json</code></td>
+								</tr>
+								<tr>
+									<td><code>auth:token -o, --output</code></td>
+									<td>Write JWT auth payload to a local file with <code>0600</code> permissions</td>
+									<td><code>.simpleSfCli_auth.json</code></td>
+								</tr>
+								<tr>
+									<td><code>-V, --version</code></td>
+									<td>Output the current CLI version</td>
+									<td><code>2.7.8</code></td>
+								</tr>
+							</tbody>
+						</table>
 					</div>
 				</div>
 			</div>
@@ -364,8 +437,8 @@
 					<div class="tab-buttons">
 						<button class="tab-button active" onclick="showConfig('github')">GitHub Actions</button>
 						<button class="tab-button" onclick="showConfig('bitbucket')">Bitbucket Pipelines</button>
-						<button class="tab-button" onclick="showConfig('jenkins')">Jenkis</button>
-						<button class="tab-button" onclick="showConfig('gitlab')">Gitlab</button>
+						<button class="tab-button" onclick="showConfig('jenkins')">Jenkins</button>
+						<button class="tab-button" onclick="showConfig('gitlab')">GitLab</button>
 					</div>
 
 					<div id="github-config" class="tab-content active">
@@ -379,62 +452,62 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{github.event.pull_request.head.sha}}
-        fetch-depth: 2
-    - run: git checkout HEAD^
-        
-    - name: Deploy to Salesforce
-      run: |
-        - npx simple-sf-cli \
-          --source ${{secrets.SOURCE}} \
-          --exclude ${{secrets.EXCLUDE}} \
-          --clientId ${{secrets.CLIENT_ID}} \
-          --privateKey ${{secrets.PRIVATE_KEY}} \
-          --username ${{secrets.USER_NAME}} \
-          --validateOnly ${{secrets.VALIDATION}}
-        </code>
-    </pre>
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate or Deploy Delta to Salesforce
+        run: |
+          npx simple-sf-cli \
+            --source "${{ secrets.SOURCE }}" \
+            --exclude "${{ secrets.EXCLUDE }}" \
+            --clientId "${{ secrets.CLIENT_ID }}" \
+            --privateKey "${{ secrets.PRIVATE_KEY }}" \
+            --username "${{ secrets.USER_NAME }}" \
+            --env SANDBOX \
+            --validateOnly</code></pre>
 					</div>
 
 					<div id="bitbucket-config" class="tab-content">
 						<h3>Bitbucket Pipelines Configuration</h3>
-						<pre><code class="language-yaml">
-image:
-  name: node
+						<pre><code class="language-yaml">image:
+  name: node:20
 
 pipelines:
   pull-requests:
     '**':
       - step:
-          name: "Validate PR with SF CLI"
+          name: "Validate PR Delta with Simple SF CLI"
           script:
             - npx simple-sf-cli \
-            --source $CLI_SOURCE \
-            --exclude $CLI_EXCLUDE \
-            --clientId $CLIENT_ID \
-            --privateKey $PRIVATE_KEY \
-            --username $USER_NAME \
-            --validateOnly true
-                    </code></pre>
+                --source "$CLI_SOURCE" \
+                --exclude "$CLI_EXCLUDE" \
+                --clientId "$CLIENT_ID" \
+                --privateKey "$PRIVATE_KEY" \
+                --username "$USER_NAME" \
+                --env SANDBOX \
+                --validateOnly</code></pre>
 					</div>
 
 					<div id="jenkins-config" class="tab-content">
-						<h3>Jenkins Pipelines Configuration</h3>
-						<pre><code class="language-yaml">
-                        COMING SOON
-                    </code></pre>
+						<h3>Jenkins Pipeline Configuration</h3>
+						<pre><code class="language-yaml">COMING SOON</code></pre>
 					</div>
 					<div id="gitlab-config" class="tab-content">
-						<h3>Gitlab Pipelines Configuration</h3>
-						<pre><code class="language-yaml">
-                        COMING SOON
-                    </code></pre>
+						<h3>GitLab CI Configuration</h3>
+						<pre><code class="language-yaml">deploy_sandbox:
+  stage: deploy
+  script:
+    - npx simple-sf-cli \
+        --username "$SF_USERNAME" \
+        --clientId "$SF_CLIENT_ID" \
+        --privateKey ./server.key \
+        --env SANDBOX \
+        --testLevel RunLocalTests</code></pre>
 					</div>
 				</div>
 			</div>
