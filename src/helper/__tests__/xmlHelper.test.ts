@@ -115,6 +115,53 @@ describe('XmlHelper', () => {
 
 			expect(result).toBeNull();
 		});
+
+		it('should generate package members for all decomposed CustomObject child types (F10)', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/validationRules/Require_Phone.validationRule-meta.xml'),
+			).toEqual({
+				name: 'ValidationRule',
+				members: ['Account.Require_Phone'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/recordTypes/Enterprise.recordType-meta.xml'),
+			).toEqual({
+				name: 'RecordType',
+				members: ['Account.Enterprise'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/listViews/All_Accounts.listView-meta.xml'),
+			).toEqual({
+				name: 'ListView',
+				members: ['Account.All_Accounts'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/webLinks/Maps_Link.webLink-meta.xml'),
+			).toEqual({
+				name: 'WebLink',
+				members: ['Account.Maps_Link'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/compactLayouts/Compact_Account.compactLayout-meta.xml'),
+			).toEqual({
+				name: 'CompactLayout',
+				members: ['Account.Compact_Account'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Opportunity/businessProcesses/Enterprise_Sales.businessProcess-meta.xml'),
+			).toEqual({
+				name: 'BusinessProcess',
+				members: ['Opportunity.Enterprise_Sales'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/fieldSets/Header_Fields.fieldSet-meta.xml'),
+			).toEqual({
+				name: 'FieldSet',
+				members: ['Account.Header_Fields'],
+			});
+		});
 	});
 
 	describe('generateCustomObjectForFields', () => {
@@ -211,6 +258,63 @@ describe('XmlHelper', () => {
 			);
 			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
 			expect(writtenXml).not.toContain('<?xml');
+		});
+
+		it('should merge all decomposed CustomObject child types into .object XML (F10)', () => {
+			(fs.readFileSync as jest.Mock).mockImplementation((filePath: string) => {
+				if (filePath.includes('/validationRules/')) {
+					return '<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Require_Phone</fullName><active>true</active></ValidationRule>';
+				}
+				if (filePath.includes('/recordTypes/')) {
+					return '<RecordType xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Enterprise</fullName><active>true</active></RecordType>';
+				}
+				if (filePath.includes('/listViews/')) {
+					return '<ListView xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>All_Accounts</fullName><filterScope>Everything</filterScope></ListView>';
+				}
+				if (filePath.includes('/webLinks/')) {
+					return '<WebLink xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Maps_Link</fullName><availability>online</availability></WebLink>';
+				}
+				if (filePath.includes('/compactLayouts/')) {
+					return '<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Compact_Account</fullName><label>Compact Account</label></CompactLayout>';
+				}
+				if (filePath.includes('/businessProcesses/')) {
+					return '<BusinessProcess xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Enterprise_Sales</fullName><isActive>true</isActive></BusinessProcess>';
+				}
+				if (filePath.includes('/fieldSets/')) {
+					return '<FieldSet xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Header_Fields</fullName><label>Header Fields</label></FieldSet>';
+				}
+				return '<CustomField xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>CustomField1__c</fullName><type>Text</type></CustomField>';
+			});
+
+			xmlHelper.generateCustomObjectForFields({
+				Account: {
+					fields: ['CustomField1__c'],
+					validationRules: ['Require_Phone'],
+					recordTypes: ['Enterprise'],
+					listViews: ['All_Accounts'],
+					webLinks: ['Maps_Link'],
+					compactLayouts: ['Compact_Account'],
+					businessProcesses: ['Enterprise_Sales'],
+					fieldSets: ['Header_Fields'],
+				},
+			});
+
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml).toContain('<fields>');
+			expect(writtenXml).toContain('<validationRules>');
+			expect(writtenXml).toContain('<fullName>Require_Phone</fullName>');
+			expect(writtenXml).toContain('<recordTypes>');
+			expect(writtenXml).toContain('<fullName>Enterprise</fullName>');
+			expect(writtenXml).toContain('<listViews>');
+			expect(writtenXml).toContain('<fullName>All_Accounts</fullName>');
+			expect(writtenXml).toContain('<webLinks>');
+			expect(writtenXml).toContain('<fullName>Maps_Link</fullName>');
+			expect(writtenXml).toContain('<compactLayouts>');
+			expect(writtenXml).toContain('<fullName>Compact_Account</fullName>');
+			expect(writtenXml).toContain('<businessProcesses>');
+			expect(writtenXml).toContain('<fullName>Enterprise_Sales</fullName>');
+			expect(writtenXml).toContain('<fieldSets>');
+			expect(writtenXml).toContain('<fullName>Header_Fields</fullName>');
 		});
 
 		it('should handle errors in XML processing', () => {

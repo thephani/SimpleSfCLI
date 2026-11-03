@@ -112,4 +112,44 @@ describe('real Git → MDAPI → ZIP', () => {
     expect(files.has('classes/Keep.cls')).toBe(true);
     expect(files.has('destructiveChangesPost.xml')).toBe(false);
   }));
+  test('packages decomposed CustomObject children into objects/<Obj>.object and package.xml (F10)', () => withProject('decomposed-object-children', async p => {
+    await p.write(
+      `${source}/objects/Demo__c/validationRules/Require_Status.validationRule-meta.xml`,
+      '<?xml version="1.0" encoding="UTF-8"?><ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Require_Status</fullName><active>true</active><errorConditionFormula>ISBLANK(TEXT(Status__c))</errorConditionFormula><errorMessage>Status is required</errorMessage></ValidationRule>',
+    );
+    await p.write(
+      `${source}/objects/Demo__c/recordTypes/Standard_Demo.recordType-meta.xml`,
+      '<?xml version="1.0" encoding="UTF-8"?><RecordType xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Standard_Demo</fullName><active>true</active><label>Standard Demo</label></RecordType>',
+    );
+    const files = await zip(p);
+    expect(members(files.get('package.xml'))).toEqual({
+      RecordType: ['Demo__c.Standard_Demo'],
+      ValidationRule: ['Demo__c.Require_Status'],
+    });
+    const payload = parseXml(files.get('objects/Demo__c.object')).CustomObject;
+    expect(payload.validationRules.fullName).toBe('Require_Status');
+    expect(payload.recordTypes.fullName).toBe('Standard_Demo');
+  }));
+  test('packages aura bundles and copies primary source when only companion -meta.xml changes (F11)', () => withProject('aura-and-companion', async p => {
+    await p.write(`${source}/aura/demoAura/demoAura.cmp`, '<aura:component/>');
+    await p.write(`${source}/aura/demoAura/demoAuraController.js`, '({ init: function() {} })');
+    await p.write(`${source}/classes/Keep.cls-meta.xml`, original(`${source}/classes/Keep.cls-meta.xml`).replace('58.0', '59.0'));
+    const files = await zip(p);
+    expect(members(files.get('package.xml'))).toEqual({
+      ApexClass: ['Keep'],
+      AuraDefinitionBundle: ['demoAura'],
+    });
+    expect(files.has('aura/demoAura/demoAura.cmp')).toBe(true);
+    expect(files.has('aura/demoAura/demoAuraController.js')).toBe(true);
+    expect(files.has('classes/Keep.cls')).toBe(true);
+    expect(files.has('classes/Keep.cls-meta.xml')).toBe(true);
+  }));
+  test('deduplicates deleted CustomObject children when the parent CustomObject is deleted (F12)', () => withProject('whole-object-delete', async p => {
+    await p.remove(`${source}/objects/Demo__c`);
+    const files = await zip(p);
+    expect(members(files.get('destructiveChangesPost.xml'))).toEqual({
+      CustomObject: ['Demo__c'],
+    });
+    expect(members(files.get('package.xml'))).toEqual({});
+  }));
 });
