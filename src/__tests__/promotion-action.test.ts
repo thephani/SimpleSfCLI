@@ -69,7 +69,7 @@ if (keyIdx !== -1 && args[keyIdx + 1]) {
 
 				const runMatch = actionContent.match(/id:\s*run-cli[\s\S]*?run:\s*\|\n([\s\S]*?)\n\s*-\s*name:\s*Clean up/);
 				expect(runMatch).not.toBeNull();
-				const runScript = runMatch![1].replace('${{ inputs.version }}', '2.7.8');
+				const runScript = runMatch![1];
 
 				execFileSync('bash', ['-c', runScript], {
 					env: {
@@ -88,7 +88,7 @@ if (keyIdx !== -1 && args[keyIdx + 1]) {
 						INPUT_TARGET_BRANCH: 'HEAD',
 						INPUT_VALIDATE_ONLY: 'true',
 						INPUT_TEST_LEVEL: 'RunLocalTests',
-						INPUT_EXCLUDE: 'Profile,CustomMetadata',
+						INPUT_EXCLUDE: 'Profile CustomMetadata',
 						INPUT_QUICK_DEPLOY_ID: '',
 						INPUT_VERSION: '2.7.8',
 					},

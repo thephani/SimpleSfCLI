@@ -122,12 +122,15 @@ runs:
             ARGS+=("--testLevel" "$INPUT_TEST_LEVEL")
           fi
           if [[ -n "$INPUT_EXCLUDE" ]]; then
-            ARGS+=("--exclude" "$INPUT_EXCLUDE")
+            NORMALIZED_EXCLUDE="$(printf '%s' "$INPUT_EXCLUDE" | tr -s '[:space:],' ',' | sed 's/^,//; s/,$//')"
+            if [[ -n "$NORMALIZED_EXCLUDE" ]]; then
+              ARGS+=("--exclude" "$NORMALIZED_EXCLUDE")
+            fi
           fi
         fi
 
         # Execute npx simple-sf-cli@${inputs.version}
-        npx --yes "simple-sf-cli@${{ inputs.version }}" "${ARGS[@]}"
+        npx --yes "simple-sf-cli@${INPUT_VERSION:-latest}" "${ARGS[@]}"
 
     - name: Clean up temporary private key
       if: always()
