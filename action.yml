@@ -1,0 +1,141 @@
+name: 'Simple SF CLI - Salesforce DX Deployment'
+description: 'Lightning-fast Salesforce DX metadata & git delta deployments in 5-7 seconds without installing Salesforce CLI.'
+author: 'Phanindra Mangipudi'
+
+branding:
+  icon: 'zap'
+  color: 'purple'
+
+inputs:
+  command:
+    description: 'CLI command to execute (deploy, quick-deploy, or auth:token)'
+    required: false
+    default: 'deploy'
+  username:
+    description: 'Salesforce username for JWT authentication'
+    required: true
+  client-id:
+    description: 'Salesforce Connected App Consumer Key (Client ID)'
+    required: true
+  private-key:
+    description: 'Path to private key file or raw PEM private key content (-----BEGIN...)'
+    required: true
+  env:
+    description: 'Target Salesforce environment (SANDBOX, SBX, PRODUCTION, or PROD)'
+    required: false
+    default: 'SANDBOX'
+  source:
+    description: 'Path to the SFDX source directory'
+    required: false
+    default: 'force-app/main/default'
+  base-branch:
+    description: 'Base branch or git ref for delta comparison'
+    required: false
+    default: ''
+  target-branch:
+    description: 'Target branch or git ref for delta comparison'
+    required: false
+    default: ''
+  validate-only:
+    description: 'Validate deployment only without saving changes (true or false)'
+    required: false
+    default: 'false'
+  test-level:
+    description: 'Apex test execution level (NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg)'
+    required: false
+    default: 'NoTestRun'
+  exclude:
+    description: 'Comma-separated or space-separated list of metadata types to exclude'
+    required: false
+    default: ''
+  quick-deploy-id:
+    description: 'Validated deployment ID when running the quick-deploy command'
+    required: false
+    default: ''
+  version:
+    description: 'Version of simple-sf-cli NPM package to run'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Simple SF CLI
+      id: run-cli
+      shell: bash
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_CLIENT_ID: ${{ inputs.client-id }}
+        INPUT_PRIVATE_KEY: ${{ inputs.private-key }}
+        INPUT_ENV: ${{ inputs.env }}
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
+        INPUT_TARGET_BRANCH: ${{ inputs.target-branch }}
+        INPUT_VALIDATE_ONLY: ${{ inputs.validate-only }}
+        INPUT_TEST_LEVEL: ${{ inputs.test-level }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_QUICK_DEPLOY_ID: ${{ inputs.quick-deploy-id }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        KEY_PATH="$INPUT_PRIVATE_KEY"
+        if [[ "$INPUT_PRIVATE_KEY" == *"-----BEGIN"* ]]; then
+          TEMP_KEY_FILE="${RUNNER_TEMP:-/tmp}/simple-sf-cli-${GITHUB_RUN_ID:-0}-$$.key"
+          echo "SIMPLE_SF_CLI_TEMP_KEY=$TEMP_KEY_FILE" >> "$GITHUB_ENV"
+          umask 077
+          printf '%s\n' "$INPUT_PRIVATE_KEY" > "$TEMP_KEY_FILE"
+          chmod 0600 "$TEMP_KEY_FILE"
+          KEY_PATH="$TEMP_KEY_FILE"
+        fi
+
+        CMD="${INPUT_COMMAND:-deploy}"
+        ARGS=("$CMD" "--username" "$INPUT_USERNAME" "--clientId" "$INPUT_CLIENT_ID" "--privateKey" "$KEY_PATH")
+
+        if [[ -n "$INPUT_ENV" ]]; then
+          ARGS+=("--env" "$INPUT_ENV")
+        fi
+
+        if [[ "$CMD" == "quick-deploy" ]]; then
+          if [[ -z "$INPUT_QUICK_DEPLOY_ID" ]]; then
+            echo "::error::quick-deploy-id input is required when command is 'quick-deploy'"
+            exit 1
+          fi
+          ARGS+=("--quickDeployId" "$INPUT_QUICK_DEPLOY_ID")
+        elif [[ "$CMD" == "deploy" ]]; then
+          if [[ -n "$INPUT_SOURCE" ]]; then
+            ARGS+=("--source" "$INPUT_SOURCE")
+          fi
+          if [[ -n "$INPUT_BASE_BRANCH" ]]; then
+            ARGS+=("--baseBranch" "$INPUT_BASE_BRANCH")
+          fi
+          if [[ -n "$INPUT_TARGET_BRANCH" ]]; then
+            ARGS+=("--targetBranch" "$INPUT_TARGET_BRANCH")
+          fi
+          case "$INPUT_VALIDATE_ONLY" in
+            [Tt][Rr][Uu][Ee])
+              ARGS+=("--validateOnly")
+              ;;
+          esac
+          if [[ -n "$INPUT_TEST_LEVEL" ]]; then
+            ARGS+=("--testLevel" "$INPUT_TEST_LEVEL")
+          fi
+          if [[ -n "$INPUT_EXCLUDE" ]]; then
+            NORMALIZED_EXCLUDE="$(printf '%s' "$INPUT_EXCLUDE" | tr -s '[:space:],' ',' | sed 's/^,//; s/,$//')"
+            if [[ -n "$NORMALIZED_EXCLUDE" ]]; then
+              ARGS+=("--exclude" "$NORMALIZED_EXCLUDE")
+            fi
+          fi
+        fi
+
+        # Execute npx simple-sf-cli@${inputs.version}
+        npx --yes "simple-sf-cli@${INPUT_VERSION:-latest}" "${ARGS[@]}"
+
+    - name: Clean up temporary private key
+      if: always()
+      shell: bash
+      run: |
+        if [[ -n "${SIMPLE_SF_CLI_TEMP_KEY:-}" && -f "${SIMPLE_SF_CLI_TEMP_KEY}" ]]; then
+          rm -f "${SIMPLE_SF_CLI_TEMP_KEY}"
+        fi

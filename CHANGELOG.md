@@ -2,6 +2,13 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## Unreleased
+
+- Added official composite GitHub Action (`action.yml`) with Marketplace branding (`icon: 'zap'`, `color: 'purple'`), full CLI input support (`command`, `username`, `client-id`, `private-key`, `env`, `source`, `base-branch`, `target-branch`, `validate-only`, `test-level`, `exclude`, `quick-deploy-id`, `version`), automatic `0600` temporary key file creation when `private-key` contains raw PEM content (`-----BEGIN`), and `always()` key cleanup.
+- Added "Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)" comparison table and updated CI/CD integration recipes (`uses: thephani/SimpleSfCLI@v2`, GitLab CI, and Bitbucket Pipelines) in `README.md`.
+- Added automated GitHub Pages workflow (`.github/workflows/pages.yml`) to deploy `index.html` on pushes to `main` and manual `workflow_dispatch`.
+- Added Community Launch & Promotion Kit (`docs/promotion/launch-kit.md`) and Charmbracelet `vhs` terminal benchmark recording script (`docs/promotion/demo.tape`).
+
 ## 2.7.8 - 2026-10-27
 
 - Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.

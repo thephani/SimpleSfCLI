@@ -15,6 +15,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)](#why-simple-sf-cli-benchmarks-vs-official-salesforce-cli)
 - [Features](#features)
 - [What's New](#whats-new)
 - [Prerequisites](#prerequisites)
@@ -34,15 +35,29 @@
 
 ## Overview
 
-**Simple SF CLI** is a lightweight, high-performance Node.js command-line tool (19 KB package, ~81 KB unpacked) designed to streamline your Salesforce DX workflows. It converts, packages, and deploys SFDX projects to Salesforce in record time (5-7 seconds) without requiring Salesforce CLI or additional plugins.
+**Simple SF CLI** is a lightweight, high-performance Node.js command-line tool (~19 KB package, ~81 KB unpacked) designed to streamline your Salesforce DX workflows. It converts, packages, and deploys SFDX projects to Salesforce in record time (5-7 seconds) without requiring Salesforce CLI or additional plugins.
 
 ### Key Advantages
 
-- ⚡ **Blazing Fast**: Kick start your Deployment job in SFDX projects with in 6-8 seconds
-- 🚫 **No Salesforce CLI Required**: Works independently uses salesforce metadata API
-- 💎 **Zero Installation Overhead**: Use directly with `npx` or install locally
-- 🔧 **Custom Built**: Only 4 core dependencies with full control
-- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines like Github, Bitbucket
+- ⚡ **Blazing Fast**: Kick start your Deployment job in SFDX projects within 5-7 seconds
+- 🚫 **No Salesforce CLI Required**: Works independently using the Salesforce Metadata API
+- 💎 **Zero Installation Overhead**: Use directly with `npx`, the official GitHub Action (`uses: thephani/SimpleSfCLI@v2`), or install locally
+- 🔧 **Custom Built**: Only 3 core dependencies with full control
+- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines like GitHub Actions, GitLab CI, and Bitbucket Pipelines
+
+---
+
+## Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)
+
+Ephemeral CI/CD runners spend 60–120 seconds downloading and initializing `@salesforce/cli` and delta plugins before a single byte of metadata is sent to Salesforce. **Simple SF CLI** eliminates that cold-start tax:
+
+| Metric | Simple SF CLI (`simple-sf-cli`) | Official Salesforce CLI (`@salesforce/cli`) |
+|--------|---------------------------------|---------------------------------------------|
+| **Package Size** | `~19 KB` | `~200+ MB` |
+| **Cold Install + Start Time** | `~5-7s` | `~60-120s` |
+| **Built-in Git Delta** | `Yes` | `Requires sfdx-git-delta plugin` |
+| **Dependencies** | `3` | `Hundreds` |
+| **Destructive Changes** | `Automatic single-zip` | `Manual multi-step` |
 
 ---
 
@@ -79,6 +94,19 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 ---
 
 ## What's New
+
+### Unreleased - Official GitHub Action, Benchmarks & Adoption Kit
+
+- Added official composite GitHub Action (`action.yml`) enabling `uses: thephani/SimpleSfCLI@v2` with raw PEM `private-key` secret handling (`0600` temporary file creation and `always()` cleanup) and full CLI input support.
+- Added "Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)" comparison table and updated CI/CD recipes for GitHub Actions, GitLab CI, and Bitbucket Pipelines.
+- Added automated GitHub Pages deployment workflow (`.github/workflows/pages.yml`) for `index.html` on pushes to `main` and manual `workflow_dispatch`.
+- Added Community Launch & Promotion Kit (`docs/promotion/launch-kit.md`) and Charmbracelet `vhs` terminal benchmark script (`docs/promotion/demo.tape`).
+
+### 2.7.8 - 2026-10-27
+
+- Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML, and inspected ZIP archives, plus a dedicated GitHub Actions workflow and pre-publish gate.
+- Packaged mixed updates/deletions and deletion-only deltas into a single ZIP with root `package.xml` and `destructiveChangesPost.xml`, and handled partial LWC file deletions by redeploying the surviving bundle.
+- Applied `.forceignore` and metadata-type exclusions consistently before writing payloads, and hardened Git ref validation and nonzero exit codes on failed/canceled/partial deployments.
 
 ### 2.7.7 - 2026-06-24
 
@@ -511,10 +539,77 @@ simpleSfCli \
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+### Official GitHub Action (`uses: thephani/SimpleSfCLI@v2`)
+
+The repository ships with a composite GitHub Action ([`action.yml`](action.yml)) so you can run PR validations, branch delta deployments, and quick deployments without manually writing temporary key files or invoking shell scripts. If `private-key` contains raw PEM content (`-----BEGIN...`), the action writes a `0600` temporary key file and deletes it automatically in an `always()` cleanup step.
 
 ```yaml
 name: Deploy to Salesforce
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Validate PR Delta on Sandbox
+        if: github.event_name == 'pull_request'
+        uses: thephani/SimpleSfCLI@v2
+        with:
+          username: ${{ secrets.SF_USERNAME }}
+          client-id: ${{ secrets.SF_CLIENT_ID }}
+          private-key: ${{ secrets.SF_PRIVATE_KEY }}
+          env: SANDBOX
+          validate-only: 'true'
+          test-level: RunLocalTests
+
+      - name: Deploy Delta to Production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: thephani/SimpleSfCLI@v2
+        with:
+          username: ${{ secrets.SF_PROD_USERNAME }}
+          client-id: ${{ secrets.SF_PROD_CLIENT_ID }}
+          private-key: ${{ secrets.SF_PROD_PRIVATE_KEY }}
+          env: PRODUCTION
+          test-level: RunLocalTests
+```
+
+#### GitHub Action Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `command` | No | `deploy` | CLI command (`deploy`, `quick-deploy`, or `auth:token`) |
+| `username` | Yes | - | Salesforce username |
+| `client-id` | Yes | - | Connected App Consumer Key (Client ID) |
+| `private-key` | Yes | - | Path to private key file or raw PEM content (`-----BEGIN...`) |
+| `env` | No | `SANDBOX` | Target environment (`SANDBOX`/`SBX` or `PRODUCTION`/`PROD`) |
+| `source` | No | `force-app/main/default` | Path to SFDX source directory |
+| `base-branch` | No | `''` | Base branch or git ref for delta comparison |
+| `target-branch` | No | `''` | Target branch or git ref for delta comparison |
+| `validate-only` | No | `'false'` | Validate deployment without saving (`'true'` or `'false'`) |
+| `test-level` | No | `NoTestRun` | Apex test level (`NoTestRun`, `RunSpecifiedTests`, `RunLocalTests`, `RunAllTestsInOrg`) |
+| `exclude` | No | `''` | Metadata types to exclude |
+| `quick-deploy-id` | No | `''` | Validated deployment ID for `quick-deploy` |
+| `version` | No | `latest` | NPM package version of `simple-sf-cli` to execute |
+
+### GitHub Actions CLI Example (Direct `npx`)
+
+```yaml
+name: Deploy to Salesforce (Direct CLI)
 
 on:
   push:
@@ -525,16 +620,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
+          node-version: '24'
       
       - name: Deploy to Sandbox
         env:
@@ -542,28 +635,15 @@ jobs:
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_PRIVATE_KEY: ${{ secrets.SF_PRIVATE_KEY }}
         run: |
-          echo "$SF_PRIVATE_KEY" > server.key
+          umask 077
+          printf '%s\n' "$SF_PRIVATE_KEY" > server.key
           npx simple-sf-cli \
             --username "$SF_USERNAME" \
             --clientId "$SF_CLIENT_ID" \
             --privateKey ./server.key \
             --env SANDBOX \
             --testLevel RunLocalTests
-      
-      - name: Deploy to Production
-        if: github.ref == 'refs/heads/main'
-        env:
-          SF_USERNAME: ${{ secrets.SF_PROD_USERNAME }}
-          SF_CLIENT_ID: ${{ secrets.SF_PROD_CLIENT_ID }}
-          SF_PRIVATE_KEY: ${{ secrets.SF_PROD_PRIVATE_KEY }}
-        run: |
-          echo "$SF_PRIVATE_KEY" > server.key
-          npx simple-sf-cli \
-            --username "$SF_PROD_USERNAME" \
-            --clientId "$SF_PROD_CLIENT_ID" \
-            --privateKey ./server.key \
-            --env PRODUCTION \
-            --testLevel RunLocalTests
+          rm -f server.key
 ```
 
 ### GitLab CI Example
@@ -574,29 +654,39 @@ stages:
 
 deploy_sandbox:
   stage: deploy
+  image: node:24-alpine
+  before_script:
+    - apk add --no-cache git
   script:
     - |
-      echo "$SF_PRIVATE_KEY" > server.key
-      npx simple-sf-cli \
+      umask 077
+      printf '%s\n' "$SF_PRIVATE_KEY" > server.key
+      npx --yes simple-sf-cli \
         --username "$SF_USERNAME" \
         --clientId "$SF_CLIENT_ID" \
         --privateKey ./server.key \
         --env SANDBOX \
         --testLevel RunLocalTests
+      rm -f server.key
   only:
     - develop
 
 deploy_production:
   stage: deploy
+  image: node:24-alpine
+  before_script:
+    - apk add --no-cache git
   script:
     - |
-      echo "$SF_PRIVATE_KEY" > server.key
-      npx simple-sf-cli \
+      umask 077
+      printf '%s\n' "$SF_PROD_PRIVATE_KEY" > server.key
+      npx --yes simple-sf-cli \
         --username "$SF_PROD_USERNAME" \
         --clientId "$SF_PROD_CLIENT_ID" \
         --privateKey ./server.key \
         --env PRODUCTION \
         --testLevel RunLocalTests
+      rm -f server.key
   when: manual
   only:
     - main
@@ -612,13 +702,15 @@ pipelines:
         deployment: sandbox
         script:
           - |
-            echo "$SF_PRIVATE_KEY" > server.key
-            npx simple-sf-cli \
+            umask 077
+            printf '%s\n' "$SF_PRIVATE_KEY" > server.key
+            npx --yes simple-sf-cli \
               --username "$SF_USERNAME" \
               --clientId "$SF_CLIENT_ID" \
               --privateKey ./server.key \
               --env SANDBOX \
               --testLevel RunLocalTests
+            rm -f server.key
         caches:
           - node
 
@@ -629,13 +721,15 @@ pipelines:
           deployment: production
           script:
             - |
-              echo "$SF_PRIVATE_KEY" > server.key
-              npx simple-sf-cli \
+              umask 077
+              printf '%s\n' "$SF_PROD_PRIVATE_KEY" > server.key
+              npx --yes simple-sf-cli \
                 --username "$SF_PROD_USERNAME" \
                 --clientId "$SF_PROD_CLIENT_ID" \
                 --privateKey ./server.key \
                 --env PRODUCTION \
                 --testLevel RunLocalTests
+              rm -f server.key
           caches:
             - node
 ```
@@ -670,6 +764,12 @@ npx simple-sf-cli \
 
 ```
 SimpleSfCLI/
+├── action.yml                 # Composite GitHub Action definition
+├── index.html                 # Static documentation landing page (GitHub Pages)
+├── docs/
+│   └── promotion/
+│       ├── launch-kit.md      # Community launch & adoption kit
+│       └── demo.tape          # Charmbracelet VHS benchmark recording script
 ├── src/
 │   ├── cli.ts                 # CLI entry point
 │   ├── config.ts              # Configuration
@@ -770,7 +870,8 @@ We welcome contributions! Please follow these steps:
 
 For complete documentation, visit:
 
-- **API Reference**: [SimpleSfCLI Documentation](https://thephani.github.io/SimpleSfCLI/)
+- **API Reference**: [SimpleSfCLI Documentation](https://thephani.github.io/SimpleSfCLI/) (automatically deployed from `index.html` via `.github/workflows/pages.yml`)
+- **Community Launch & Promotion Kit**: [Launch & Adoption Kit](docs/promotion/launch-kit.md) and [VHS Benchmark Tape](docs/promotion/demo.tape)
 - **Metadata Types**: [Salesforce Metadata API Reference](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/)
 - **Authentication Guide**: [Salesforce JWT Auth](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_auth_key_and_cert.htm)
 
@@ -780,9 +881,9 @@ For complete documentation, visit:
 
 | Metric | Value |
 |--------|-------|
-| Package Size | 19.1 KB |
+| Package Size | ~19 KB |
 | Unpacked Size | ~81 KB |
-| Dependencies | 4 (minimal footprint) |
+| Dependencies | 3 (minimal footprint) |
 | TypeScript | Yes |
 | Node.js Version | 16+ |
 
