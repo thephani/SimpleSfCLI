@@ -2,6 +2,17 @@
 
 All notable changes to `simple-sf-cli` are documented in this file.
 
+## Unreleased
+
+- Added environment variable fallbacks (`SF_USERNAME`, `SF_CLIENT_ID`, `SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_PATH`, `SF_ENV`, `SF_SOURCE`, `SF_EXCLUDE`) when corresponding CLI flags are omitted.
+- Added support for inline PEM strings (`-----BEGIN ...`) and base64-encoded PEM private keys in `AuthService` alongside file paths.
+- Added `--dry-run` (`--dryRun`) option and `package` subcommand to convert SFDX metadata and generate `deploy.zip` without requiring Salesforce credentials or calling Salesforce APIs.
+- Added `--json` output mode to `deploy` and `quick-deploy` commands for structured JSON output to stdout (`{ status, id, done, checkOnly, numberComponentsDeployed, numberComponentsTotal, numberTestsCompleted, numberTestsTotal, details }`).
+- Added `--tests <tests...>` (merged with auto-detected Apex test classes), `--apiVersion <version>`, `--pollInterval <ms>`, and `--maxPollAttempts <count>` CLI options.
+- Added automatic detection of `sfdx-project.json` in the working directory to resolve the default package directory (`packageDirectories`) when `--source` / `SF_SOURCE` is not provided, as well as `sourceApiVersion`.
+- Added GitLab CI (`CI_MERGE_REQUEST_TARGET_BRANCH_NAME` / `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`) and Azure DevOps (`SYSTEM_PULLREQUEST_TARGETBRANCH` / `SYSTEM_PULLREQUEST_SOURCEBRANCH`, stripping `refs/heads/`) PR branch detection.
+- Added automatic Markdown deployment summary output to `$GITHUB_STEP_SUMMARY` during `deploy` and `quick-deploy` runs in GitHub Actions.
+
 ## 2.7.8 - 2026-10-27
 
 - Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML and inspected ZIP archives. Salesforce HTTP responses are simulated.

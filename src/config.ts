@@ -41,7 +41,10 @@ const config: CommandArgsConfig = {
   
   // Test coverage configuration
   coverageJson: './ApexTestCoverage.json',
-  runTests: []
+  runTests: [],
+  pollInterval: 5000,
+  maxPollAttempts: 120
 };
 
 export default config;
+
