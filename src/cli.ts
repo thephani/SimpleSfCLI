@@ -124,7 +124,9 @@ export class CLI {
 					if (!options.json) {
 						console.log('Initiating quick deployment...');
 					}
-					const result = await client.quickDeploy(options.quickDeployId);
+					const result = await this.runWithQuietStdout(Boolean(options.json), () =>
+						client.quickDeploy(options.quickDeployId),
+					);
 					this.writeStepSummary(result, false);
 					if (options.json) {
 						console.log(JSON.stringify(this.formatJsonResult(result, false), null, 2));
@@ -192,7 +194,7 @@ export class CLI {
 					const client = new SalesforceClient(updatedConfig);
 
 					if (isDryRun) {
-						const { packaged, zipPath } = await client.package();
+						const { packaged, zipPath } = await this.runWithQuietStdout(isJson, () => client.package());
 						if (isJson) {
 							console.log(JSON.stringify({
 								status: 'DryRun',
@@ -219,7 +221,7 @@ export class CLI {
 					};
 
 					// Initialize deployment
-					const result = await client.deploy(deployOptions);
+					const result = await this.runWithQuietStdout(isJson, () => client.deploy(deployOptions));
 					if (result) {
 						this.writeStepSummary(result, checkOnly);
 						if (isJson) {
@@ -245,6 +247,22 @@ export class CLI {
 					this.handleError('Deployment failed', error);
 				}
 			});
+	}
+
+	private async runWithQuietStdout<T>(quiet: boolean, fn: () => Promise<T>): Promise<T> {
+		if (!quiet) {
+			return fn();
+		}
+		const originalLog = console.log;
+		const originalTable = console.table;
+		console.log = (...args: unknown[]) => console.error(...args);
+		console.table = (...args: unknown[]) => console.error(...args);
+		try {
+			return await fn();
+		} finally {
+			console.log = originalLog;
+			console.table = originalTable;
+		}
 	}
 
 	private formatJsonResult(result: DeployResult, checkOnly: boolean) {
@@ -435,9 +453,13 @@ export class CLI {
 					parsed.packageDirectories.find((pkg) => pkg.default && pkg.path) ??
 					parsed.packageDirectories.find((pkg) => Boolean(pkg.path));
 				if (defaultPkg?.path) {
-					const candidatePath = defaultPkg.path;
+					const candidatePath = defaultPkg.path.replace(/\\/g, '/').replace(/\/+$/, '');
+					const metadataRootCandidate = `${candidatePath}/main/default`;
+					const resolvedMetadataRoot = path.resolve(process.cwd(), metadataRootCandidate);
 					const resolvedCandidate = path.resolve(process.cwd(), candidatePath);
-					if (fs.existsSync(resolvedCandidate) || fs.existsSync(candidatePath)) {
+					if (fs.existsSync(resolvedMetadataRoot) || fs.existsSync(metadataRootCandidate)) {
+						result.source = metadataRootCandidate;
+					} else if (fs.existsSync(resolvedCandidate) || fs.existsSync(candidatePath)) {
 						result.source = candidatePath;
 					}
 				}

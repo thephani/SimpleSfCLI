@@ -210,6 +210,7 @@ describe('CLI Features & DX Enhancements (F13-F18)', () => {
 				'--json',
 			]);
 
+			expect(consoleLogSpy).toHaveBeenCalledTimes(1);
 			const jsonCall = consoleLogSpy.mock.calls.find(([arg]) => typeof arg === 'string' && arg.trim().startsWith('{'));
 			expect(jsonCall).toBeDefined();
 			const parsed = JSON.parse(jsonCall![0]);
@@ -386,6 +387,33 @@ describe('CLI Features & DX Enhancements (F13-F18)', () => {
 			);
 
 			expect(updated.source).toBe('my-pkg/main/default');
+			expect(updated.sfVersion).toBe('v62.0');
+		});
+
+		it('resolves package root directory (e.g. force-app) to its <path>/main/default metadata root', async () => {
+			const defaultMetaDir = path.join(tempDir, 'force-app', 'main', 'default');
+			fs.mkdirSync(defaultMetaDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(tempDir, 'sfdx-project.json'),
+				JSON.stringify({
+					packageDirectories: [{ path: 'force-app', default: true }],
+					sourceApiVersion: '62.0',
+				}),
+				'utf-8',
+			);
+
+			process.chdir(tempDir);
+			const cli = await getCliInstance();
+			const updated = (cli as any).getUpdatedConfig(
+				{
+					username: 'user@example.com',
+					clientId: 'client-id',
+					privateKey: TEST_PRIVATE_KEY,
+				},
+				{ logUsername: false },
+			);
+
+			expect(updated.source).toBe('force-app/main/default');
 			expect(updated.sfVersion).toBe('v62.0');
 		});
 
