@@ -185,5 +185,20 @@ describe('metadata constants coverage', () => {
 				getMemberName('force-app/main/default/experiences/customerPortal/views/home.json'),
 			).toBe('customerPortal');
 		});
+
+		it('preserves folder paths for foldered metadata types (reports, dashboards, email)', () => {
+			expect(
+				getMemberName('force-app/main/default/reports/Sales/Quarterly.report-meta.xml'),
+			).toBe('Sales/Quarterly');
+			expect(
+				getMemberName('force-app/main/default/dashboards/Exec/Overview.dashboard-meta.xml'),
+			).toBe('Exec/Overview');
+			expect(
+				getMemberName('force-app/main/default/email/unfiled$public/Welcome.email-meta.xml'),
+			).toBe('unfiled$public/Welcome');
+			expect(
+				getMemberName('force-app/main/default/email/unfiled$public/Welcome.email'),
+			).toBe('unfiled$public/Welcome');
+		});
 	});
 });

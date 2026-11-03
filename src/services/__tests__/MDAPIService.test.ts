@@ -818,5 +818,22 @@ describe('MDAPIService', () => {
 				},
 			]);
 		});
+
+		it('should retain deleted child metadata when parent CustomObject is excluded', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Obsolete__c/Obsolete__c.object-meta.xml',
+				'force-app/main/default/objects/Obsolete__c/fields/Status__c.field-meta.xml',
+			]);
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+
+			await (service as any).processDeletedMetadata(['CustomObject']);
+
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomField',
+					members: ['Obsolete__c.Status__c'],
+				},
+			]);
+		});
 	});
 });

@@ -82,7 +82,10 @@ export class MDAPIService extends BaseService {
       const relativePath = this.toRelativeSourcePath(file);
       const objectMatch = relativePath.match(/^objects\/([^/]+)\/([^/]+)\.object-meta\.xml$/);
       if (objectMatch && objectMatch[1] === objectMatch[2]) {
-        deletedObjects.add(objectMatch[1]);
+        const type = this.getMetadataType(file);
+        if (type && !excludeList?.includes(type)) {
+          deletedObjects.add(objectMatch[1]);
+        }
       }
     }
 
@@ -378,6 +381,19 @@ export class MDAPIService extends BaseService {
         const packageMember = this.xmlHelper.generatePackageMember(file);
         return packageMember?.members?.[0] || `${match[1]}.${match[2]}`;
       }
+    }
+
+    const folderedMatch = relativePath.match(
+      /^(reports|Report|dashboards|Dashboard|email|EmailTemplate|documents|Document)\/(.+)$/,
+    );
+    if (folderedMatch) {
+      const subPath = folderedMatch[2];
+      for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {
+        if (subPath.endsWith(ext)) {
+          return `${subPath.slice(0, -ext.length)}${replacement}`;
+        }
+      }
+      return subPath;
     }
 
     const fileName = path.basename(file);

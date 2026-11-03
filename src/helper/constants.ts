@@ -172,11 +172,16 @@ export const METADATA_EXTENSIONS: Record<string, string> = {
 	'.quickAction-meta.xml': '',           // QuickAction
 	'.customPermission-meta.xml': '',      // CustomPermission
 	'.role-meta.xml': '',                  // Role
+	'.reportFolder-meta.xml': '',          // Report folder
 	'.report-meta.xml': '',                // Report
 	'.reportType-meta.xml': '',            // ReportType
+	'.dashboardFolder-meta.xml': '',       // Dashboard folder
 	'.dashboard-meta.xml': '',             // Dashboard
+	'.emailFolder-meta.xml': '',           // EmailTemplate folder
 	'.email-meta.xml': '',                 // EmailTemplate companion
 	'.email': '',                          // EmailTemplate
+	'.documentFolder-meta.xml': '',        // Document folder
+	'.document-meta.xml': '',              // Document companion
 	'.resource-meta.xml': '',              // StaticResource companion
 	'.resource': '',                       // StaticResource
 	'.weblink-meta.xml': '',               // CustomPageWebLink
