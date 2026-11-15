@@ -1,0 +1,25 @@
+name: PR-Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  pr-agent:
+    if: ${{ github.event.sender.type != 'Bot' && (github.event_name != 'issue_comment' || github.event.issue.pull_request != null) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Run PR-Agent
+        uses: the-pr-agent/pr-agent@main
+        env:
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          OPENROUTER__KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY || secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
