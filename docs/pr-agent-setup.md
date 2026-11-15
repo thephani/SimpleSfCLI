@@ -11,6 +11,13 @@ The action sends PR diffs and relevant context to OpenRouter and the selected
 model provider. The primary model is Qwen3.8 Flash, with DeepSeek V4.1 Flash
 as the fallback. Both models are billed by OpenRouter.
 
+The workflow explicitly sets `CONFIG__MODEL`, `CONFIG__FALLBACK_MODELS`, and
+`CONFIG__CUSTOM_MODEL_MAX_TOKENS`. Keep these values in sync with `.pr_agent.toml`.
+PR-Agent reads repository settings from the default branch, so the initial setup
+PR cannot rely on its new `.pr_agent.toml` until that file is merged. Without the
+workflow model settings, that run selects the upstream OpenAI default and asks
+for `OPENAI_API_KEY` even when an OpenRouter key is provided.
+
 ## Automatic runs
 
 PR-Agent runs `/describe` and `/review` when a PR is opened, reopened, marked
