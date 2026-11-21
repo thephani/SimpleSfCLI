@@ -408,6 +408,20 @@ simpleSfCli \
     --targetBranch main
 ```
 
+### Manifest Deployment (Release Management)
+
+Deploy an explicit release manifest (recommended for controlled release cutovers):
+
+```bash
+simpleSfCli \
+    --username release.manager@example.com \
+    --clientId client123 \
+    --privateKey ./server.key \
+    --manifest ./manifest/release-2026-04-08.xml
+```
+
+> `--manifest` cannot be combined with `--baseBranch` or `--targetBranch`.
+
 ---
 
 ## Command Options
@@ -523,6 +537,23 @@ simpleSfCli \
 - `M`: Modified files
 - `A`: Added files
 - `AM`: Added and modified files
+
+### Manifest Deployment
+
+Deploy exactly what is declared in a `package.xml` manifest:
+
+```bash
+simpleSfCli \
+    --username user@example.com \
+    --clientId client123 \
+    --privateKey ./server.key \
+    --manifest ./manifest/release-candidate.xml
+```
+
+**Release management examples:**
+- Promote a QA-approved manifest into UAT/Prod without recomputing git delta.
+- Re-run a failed release by reusing the same manifest artifact.
+- Ship hotfix-only members by committing a narrow release manifest.
 
 ---
 
