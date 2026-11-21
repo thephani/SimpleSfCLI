@@ -1,0 +1,97 @@
+name: Real-file integration tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Daily at 07:23 UTC. GitHub may delay scheduled runs.
+    - cron: '23 7 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-file-integration-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-file-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test -- --runInBand --modulePathIgnorePatterns .kilo
+
+      - name: Run real-file integration tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:integration
+
+      - name: Summarize integration results
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const reportPath = 'test-results/integration.json';
+          let summary = '## Real-file integration tests\n\n';
+          if (!fs.existsSync(reportPath)) {
+            summary += 'Integration report unavailable. Check installation, build, and test step logs.\n';
+          } else {
+            try {
+              const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+              summary += `Tests: ${report.numTotalTests}; passed: ${report.numPassedTests}; failed: ${report.numFailedTests}; pending: ${report.numPendingTests}.\n\n`;
+              const failures = (report.testResults || []).flatMap(suite =>
+                (suite.assertionResults || []).filter(test => test.status === 'failed').map(test => test.fullName)
+              );
+              if (failures.length) {
+                summary += 'Failed cases:\n';
+                for (const name of failures) {
+                  summary += `- ${String(name).replace(/[\r\n]/g, ' ').replace(/[<>&]/g, '')}\n`;
+                }
+              }
+              if (!report.success) summary += '\nSuite did not pass; inspect the JSON report and test logs for setup or runtime errors.\n';
+            } catch (error) {
+              summary += 'Integration report could not be parsed. Inspect the uploaded report and test logs.\n';
+              process.exitCode = 1;
+            }
+          }
+          fs.mkdirSync('test-results', { recursive: true });
+          fs.writeFileSync('test-results/integration-summary.md', summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          NODE
+
+      - name: Upload integration report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/integration.json
+            test-results/integration-summary.md
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-failures-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/integration/
+          # Only disposable, credential-free fixture data is retained here.
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn

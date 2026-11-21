@@ -20,7 +20,7 @@ describe('DeployService', () => {
 		targetBranch: 'HEAD',
 		appVersion: '1.0.0',
 		appDescription: 'Test App',
-		sfVersion: '56.0',
+		sfVersion: 'v62.0',
 		cliVersion: '1.0.0',
 		cliOuputFolder: '.output',
 		testLevel: 'NoTestRun',
@@ -70,6 +70,25 @@ describe('DeployService', () => {
             expect(result).toEqual(MOCK_DEPLOY_RESULT);
         });
 
+        it('should poll deployment status when quick deploy response is not yet done', async () => {
+            const quickDeployResponse = {
+                ok: true,
+                json: async () => ({ id: 'quick-deploy-id', done: false, status: 'Pending' }),
+            };
+            const finalResult = {
+                id: 'quick-deploy-id',
+                status: 'Succeeded' as const,
+                done: true,
+            };
+            (global.fetch as jest.Mock).mockResolvedValueOnce(quickDeployResponse);
+            const pollSpy = jest.spyOn(service, 'pollDeploymentStatus').mockResolvedValueOnce(finalResult as any);
+
+            const result = await service.quickDeploy(MOCK_DEPLOY_ID);
+
+            expect(pollSpy).toHaveBeenCalledWith('quick-deploy-id');
+            expect(result).toEqual(finalResult);
+        });
+
         it('should handle quick deploy errors', async () => {
             const errorMessage = 'Quick deploy failed';
             (global.fetch as jest.Mock).mockRejectedValueOnce(new Error(errorMessage));
@@ -116,6 +135,21 @@ describe('DeployService', () => {
                 })
             );
             expect(deployId).toBe(MOCK_DEPLOY_ID);
+        });
+
+        it('should derive SOAP endpoint version from configured sfVersion', async () => {
+            const customService = new DeployService({ ...mockConfig, sfVersion: 'v60.0' });
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                text: async () => mockSoapResponse,
+            });
+
+            await customService.initiateDeployment(MOCK_ZIP_PATH);
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${mockConfig.instanceUrl}/services/Soap/m/60.0`,
+                expect.any(Object),
+            );
         });
 
         it('should handle deployment initiation errors', async () => {
@@ -189,6 +223,72 @@ describe('DeployService', () => {
             expect(service['wait']).toHaveBeenCalledTimes(1);
         });
 
+        it('should log full test failure and component failure tables on Failed or SucceededPartial', async () => {
+            const tableSpy = jest.spyOn(console, 'table').mockImplementation(() => undefined);
+            const mockPartialFailureResponse = {
+                ok: true,
+                json: async () => ({
+                    deployResult: {
+                        id: MOCK_DEPLOY_ID,
+                        status: 'SucceededPartial',
+                        done: true,
+                        numberComponentsDeployed: 1,
+                        numberComponentsTotal: 2,
+                        numberTestsTotal: 1,
+                        numberTestsCompleted: 1,
+                        details: {
+                            componentFailures: [
+                                {
+                                    componentType: 'ApexClass',
+                                    fileName: 'classes/Broken.cls',
+                                    fullName: 'Broken',
+                                    problem: 'Compile failure',
+                                    problemType: 'Error',
+                                    success: false,
+                                },
+                            ],
+                            runTestResult: {
+                                numFailures: 1,
+                                numTestsRun: 1,
+                                totalTime: 10,
+                                failures: [
+                                    {
+                                        name: 'BrokenTest',
+                                        methodName: 'testMethod1',
+                                        message: 'System.AssertException: Assertion Failed',
+                                        stackTrace: 'Class.BrokenTest.testMethod1: line 10, column 1',
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                }),
+            };
+
+            jest.spyOn(service as any, 'fetchWithAuth').mockResolvedValueOnce(mockPartialFailureResponse);
+
+            await expect(service.pollDeploymentStatus(MOCK_DEPLOY_ID))
+                .rejects
+                .toThrow(`Deployment ${MOCK_DEPLOY_ID} ended with status SucceededPartial`);
+
+            expect(tableSpy).toHaveBeenCalledWith([
+                {
+                    name: 'BrokenTest',
+                    methodName: 'testMethod1',
+                    message: 'System.AssertException: Assertion Failed',
+                    stackTrace: 'Class.BrokenTest.testMethod1: line 10, column 1',
+                },
+            ]);
+            expect(tableSpy).toHaveBeenCalledWith([
+                {
+                    fileName: 'classes/Broken.cls',
+                    fullName: 'Broken',
+                    problem: 'Compile failure',
+                },
+            ]);
+            tableSpy.mockRestore();
+        });
+
         it('should timeout after max attempts', async () => {
             const mockResponse = {
                 ok: true,
@@ -209,6 +309,34 @@ describe('DeployService', () => {
             await expect(service.pollDeploymentStatus(MOCK_DEPLOY_ID))
                 .rejects
                 .toThrow('Deployment timed out');
+        });
+
+        it('should use custom pollInterval and maxPollAttempts when configured', async () => {
+            const customService = new DeployService({
+                ...mockConfig,
+                pollInterval: 1200,
+                maxPollAttempts: 3,
+            });
+            const waitSpy = jest.spyOn(customService as any, 'wait').mockResolvedValue(undefined);
+            jest.spyOn(customService as any, 'fetchWithAuth').mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    deployResult: {
+                        id: MOCK_DEPLOY_ID,
+                        status: 'InProgress',
+                        done: false,
+                    },
+                }),
+            });
+
+            await expect(customService.pollDeploymentStatus(MOCK_DEPLOY_ID))
+                .rejects
+                .toThrow('Deployment timed out');
+
+            expect(customService['fetchWithAuth']).toHaveBeenCalledTimes(3);
+            expect(waitSpy).toHaveBeenNthCalledWith(1, 1200);
+            expect(waitSpy).toHaveBeenNthCalledWith(2, 2400);
+            expect(waitSpy).toHaveBeenNthCalledWith(3, 3600);
         });
     });
 

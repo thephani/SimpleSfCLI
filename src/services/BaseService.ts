@@ -1,4 +1,4 @@
-import { CommandArgsConfig } from "types/config.type";
+import type { CommandArgsConfig } from '../types/config.type.js';
 
 
 export abstract class BaseService {
