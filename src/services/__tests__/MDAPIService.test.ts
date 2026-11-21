@@ -1,6 +1,6 @@
 import { MDAPIService } from '../MDAPIService';
 import fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { XmlHelper } from '../../helper/xmlHelper';
 import { CommandArgsConfig } from '../../types/config.type';
 import path from 'path';
@@ -14,6 +14,7 @@ jest.mock('../../helper/forceignoreHelper');
 describe('MDAPIService', () => {
 	let service: MDAPIService;
 	const originalEnv = { ...process.env };
+	const testEnv = { ...originalEnv };
 	const mockConfig: CommandArgsConfig = {
 		clientId: 'test-client-id',
 		username: 'test@example.com',
@@ -37,7 +38,16 @@ describe('MDAPIService', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
-		process.env = { ...originalEnv };
+		delete testEnv.GITHUB_BASE_REF;
+		delete testEnv.GITHUB_HEAD_REF;
+		delete testEnv.BITBUCKET_PR_DESTINATION_BRANCH;
+		delete testEnv.BITBUCKET_PR_SOURCE_BRANCH;
+		delete testEnv.BITBUCKET_BRANCH;
+		delete testEnv.CI_MERGE_REQUEST_TARGET_BRANCH_NAME;
+		delete testEnv.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+		delete testEnv.SYSTEM_PULLREQUEST_TARGETBRANCH;
+		delete testEnv.SYSTEM_PULLREQUEST_SOURCEBRANCH;
+		process.env = { ...testEnv };
 		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
 
@@ -54,8 +64,8 @@ describe('MDAPIService', () => {
 		// Mock existsSync
 		(fs.existsSync as jest.Mock).mockReturnValue(true);
 
-		// Mock execSync
-		(execSync as jest.Mock).mockReturnValue('');
+		// Mock execFileSync
+		(execFileSync as jest.Mock).mockReturnValue('');
 
 		// Mock XmlHelper methods
 		(XmlHelper.prototype.createPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
@@ -77,8 +87,8 @@ describe('MDAPIService', () => {
 
 		it('should successfully convert SFDX to MDAPI format', async () => {
 
-			const mockChangedFiles = ['force-app/main/default/classes/TestClass.cls', 'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'].join('\n');
-			(execSync as jest.Mock).mockReturnValue(mockChangedFiles);
+			const mockChangedFiles = ['force-app/main/default/classes/TestClass.cls', 'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'].join('\0');
+			(execFileSync as jest.Mock).mockReturnValue(mockChangedFiles);
 
 			// Mock file content for test class detection
 			(fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest\nclass TestClass {}');
@@ -88,12 +98,12 @@ describe('MDAPIService', () => {
 			// expect(processExitSpy).toHaveBeenCalledWith(0);
 
 			expect(fs.promises.mkdir).toHaveBeenCalledWith(mockConfig.cliOuputFolder, expect.any(Object));
-			expect(execSync).toHaveBeenCalled();
+			expect(execFileSync).toHaveBeenCalled();
 			expect(Array.isArray(result)).toBeTruthy();
 		});
 
 		it('should handle no modified files', async () => {
-			(execSync as jest.Mock).mockReturnValueOnce('');
+			(execFileSync as jest.Mock).mockReturnValueOnce('');
 
 			// await expect(service.convertToMDAPI([])).rejects.toThrow('Process.exit called with code 0');
 		});
@@ -372,16 +382,17 @@ describe('MDAPIService', () => {
 	describe('getChangedFiles', () => {
 		beforeEach(() => {
 			jest.resetAllMocks();
+            (execFileSync as jest.Mock).mockReturnValue('');
 		});
 
 		it('should return grouped and filtered files', async () => {
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
 				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce([
 					'force-app/main/default/classes/TestClass.cls',
 					'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
-				].join('\n'))
+				].join('\0'))
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
@@ -392,46 +403,50 @@ describe('MDAPIService', () => {
 				'force-app/main/default/classes/TestClass.cls',
 				'force-app/main/default/objects/Account/fields/Test__c.field-meta.xml'
 			]);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				1,
-				'git branch --show-current',
+				'git',
+				['branch', '--show-current'],
 				{ encoding: 'utf8' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				2,
-				'git symbolic-ref refs/remotes/origin/HEAD',
+				'git',
+				['symbolic-ref', 'refs/remotes/origin/HEAD'],
 				{ encoding: 'utf8' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				3,
-				'git diff --diff-filter=AM --name-only origin/main...HEAD',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/main...HEAD', '--'],
 				{ encoding: 'utf8' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				4,
-				'git diff --diff-filter=AM --name-only',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', '--'],
 				{ encoding: 'utf8' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				5,
-				'git diff --cached --diff-filter=AM --name-only',
+				'git',
+				['diff', '--cached', '--diff-filter=AM', '--name-only', '-z', '--'],
 				{ encoding: 'utf8' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				6,
-				'git ls-files --others --exclude-standard',
+				'git',
+				['ls-files', '--others', '--exclude-standard', '-z'],
 				{ encoding: 'utf8' },
 			);
 		});
 
 		it('should handle git command errors', async () => {
-			(execSync as jest.Mock).mockImplementation(() => {
+			(execFileSync as jest.Mock).mockImplementation(() => {
 				throw new Error('Git command failed');
 			});
 
-			const result = await (service as any).getGitFiles('AM');
-
-			expect(result).toEqual([]);
+			await expect((service as any).getGitFiles('AM')).rejects.toThrow('Git metadata discovery failed');
 		});
 
 		it('should respect configured source directory when filtering changed files', async () => {
@@ -442,11 +457,11 @@ describe('MDAPIService', () => {
 				targetBranch: 'feature/my-branch',
 			});
 
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce([
 					'packages/core/main/default/classes/TestClass.cls',
 					'force-app/main/default/classes/IgnoreMe.cls',
-				].join('\n'))
+				].join('\0'))
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
@@ -454,9 +469,10 @@ describe('MDAPIService', () => {
 			const result = await (customSourceService as any).getGitFiles('AM');
 
 			expect(result).toEqual(['packages/core/main/default/classes/TestClass.cls']);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				1,
-				'git diff --diff-filter=AM --name-only origin/develop...feature/my-branch',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/develop...feature/my-branch', '--'],
 				{ encoding: 'utf8' },
 			);
 		});
@@ -467,13 +483,13 @@ describe('MDAPIService', () => {
 				source: './force-app/main/default/',
 			});
 
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
 				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce([
 					'./force-app/main/default/objects/Account/fields/Test__c.field-meta.xml',
 					'force-app/main/default/classes/TestClass.cls',
-				].join('\n'))
+				].join('\0'))
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
@@ -487,13 +503,13 @@ describe('MDAPIService', () => {
 		});
 
 		it('should include uncommitted and untracked custom field changes', async () => {
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce('bug/fields\n')
 				.mockReturnValueOnce('refs/remotes/origin/main\n')
 				.mockReturnValueOnce('')
-				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml\n')
-				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml\n')
-				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Session_Start__c.field-meta.xml\n');
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Publish_Date__c.field-meta.xml\0')
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/Opportunity.object-meta.xml\0')
+				.mockReturnValueOnce('force-app/main/default/objects/Opportunity/fields/Session_Start__c.field-meta.xml\0');
 
 			const result = await (service as any).getGitFiles('AM');
 
@@ -505,20 +521,21 @@ describe('MDAPIService', () => {
 		});
 
 		it('should fall back to HEAD~1 when PR base branch cannot be detected', async () => {
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockImplementationOnce(() => {
 					throw new Error('No branch');
 				})
-				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
 
 			const result = await (service as any).getGitFiles('AM');
 
 			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				2,
-				'git diff --diff-filter=AM --name-only HEAD~1...HEAD',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'HEAD~1...HEAD', '--'],
 				{ encoding: 'utf8' },
 			);
 		});
@@ -527,10 +544,10 @@ describe('MDAPIService', () => {
 			process.env.GITHUB_BASE_REF = 'main';
 			process.env.GITHUB_HEAD_REF = 'feature/pr-branch';
 
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
-				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
@@ -538,19 +555,22 @@ describe('MDAPIService', () => {
 			const result = await (service as any).getGitFiles('AM');
 
 			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				1,
-				'git rev-parse --verify --quiet origin/main',
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/main'],
 				{ encoding: 'utf8', stdio: 'ignore' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				2,
-				'git rev-parse --verify --quiet origin/feature/pr-branch',
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/pr-branch'],
 				{ encoding: 'utf8', stdio: 'ignore' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				3,
-				'git diff --diff-filter=AM --name-only origin/main...origin/feature/pr-branch',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/main...origin/feature/pr-branch', '--'],
 				{ encoding: 'utf8' },
 			);
 		});
@@ -559,10 +579,10 @@ describe('MDAPIService', () => {
 			process.env.BITBUCKET_PR_DESTINATION_BRANCH = 'develop';
 			process.env.BITBUCKET_BRANCH = 'feature/bitbucket-pr';
 
-			(execSync as jest.Mock)
+			(execFileSync as jest.Mock)
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
-				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\n')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('')
 				.mockReturnValueOnce('');
@@ -570,19 +590,92 @@ describe('MDAPIService', () => {
 			const result = await (service as any).getGitFiles('AM');
 
 			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				1,
-				'git rev-parse --verify --quiet origin/develop',
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/develop'],
 				{ encoding: 'utf8', stdio: 'ignore' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				2,
-				'git rev-parse --verify --quiet origin/feature/bitbucket-pr',
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/bitbucket-pr'],
 				{ encoding: 'utf8', stdio: 'ignore' },
 			);
-			expect(execSync).toHaveBeenNthCalledWith(
+			expect(execFileSync).toHaveBeenNthCalledWith(
 				3,
-				'git diff --diff-filter=AM --name-only origin/develop...origin/feature/bitbucket-pr',
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/develop...origin/feature/bitbucket-pr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use GitLab CI merge request target and source branches when available', async () => {
+			process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME = 'main';
+			process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME = 'feature/gitlab-mr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/main'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/gitlab-mr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/main...origin/feature/gitlab-mr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use Azure DevOps PR target and source branches and strip refs/heads/ prefix', async () => {
+			process.env.SYSTEM_PULLREQUEST_TARGETBRANCH = 'refs/heads/release/v1';
+			process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH = 'refs/heads/feature/ado-pr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/release/v1'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/ado-pr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/release/v1...origin/feature/ado-pr', '--'],
 				{ encoding: 'utf8' },
 			);
 		});
@@ -595,19 +688,17 @@ describe('MDAPIService', () => {
 
 
 		it('should handle git command errors', async () => {
-			(execSync as jest.Mock).mockImplementation(() => {
+			(execFileSync as jest.Mock).mockImplementation(() => {
 				throw new Error('Git command failed');
 			});
 
-			const result = await (service as any).getGitFiles('D');
-
-			expect(result).toHaveLength(0);
+			await expect((service as any).getGitFiles('D')).rejects.toThrow('Git metadata discovery failed');
 		});
 		it('should handle multiple deleted files', async () => {
-			(execSync as jest.Mock).mockReturnValue([
+			(execFileSync as jest.Mock).mockReturnValue([
 				'force-app/main/default/classes/DeletedClass1.cls',
 				'force-app/main/default/classes/DeletedClass2.cls'
-			].join('\n'));
+			].join('\0'));
 
 			const result = await (service as any).getGitFiles('D');
 
@@ -617,9 +708,9 @@ describe('MDAPIService', () => {
 		});
 
 		it('should return deleted files list', async () => {
-			// Mock execSync to return a string as it would in reality
-			(execSync as jest.Mock).mockReturnValue(
-				'force-app/main/default/classes/DeletedClass.cls\n'
+			// Mock execFileSync to return a string as it would in reality
+			(execFileSync as jest.Mock).mockReturnValue(
+				'force-app/main/default/classes/DeletedClass.cls\0'
 			);
 
 			const result = await (service as any).getGitFiles('D');
@@ -631,26 +722,113 @@ describe('MDAPIService', () => {
 
 	});
 
-	describe('field package reconciliation', () => {
-		it('should package generated field object deltas as CustomObject members', () => {
-			const metadataTypes = [
-				{ name: 'CustomField', members: ['Opportunity.Publish_Date__c', 'Opportunity.Session_Start__c'] },
-				{ name: 'ApexClass', members: ['TestClass'] },
-			];
+	describe('field package generation', () => {
+		beforeEach(() => {
+			(XmlHelper.prototype.generatePackageMember as jest.Mock).mockImplementation((filePath: string) => {
+				const match = filePath.match(/objects\/([^/]+)\/fields\/([^/]+)\.field-meta\.xml$/);
+				if (!match) {
+					return null;
+				}
 
-			(service as any).reconcileFieldMetadataWithGeneratedObjects(
-				{
-					Opportunity: {
-						fields: ['Publish_Date__c', 'Session_Start__c'],
-					},
-				},
-				metadataTypes,
-			);
+				return {
+					name: 'CustomField',
+					members: [`${match[1]}.${match[2]}`],
+				};
+			});
+		});
 
-			expect(metadataTypes).toEqual([
-				{ name: 'ApexClass', members: ['TestClass'] },
-				{ name: 'CustomObject', members: ['Opportunity'] },
+		it('should package a new custom object along with its fields', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Checklist_Step__c/Checklist_Step__c.object-meta.xml',
+				'force-app/main/default/objects/Checklist_Step__c/fields/Opportunity__c.field-meta.xml',
+				'force-app/main/default/objects/Checklist_Step__c/fields/Order__c.field-meta.xml',
 			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/objects/Checklist_Step__c/Checklist_Step__c.object-meta.xml',
+				path.join(mockConfig.cliOuputFolder, 'objects', 'Checklist_Step__c.object'),
+			);
+			expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalledWith({
+				Checklist_Step__c: {
+					fields: ['Opportunity__c', 'Order__c'],
+				},
+			});
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomObject',
+					members: ['Checklist_Step__c'],
+				},
+				{
+					name: 'CustomField',
+					members: [
+						'Checklist_Step__c.Opportunity__c',
+						'Checklist_Step__c.Order__c',
+					],
+				},
+			]);
+		});
+
+		it('should package field-only object deltas as CustomField members', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(XmlHelper.prototype.generateCustomObjectForFields).toHaveBeenCalledWith({
+				Program__c: {
+					fields: ['Partner_Status__c'],
+				},
+			});
+			expect(fs.promises.copyFile).not.toHaveBeenCalledWith(
+				'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml',
+				expect.any(String),
+			);
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomField',
+					members: ['Program__c.Partner_Status__c'],
+				},
+			]);
+		});
+
+		it('should package object settings-only changes as CustomObject members', async () => {
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/objects/Checklist_Task__c/Checklist_Task__c.object-meta.xml',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/objects/Checklist_Task__c/Checklist_Task__c.object-meta.xml',
+				path.join(mockConfig.cliOuputFolder, 'objects', 'Checklist_Task__c.object'),
+			);
+			expect(XmlHelper.prototype.generateCustomObjectForFields).not.toHaveBeenCalled();
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith([
+				{
+					name: 'CustomObject',
+					members: ['Checklist_Task__c'],
+				},
+			]);
+		});
+
+		it('should call copyFiles only once during processModifiedMetadata and pass sfVersion to XmlHelper', async () => {
+			expect(XmlHelper).toHaveBeenCalledWith(
+				mockConfig.cliOuputFolder,
+				'force-app/main/default',
+				mockConfig.sfVersion,
+			);
+			const copyFilesSpy = jest.spyOn(service as any, 'copyFiles');
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/classes/SingleCopy.cls',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(copyFilesSpy).toHaveBeenCalledTimes(1);
+			expect(copyFilesSpy).toHaveBeenCalledWith(['force-app/main/default/classes/SingleCopy.cls']);
 		});
 	});
 });

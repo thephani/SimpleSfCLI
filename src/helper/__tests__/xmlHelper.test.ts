@@ -55,15 +55,24 @@ describe('XmlHelper', () => {
 			expect(result).toContain('CustomField');
 			expect(result.indexOf('TestClass1')).toBeLessThan(result.indexOf('TestClass2'));
 			expect(result.indexOf('Field1')).toBeLessThan(result.indexOf('Field2'));
-			expect(result).toContain('<version>58.0</version>');
+			expect(result).toContain('<version>62.0</version>');
 		});
 
 		it('should handle empty metadata types array', () => {
 			const result = xmlHelper.createPackageXml([]);
 
 			expect(result).toContain('<Package');
-			expect(result).toContain('<version>58.0</version>');
+			expect(result).toContain('<version>62.0</version>');
 			expect(result).not.toContain('<types>');
+		});
+
+		it('should normalize v-prefixed API versions for package.xml', () => {
+			const versionedHelper = new XmlHelper(mockOutputDir, 'force-app/main/default', 'v62.0');
+			const result = versionedHelper.createPackageXml([
+				{ name: 'ApexClass', members: ['MyClass'] },
+			]);
+
+			expect(result).toContain('<version>62.0</version>');
 		});
 
 		it('should skip metadata types with no members', () => {
@@ -80,6 +89,7 @@ describe('XmlHelper', () => {
 
 	describe('generatePackageMember', () => {
 		it('should generate package member for valid field path', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
 			const filePath = 'objects/Account/fields/CustomField__c.field-meta.xml';
 			const result = xmlHelper.generatePackageMember(filePath);
 
@@ -89,11 +99,77 @@ describe('XmlHelper', () => {
 			});
 		});
 
+		it('should use the field XML fullName when it differs from the file name', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
+			(fs.readFileSync as jest.Mock).mockReturnValue(`
+				<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+					<fullName>Partner_Status_test__c</fullName>
+					<label>Partner Status Test</label>
+					<type>Picklist</type>
+				</CustomField>
+			`);
+
+			const filePath = 'force-app/main/default/objects/Program__c/fields/Partner_Status__c.field-meta.xml';
+			const result = xmlHelper.generatePackageMember(filePath);
+
+			expect(result).toEqual({
+				name: 'CustomField',
+				members: ['Program__c.Partner_Status_test__c'],
+			});
+		});
+
 		it('should return null for invalid field path', () => {
 			const filePath = 'invalid/path/structure.xml';
 			const result = xmlHelper.generatePackageMember(filePath);
 
 			expect(result).toBeNull();
+		});
+
+		it('should generate package members for all decomposed CustomObject child types (F10)', () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/validationRules/Require_Phone.validationRule-meta.xml'),
+			).toEqual({
+				name: 'ValidationRule',
+				members: ['Account.Require_Phone'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/recordTypes/Enterprise.recordType-meta.xml'),
+			).toEqual({
+				name: 'RecordType',
+				members: ['Account.Enterprise'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/listViews/All_Accounts.listView-meta.xml'),
+			).toEqual({
+				name: 'ListView',
+				members: ['Account.All_Accounts'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/webLinks/Maps_Link.webLink-meta.xml'),
+			).toEqual({
+				name: 'WebLink',
+				members: ['Account.Maps_Link'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/compactLayouts/Compact_Account.compactLayout-meta.xml'),
+			).toEqual({
+				name: 'CompactLayout',
+				members: ['Account.Compact_Account'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Opportunity/businessProcesses/Enterprise_Sales.businessProcess-meta.xml'),
+			).toEqual({
+				name: 'BusinessProcess',
+				members: ['Opportunity.Enterprise_Sales'],
+			});
+			expect(
+				xmlHelper.generatePackageMember('objects/Account/fieldSets/Header_Fields.fieldSet-meta.xml'),
+			).toEqual({
+				name: 'FieldSet',
+				members: ['Account.Header_Fields'],
+			});
 		});
 	});
 
@@ -131,6 +207,123 @@ describe('XmlHelper', () => {
 
 			// Verify file writing
 			expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fields>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fullName>TestField</fullName>'),
+				'utf-8',
+			);
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml.match(/<\?xml/g)).toHaveLength(1);
+		});
+
+		it('should merge fields into an existing custom object payload', () => {
+			const objectXml = `
+				<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+					<label>Account</label>
+					<pluralLabel>Accounts</pluralLabel>
+				</CustomObject>
+			`;
+			const fieldXml = `
+				<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+					<fullName>CustomField1__c</fullName>
+					<label>Custom Field 1</label>
+					<type>Text</type>
+					<length>255</length>
+				</CustomField>
+			`;
+
+			(fs.existsSync as jest.Mock).mockImplementation((filePath: string) => (
+				filePath === './.test_output/objects/Account.object'
+			));
+			(fs.readFileSync as jest.Mock).mockImplementation((filePath: string) => (
+				filePath === './.test_output/objects/Account.object' ? objectXml : fieldXml
+			));
+
+			xmlHelper.generateCustomObjectForFields({
+				Account: {
+					fields: ['CustomField1__c'],
+				},
+			});
+
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<label>Account</label>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fields>'),
+				'utf-8',
+			);
+			expect(fs.writeFileSync).toHaveBeenCalledWith(
+				'./.test_output/objects/Account.object',
+				expect.stringContaining('<fullName>CustomField1__c</fullName>'),
+				'utf-8',
+			);
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml).not.toContain('<?xml');
+		});
+
+		it('should merge all decomposed CustomObject child types into .object XML (F10)', () => {
+			(fs.readFileSync as jest.Mock).mockImplementation((filePath: string) => {
+				if (filePath.includes('/validationRules/')) {
+					return '<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Require_Phone</fullName><active>true</active></ValidationRule>';
+				}
+				if (filePath.includes('/recordTypes/')) {
+					return '<RecordType xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Enterprise</fullName><active>true</active></RecordType>';
+				}
+				if (filePath.includes('/listViews/')) {
+					return '<ListView xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>All_Accounts</fullName><filterScope>Everything</filterScope></ListView>';
+				}
+				if (filePath.includes('/webLinks/')) {
+					return '<WebLink xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Maps_Link</fullName><availability>online</availability></WebLink>';
+				}
+				if (filePath.includes('/compactLayouts/')) {
+					return '<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Compact_Account</fullName><label>Compact Account</label></CompactLayout>';
+				}
+				if (filePath.includes('/businessProcesses/')) {
+					return '<BusinessProcess xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Enterprise_Sales</fullName><isActive>true</isActive></BusinessProcess>';
+				}
+				if (filePath.includes('/fieldSets/')) {
+					return '<FieldSet xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>Header_Fields</fullName><label>Header Fields</label></FieldSet>';
+				}
+				return '<CustomField xmlns="http://soap.sforce.com/2006/04/metadata"><fullName>CustomField1__c</fullName><type>Text</type></CustomField>';
+			});
+
+			xmlHelper.generateCustomObjectForFields({
+				Account: {
+					fields: ['CustomField1__c'],
+					validationRules: ['Require_Phone'],
+					recordTypes: ['Enterprise'],
+					listViews: ['All_Accounts'],
+					webLinks: ['Maps_Link'],
+					compactLayouts: ['Compact_Account'],
+					businessProcesses: ['Enterprise_Sales'],
+					fieldSets: ['Header_Fields'],
+				},
+			});
+
+			const writtenXml = (fs.writeFileSync as jest.Mock).mock.calls[0][1] as string;
+			expect(writtenXml).toContain('<fields>');
+			expect(writtenXml).toContain('<validationRules>');
+			expect(writtenXml).toContain('<fullName>Require_Phone</fullName>');
+			expect(writtenXml).toContain('<recordTypes>');
+			expect(writtenXml).toContain('<fullName>Enterprise</fullName>');
+			expect(writtenXml).toContain('<listViews>');
+			expect(writtenXml).toContain('<fullName>All_Accounts</fullName>');
+			expect(writtenXml).toContain('<webLinks>');
+			expect(writtenXml).toContain('<fullName>Maps_Link</fullName>');
+			expect(writtenXml).toContain('<compactLayouts>');
+			expect(writtenXml).toContain('<fullName>Compact_Account</fullName>');
+			expect(writtenXml).toContain('<businessProcesses>');
+			expect(writtenXml).toContain('<fullName>Enterprise_Sales</fullName>');
+			expect(writtenXml).toContain('<fieldSets>');
+			expect(writtenXml).toContain('<fullName>Header_Fields</fullName>');
 		});
 
 		it('should handle errors in XML processing', () => {
@@ -171,9 +364,25 @@ describe('XmlHelper', () => {
 			expect(xmlHelper.isValidXml(validXml)).toBe(true);
 		});
 
+		it('should return true for valid XML containing > in element text', () => {
+			expect(xmlHelper.isValidXml('<CustomField><formula>Amount > 0</formula></CustomField>')).toBe(true);
+		});
+
+		it('should return true for valid self-closing XML', () => {
+			expect(xmlHelper.isValidXml('<CustomField fullName="Test__c"/>')).toBe(true);
+		});
+
 		it('should return false for invalid XML', () => {
 			const invalidXml = 'text';
 			expect(xmlHelper.isValidXml(invalidXml)).toBe(false);
+		});
+
+		it('should return false for unclosed or mismatched XML tags', () => {
+			expect(xmlHelper.isValidXml('<CustomObject><unclosed>')).toBe(false);
+			expect(xmlHelper.isValidXml('<CustomObject><field></CustomObject>')).toBe(false);
+			expect(xmlHelper.isValidXml('<root></other>')).toBe(false);
+			expect(xmlHelper.isValidXml('<root></root><extra></extra>')).toBe(false);
+			expect(xmlHelper.isValidXml('')).toBe(false);
 		});
 	});
 
