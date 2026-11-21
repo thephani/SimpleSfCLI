@@ -43,6 +43,10 @@ describe('MDAPIService', () => {
 		delete testEnv.BITBUCKET_PR_DESTINATION_BRANCH;
 		delete testEnv.BITBUCKET_PR_SOURCE_BRANCH;
 		delete testEnv.BITBUCKET_BRANCH;
+		delete testEnv.CI_MERGE_REQUEST_TARGET_BRANCH_NAME;
+		delete testEnv.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+		delete testEnv.SYSTEM_PULLREQUEST_TARGETBRANCH;
+		delete testEnv.SYSTEM_PULLREQUEST_SOURCEBRANCH;
 		process.env = { ...testEnv };
 		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
@@ -54,6 +58,7 @@ describe('MDAPIService', () => {
 			writeFile: jest.fn().mockResolvedValue(undefined),
 			readFile: jest.fn().mockResolvedValue('class content'),
 			copyFile: jest.fn().mockResolvedValue(undefined),
+			readdir: jest.fn().mockResolvedValue([]),
 		};
 
 		// Mock existsSync
@@ -65,6 +70,10 @@ describe('MDAPIService', () => {
 		// Mock XmlHelper methods
 		(XmlHelper.prototype.createPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
 		(XmlHelper.prototype.createEmptyPackageXml as jest.Mock).mockReturnValue('<?xml version="1.0"?><Package></Package>');
+		(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+			metadataTypes: [],
+			apiVersion: '58.0',
+		});
 	});
 
 	afterAll(() => {
@@ -256,6 +265,86 @@ describe('MDAPIService', () => {
 			expect(fs.promises.copyFile).toHaveBeenCalledWith(
 				objectFile,
 				path.join(mockConfig.cliOuputFolder, 'objects', 'Account.object'),
+			);
+		});
+	});
+
+	describe('manifest mode', () => {
+		it('should parse manifest and generate package.xml from manifest metadata', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['TestClass'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest\nclass TestClass {}');
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'classes', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'TestClass.cls', isDirectory: () => false }]);
+
+			await service.convertToMDAPI([]);
+
+			expect(XmlHelper.prototype.parseManifestXml).toHaveBeenCalled();
+			expect(XmlHelper.prototype.createPackageXml).toHaveBeenCalledWith(
+				[{ name: 'ApexClass', members: ['TestClass'] }],
+				'62.0',
+			);
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/classes/TestClass.cls',
+				path.join(manifestConfig.cliOuputFolder, 'classes/TestClass.cls'),
+			);
+		});
+
+		it('should throw when manifest member is missing', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['MissingClass'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock).mockResolvedValue([]);
+
+			await expect(service.convertToMDAPI([])).rejects.toThrow('Manifest members not found in source');
+		});
+
+		it('should support wildcard members in manifest', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'ApexClass', members: ['*'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'classes', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'TestClass.cls', isDirectory: () => false }]);
+			(fs.promises.readFile as jest.Mock).mockResolvedValue('@isTest\nclass TestClass {}');
+
+			await service.convertToMDAPI([]);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/classes/TestClass.cls',
+				path.join(manifestConfig.cliOuputFolder, 'classes/TestClass.cls'),
+			);
+		});
+
+		it('should resolve LightningComponentBundle members by bundle folder name', async () => {
+			const manifestConfig = { ...mockConfig, manifest: './manifest/package.xml' };
+			service = new MDAPIService(manifestConfig);
+			(XmlHelper.prototype.parseManifestXml as jest.Mock).mockReturnValue({
+				metadataTypes: [{ name: 'LightningComponentBundle', members: ['myCmp'] }],
+				apiVersion: '62.0',
+			});
+			(fs.promises.readdir as jest.Mock)
+				.mockResolvedValueOnce([{ name: 'lwc', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'myCmp', isDirectory: () => true }])
+				.mockResolvedValueOnce([{ name: 'myCmp.html', isDirectory: () => false }])
+				.mockResolvedValueOnce(['myCmp.html']);
+
+			await service.convertToMDAPI([]);
+
+			expect(fs.promises.copyFile).toHaveBeenCalledWith(
+				'force-app/main/default/lwc/myCmp/myCmp.html',
+				path.join(manifestConfig.cliOuputFolder, 'lwc/myCmp/myCmp.html'),
 			);
 		});
 	});
@@ -520,6 +609,76 @@ describe('MDAPIService', () => {
 				{ encoding: 'utf8' },
 			);
 		});
+
+		it('should use GitLab CI merge request target and source branches when available', async () => {
+			process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME = 'main';
+			process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME = 'feature/gitlab-mr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/main'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/gitlab-mr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/main...origin/feature/gitlab-mr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use Azure DevOps PR target and source branches and strip refs/heads/ prefix', async () => {
+			process.env.SYSTEM_PULLREQUEST_TARGETBRANCH = 'refs/heads/release/v1';
+			process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH = 'refs/heads/feature/ado-pr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/release/v1'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/ado-pr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/release/v1...origin/feature/ado-pr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
 	});
 
 	describe('getDeletedFiles', () => {
@@ -653,6 +812,23 @@ describe('MDAPIService', () => {
 					members: ['Checklist_Task__c'],
 				},
 			]);
+		});
+
+		it('should call copyFiles only once during processModifiedMetadata and pass sfVersion to XmlHelper', async () => {
+			expect(XmlHelper).toHaveBeenCalledWith(
+				mockConfig.cliOuputFolder,
+				'force-app/main/default',
+				mockConfig.sfVersion,
+			);
+			const copyFilesSpy = jest.spyOn(service as any, 'copyFiles');
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/classes/SingleCopy.cls',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(copyFilesSpy).toHaveBeenCalledTimes(1);
+			expect(copyFilesSpy).toHaveBeenCalledWith(['force-app/main/default/classes/SingleCopy.cls']);
 		});
 	});
 });

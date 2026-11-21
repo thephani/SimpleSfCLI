@@ -1,4 +1,17 @@
+import fs from 'fs';
+import path from 'path';
 import type { CommandArgsConfig } from './types/config.type.js';
+
+/** Reads the published package version so `--version` never drifts from package.json. */
+function readPackageVersion(): string {
+  try {
+    const packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+    const { version } = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as { version?: string };
+    return version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 const config: CommandArgsConfig = {
   // Default source directory for SFDX format
@@ -29,19 +42,26 @@ const config: CommandArgsConfig = {
   appDescription: 'Deploy your metadata in seconds',
   
   // Salesforce API version
-  sfVersion: 'v60.0',
+  sfVersion: 'v62.0',
   
   // CLI information
-  cliVersion: '2.7.8',
+  cliVersion: readPackageVersion(),
   cliOuputFolder: '.simpleSfCli_out',
   
   // Deployment options
   quickDeployId: undefined,
+  manifest: undefined,
   testLevel: 'NoTestRun',
   
   // Test coverage configuration
   coverageJson: './ApexTestCoverage.json',
-  runTests: []
+  runTests: [],
+  pollInterval: 5000,
+  maxPollAttempts: 120,
+
+  // Deployment report output (disabled unless --reportFormat or --reportPath is provided)
+  reportFormat: undefined,
+  reportPath: './reports'
 };
 
 export default config;

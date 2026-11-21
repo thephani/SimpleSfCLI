@@ -1,6 +1,22 @@
 import fs from 'fs';
+import defaultConfig from '../config.js';
 import { BaseService } from './BaseService.js';
-import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
+import { DeploymentFailedError } from '../errors/DeploymentFailedError.js';
+import type { DeployOptions, DeployResult, DeploymentComponentFailure, DeploymentSummary, DeploymentTestFailure } from '../types/deployment.type.js';
+
+const DEPLOY_ID_PATTERN = /^0Af[A-Za-z0-9]{12,15}$/;
+
+export interface NormalizedDeployResponse {
+  id: string;
+  done: boolean;
+  status: DeployResult['status'];
+  success: boolean;
+  canceled: boolean;
+  errorCount: number;
+  testErrorCount: number;
+  componentErrorCount: number;
+  summary: string;
+}
 
 export class DeployService extends BaseService {
   async quickDeploy(deploymentId: string): Promise<DeployResult> {
@@ -14,8 +30,16 @@ export class DeployService extends BaseService {
       });
 
       const deployResult = (await response.json()) as DeployResult;
-      return deployResult;
+      if (deployResult?.done && deployResult.status === 'Succeeded') {
+        return deployResult;
+      }
+
+      const targetDeployId = deployResult?.id || deploymentId;
+      return await this.pollDeploymentStatus(targetDeployId);
     } catch (error) {
+      if (error instanceof DeploymentFailedError) {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Quick deploy failed';
       throw new Error(`Quick deploy error: ${errorMessage}`);
     }
@@ -23,8 +47,9 @@ export class DeployService extends BaseService {
 
   async initiateDeployment(zipPath: string, options: Partial<DeployOptions> = {}): Promise<string> {
     const soapRequest = await this.createDeployRequest(zipPath, options);
+    const soapVersion = (this.config.sfVersion || defaultConfig.sfVersion).replace(/^v/i, '');
 
-    const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/62.0`, {
+    const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/${soapVersion}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml',
@@ -50,7 +75,8 @@ export class DeployService extends BaseService {
 
   async pollDeploymentStatus(deployId: string): Promise<DeployResult> {
     let attempt = 0;
-    const maxAttempts = 120;
+    const maxAttempts = this.config.maxPollAttempts ?? 120;
+    const pollInterval = this.config.pollInterval ?? 5000;
 
     while (attempt < maxAttempts) {
       const status = await this.getDeploymentStatus(deployId);
@@ -62,38 +88,123 @@ export class DeployService extends BaseService {
         console.log(`Running Test Status: ${status.numberTestsCompleted} / ${status.numberTestsTotal}`);
       }
       // if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) { // status.details?.componentFailures.length > 0
-      if(status.status === 'Failed') {
+      if (status.status === 'Failed' || status.status === 'SucceededPartial') {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
-        // Create a new array with only the selected properties
-        const failedTests = status.details?.runTestResult?.failures?.map(({ stackTrace }) => ({ stackTrace }));
-        if (failedTests?.length) {
+        const failedTests = this.serializeTestFailures(status).map(({ name, methodName, message, stackTrace }) => ({
+          name,
+          methodName,
+          message,
+          stackTrace,
+        }));
+        if (failedTests.length) {
           console.table(failedTests);
         }
-        if (status.details?.componentFailures) {
-          const failedComponenets = status.details?.componentFailures.map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
-          console.table(failedComponenets);
-          // console.log('Failed Components:', status.details.componentFailures);
+        const failedComponents = this.serializeComponentFailures(status).map(({ fileName, fullName, problem }) => ({
+          fileName,
+          fullName,
+          problem,
+        }));
+        if (failedComponents.length) {
+          console.table(failedComponents);
         }
       }
 
       if (status.done) {
         if (status.status !== 'Succeeded') {
-          throw new Error(`Deployment ${deployId} ended with status ${status.status}`);
+          throw new DeploymentFailedError(deployId, status);
         }
         return status;
       }
 
-      await this.wait(5000 * Math.min(attempt + 1, 6));
+      await this.wait(pollInterval * Math.min(attempt + 1, 6));
       attempt++;
     }
 
     throw new Error('Deployment timed out');
   }
 
+  async fetchDeploymentStatus(deployId: string): Promise<DeployResult> {
+    this.validateDeployId(deployId);
+    return this.getDeploymentStatus(deployId);
+  }
+
   private async getDeploymentStatus(deployId: string): Promise<DeployResult> {
     const response = await this.fetchWithAuth(`${this.config.instanceUrl}/services/data/${this.config.sfVersion}/metadata/deployRequest/${deployId}?includeDetails=true`, { method: 'GET' });
     const data = (await response.json()) as { deployResult: DeployResult };
     return data.deployResult;
+  }
+
+  async cancelDeployment(deployId: string): Promise<DeployResult> {
+    this.validateDeployId(deployId);
+    const response = await this.fetchWithAuth(`${this.config.instanceUrl}/services/data/${this.config.sfVersion}/metadata/deployRequest/${deployId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancelDeploy: true }),
+    });
+    const data = (await response.json()) as { deployResult?: DeployResult };
+
+    if (data.deployResult) {
+      return data.deployResult;
+    }
+
+    return this.fetchDeploymentStatus(deployId);
+  }
+
+  formatDeployResponse(result: DeployResult): NormalizedDeployResponse {
+    const componentErrorCount = result.numberComponentErrors ?? 0;
+    const testErrorCount = result.numberTestErrors ?? 0;
+    const errorCount = componentErrorCount + testErrorCount;
+    const canceled = result.status === 'Canceled';
+    // SucceededPartial is treated as a failure, consistent with pollDeploymentStatus and the CLI exit code.
+    const success = result.status === 'Succeeded';
+    const summary = `${result.status} | components ${result.numberComponentsDeployed ?? 0}/${result.numberComponentsTotal ?? 0} | tests ${result.numberTestsCompleted ?? 0}/${result.numberTestsTotal ?? 0} | errors ${errorCount}`;
+
+    return {
+      id: result.id,
+      done: result.done,
+      status: result.status,
+      success,
+      canceled,
+      errorCount,
+      testErrorCount,
+      componentErrorCount,
+      summary,
+    };
+  }
+
+  serializeSummary(status: DeployResult): DeploymentSummary {
+    return {
+      deploymentId: status.id,
+      status: status.status,
+      done: status.done,
+      components: {
+        deployed: status.numberComponentsDeployed ?? 0,
+        total: status.numberComponentsTotal ?? 0,
+        errors: status.numberComponentErrors ?? 0,
+      },
+      tests: {
+        completed: status.numberTestsCompleted ?? 0,
+        total: status.numberTestsTotal ?? 0,
+        errors: status.numberTestErrors ?? 0,
+      },
+      stateDetail: status.stateDetail,
+    };
+  }
+
+  serializeComponentFailures(status: DeployResult): DeploymentComponentFailure[] {
+    return this.toArray(status.details?.componentFailures);
+  }
+
+  serializeTestFailures(status: DeployResult): DeploymentTestFailure[] {
+    return this.toArray(status.details?.runTestResult?.failures);
+  }
+
+  /** Salesforce returns a single object instead of an array when there is exactly one entry. */
+  private toArray<T>(value: T[] | T | undefined | null): T[] {
+    if (value === undefined || value === null) {
+      return [];
+    }
+    return Array.isArray(value) ? value : [value];
   }
 
   private async createDeployRequest(zipPath: string, options: Partial<DeployOptions>): Promise<string> {
@@ -133,5 +244,11 @@ export class DeployService extends BaseService {
 
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private validateDeployId(deployId: string): void {
+    if (!DEPLOY_ID_PATTERN.test(deployId)) {
+      throw new Error(`Invalid deploy ID: ${deployId}`);
+    }
   }
 }

@@ -107,4 +107,76 @@ describe('auth:token CLI integration', () => {
 		});
 		expect(stderr).toMatch(/^⏱️ Command completed in \d+\.\d{2} seconds\.$/);
 	});
+
+	it('defaults testLevel to RunLocalTests in PRODUCTION and NoTestRun in SANDBOX when not explicitly passed, while respecting explicit CLI --testLevel in PRODUCTION', async () => {
+		process.env.JEST_SKIP_CLI_AUTO_RUN = 'true';
+		try {
+			const { CLI } = await import('../cli');
+			const { SalesforceClient } = await import('../SalesforceClient');
+			jest.spyOn(SalesforceClient.prototype, 'deploy').mockResolvedValue(null);
+
+			process.argv = [
+				'node',
+				'simpleSfCli',
+				'--username',
+				'cli-user@example.com',
+				'--clientId',
+				'cli-client-id',
+				'--privateKey',
+				privateKeyPath,
+				'--env',
+				'PRODUCTION',
+				'--testLevel',
+				'RunSpecifiedTests',
+			];
+
+			const explicitProdCli = new CLI();
+			const explicitProdConfig = (explicitProdCli as any).getUpdatedConfig(
+				(explicitProdCli as any).program.opts(),
+				{ logUsername: false },
+			);
+			expect(explicitProdConfig.testLevel).toBe('RunSpecifiedTests');
+			expect(explicitProdConfig.instanceUrl).toBe('https://login.salesforce.com');
+
+			process.argv = [
+				'node',
+				'simpleSfCli',
+				'--username',
+				'cli-user@example.com',
+				'--clientId',
+				'cli-client-id',
+				'--privateKey',
+				privateKeyPath,
+				'--env',
+				'PRODUCTION',
+			];
+			const defaultProdCli = new CLI();
+			const defaultProdConfig = (defaultProdCli as any).getUpdatedConfig(
+				(defaultProdCli as any).program.opts(),
+				{ logUsername: false },
+			);
+			expect(defaultProdConfig.testLevel).toBe('RunLocalTests');
+
+			process.argv = [
+				'node',
+				'simpleSfCli',
+				'--username',
+				'cli-user@example.com',
+				'--clientId',
+				'cli-client-id',
+				'--privateKey',
+				privateKeyPath,
+				'--env',
+				'SANDBOX',
+			];
+			const defaultSandboxCli = new CLI();
+			const defaultSandboxConfig = (defaultSandboxCli as any).getUpdatedConfig(
+				(defaultSandboxCli as any).program.opts(),
+				{ logUsername: false },
+			);
+			expect(defaultSandboxConfig.testLevel).toBe('NoTestRun');
+		} finally {
+			delete process.env.JEST_SKIP_CLI_AUTO_RUN;
+		}
+	});
 });

@@ -15,6 +15,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)](#why-simple-sf-cli-benchmarks-vs-official-salesforce-cli)
 - [Features](#features)
 - [What's New](#whats-new)
 - [Prerequisites](#prerequisites)
@@ -34,15 +35,29 @@
 
 ## Overview
 
-**Simple SF CLI** is a lightweight, high-performance Node.js command-line tool (19 KB package, ~81 KB unpacked) designed to streamline your Salesforce DX workflows. It converts, packages, and deploys SFDX projects to Salesforce in record time (5-7 seconds) without requiring Salesforce CLI or additional plugins.
+**Simple SF CLI** is a lightweight, high-performance Node.js command-line tool (~19 KB package, ~81 KB unpacked) designed to streamline your Salesforce DX workflows. It converts, packages, and deploys SFDX projects to Salesforce in record time (5-7 seconds) without requiring Salesforce CLI or additional plugins.
 
 ### Key Advantages
 
-- ⚡ **Blazing Fast**: Kick start your Deployment job in SFDX projects with in 6-8 seconds
-- 🚫 **No Salesforce CLI Required**: Works independently uses salesforce metadata API
-- 💎 **Zero Installation Overhead**: Use directly with `npx` or install locally
-- 🔧 **Custom Built**: Only 4 core dependencies with full control
-- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines like Github, Bitbucket
+- ⚡ **Blazing Fast**: Kick start your Deployment job in SFDX projects within 5-7 seconds
+- 🚫 **No Salesforce CLI Required**: Works independently using the Salesforce Metadata API
+- 💎 **Zero Installation Overhead**: Use directly with `npx`, the official GitHub Action (`uses: thephani/SimpleSfCLI@v2`), or install locally
+- 🔧 **Custom Built**: Only 3 core dependencies with full control
+- 🤝 **CI/CD Ready**: Seamless integration with modern development pipelines like GitHub Actions, GitLab CI, and Bitbucket Pipelines
+
+---
+
+## Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)
+
+Ephemeral CI/CD runners spend 60–120 seconds downloading and initializing `@salesforce/cli` and delta plugins before a single byte of metadata is sent to Salesforce. **Simple SF CLI** eliminates that cold-start tax:
+
+| Metric | Simple SF CLI (`simple-sf-cli`) | Official Salesforce CLI (`@salesforce/cli`) |
+|--------|---------------------------------|---------------------------------------------|
+| **Package Size** | `~19 KB` | `~200+ MB` |
+| **Cold Install + Start Time** | `~5-7s` | `~60-120s` |
+| **Built-in Git Delta** | `Yes` | `Requires sfdx-git-delta plugin` |
+| **Dependencies** | `3` | `Hundreds` |
+| **Destructive Changes** | `Automatic single-zip` | `Manual multi-step` |
 
 ---
 
@@ -63,15 +78,16 @@
 
 The tool supports extensive Salesforce metadata types including but not limited to:
 
-**Custom Metadata:**
-- ApexClasses, ApexComponents, ApexPages, ApexTriggers
-- CustomObjects, CustomFields, CustomLabels
-- Flows, FlowDefinitions
-- LWC Lightning Components, Aura Components
-- Profiles, PermissionSets, Queues
-- Reports, ReportsTypes
-- Visualforce Pages, Visualforce Components
-- CustomTabs, QuickActions, ActionLinkGroupTemplates
+**Custom Metadata & SFDX Folders:**
+- ApexClasses (`classes`), ApexComponents (`components`), ApexPages (`pages`), ApexTriggers (`triggers`), StaticResources (`staticresources`) — including automatic companion primary/metadata file pairing when either file changes
+- CustomObjects (`objects`) and decomposed CustomObject children: CustomFields (`fields`), ValidationRules (`validationRules`), RecordTypes (`recordTypes`), ListViews (`listViews`), WebLinks (`webLinks`), CompactLayouts (`compactLayouts`), BusinessProcesses (`businessProcesses`), and FieldSets (`fieldSets`)
+- CustomLabels (`labels`), CustomMetadata (`customMetadata`), CustomPermissions (`customPermissions`), CustomApplications (`applications` / `customApplications`), ConnectedApps (`connectedApps`)
+- Flows (`flow` / `flows`), FlowDefinitions (`flowDefinitions`), ApprovalProcesses (`ApprovalProcess` / `approvalProcesses`)
+- Bundle metadata with full directory copying and partial-deletion survival: LightningComponentBundle (`lwc`), AuraDefinitionBundle (`aura`), and ExperienceBundle (`experiences`)
+- Profiles (`profiles`), PermissionSets (`permissionSet` / `permissionsets`), Queues (`queue` / `queues`), Roles (`Role` / `roles`), Groups (`Group` / `groups`)
+- SharingRules (`sharingRules`), DuplicateRules (`duplicateRules`), MatchingRules (`matchingRules`), AssignmentRules (`assignmentRules`), AutoResponseRules (`autoResponseRules`), EscalationRules (`escalationRules`)
+- Reports (`Report` / `reports`), ReportTypes (`ReportType` / `reportTypes`), Dashboards (`Dashboard` / `dashboards`), EmailTemplates (`EmailTemplate` / `email`)
+- CustomTabs (`tab` / `tabs`), QuickActions (`quickAction` / `quickActions`), CustomPageWebLinks (`weblinks`), NamedCredentials (`namedCredentials`), ExternalCredentials (`externalCredentials`), GlobalValueSets (`globalValueSets`), PlatformCachePartitions (`cachePartitions`)
 - And 50+ more metadata types
 
 See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_tab.htm) for full details.
@@ -79,6 +95,19 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 ---
 
 ## What's New
+
+### 2.7.8 - 2026-10-27
+
+- Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML, and inspected ZIP archives with simulated Salesforce HTTP responses.
+- Added a separate credential-free PR/push/manual/daily integration workflow at 07:23 UTC, seven-day diagnostics, and an integration gate before NPM publishing.
+- Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
+- Applied `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.
+- Used argument-array Git execution and failed explicitly on invalid comparison refs instead of silently packaging a partial delta.
+- Updated failed, canceled, and partially successful deployments to exit nonzero, while deltas with no deployable changes return success without submitting a deployment request.
+- Unified mixed updates/deletions and deletion-only deltas into a single ZIP with root `package.xml` and `destructiveChangesPost.xml` so deletions run after additions and updates.
+- Handled partial LWC file deletions by redeploying the surviving bundle and avoided destructive entries for files restored in the working tree.
+- Accepted comma-separated and space-separated `--exclude` metadata-type exclusions consistently, and corrected the CLI version display to match the package version.
+- Updated `package.json`, `.npmignore`, `.gitignore`, `README.md`, and `index.html` to synchronize package metadata, license packaging, repository ignore rules, and documentation.
 
 ### 2.7.7 - 2026-06-24
 
@@ -215,21 +244,34 @@ simpleSfCli \
 
 ### Environment Variables (Recommended)
 
-For CI/CD pipelines, use shell environment variables to avoid hardcoding credentials, then pass them into CLI flags:
+For CI/CD pipelines and local convenience, `simple-sf-cli` automatically reads fallback environment variables when the corresponding CLI flags are omitted:
 
 ```bash
 # Salesforce credentials
 export SF_USERNAME="yourUser@example.com"
 export SF_CLIENT_ID="yourClientId"
 export SF_PRIVATE_KEY_PATH="./server.key"
+# Or provide an inline PEM or base64-encoded PEM directly:
+# export SF_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 
 # Deployment environment
 export SF_ENV="SANDBOX"  # or PRODUCTION
 
-# Optional: Set deployment options used by your shell scripts
+# Optional: Set deployment options
 export SF_SOURCE="force-app/main/default"
 export SF_EXCLUDE="Profile,NamedCredential,CustomMetadata"
 ```
+
+When these environment variables are set, you can invoke `simpleSfCli` without repeating credential flags:
+
+```bash
+simpleSfCli
+```
+
+`--privateKey` (and `SF_PRIVATE_KEY`) accepts:
+1. A path to a private key file on disk (`./server.key`)
+2. A raw inline PEM private key string (`-----BEGIN ...`)
+3. A base64-encoded PEM private key string
 
 Use a project-level `.forceignore` file to exclude files or folders from deployment packaging:
 
@@ -243,7 +285,7 @@ Patterns can be relative to your `--source` directory. Source-prefixed entries s
 
 ### Local Usage
 
-Simply pass credentials as command-line arguments:
+Simply pass credentials as command-line arguments (which take precedence over environment variables):
 
 ```bash
 simpleSfCli \
@@ -298,7 +340,7 @@ simpleSfCli \
 ### Production Deployment
 
 Deploy to production (requires authentication and permissions).
-When `--env PRODUCTION` is used, the CLI forces `RunLocalTests`:
+When `--env PRODUCTION` is used, the CLI defaults `--testLevel` to `RunLocalTests` unless you explicitly pass `-t, --testLevel`:
 
 ```bash
 simpleSfCli \
@@ -321,9 +363,11 @@ simpleSfCli \
     --exclude Profile,NamedCredential,CustomMetadata
 ```
 
-### Custom Source Directory
+### Custom Source Directory & `sfdx-project.json` Auto-Detection
 
-Deploy from a different SFDX source directory:
+If `sfdx-project.json` exists in the current working directory and `--source` (or `SF_SOURCE`) is not explicitly set, `simpleSfCli` automatically uses the default package directory (`packageDirectories.find(p => p.default)?.path || packageDirectories[0]?.path`) when it exists on disk, and reads `sourceApiVersion` if present. Otherwise it falls back to `force-app/main/default`.
+
+You can always override the source directory explicitly:
 
 ```bash
 simpleSfCli \
@@ -345,6 +389,27 @@ simpleSfCli \
     --validateOnly
 ```
 
+### Dry Run & Local Packaging (`--dry-run` / `package`)
+
+Convert SFDX source changes to MDAPI format and build `deploy.zip` locally without requiring Salesforce credentials or connecting to Salesforce:
+
+```bash
+# Using the package subcommand
+simpleSfCli package --baseBranch origin/main --targetBranch HEAD
+
+# Or using --dry-run on deploy
+simpleSfCli deploy --dry-run
+```
+
+### Structured JSON Output (`--json`)
+
+Use `--json` on `deploy` or `quick-deploy` to print structured deployment results (`{ status, id, done, checkOnly, numberComponentsDeployed, numberComponentsTotal, numberTestsCompleted, numberTestsTotal, details }`) to stdout:
+
+```bash
+simpleSfCli deploy --validateOnly --json
+simpleSfCli quick-deploy --quickDeployId "0Af30000000xyz" --json
+```
+
 ### Delta Deployment (Compare Branches)
 
 Deploy only changes between branches:
@@ -358,39 +423,60 @@ simpleSfCli \
     --targetBranch main
 ```
 
+### Manifest Deployment (Release Management)
+
+Deploy an explicit release manifest (recommended for controlled release cutovers):
+
+```bash
+simpleSfCli \
+    --username release.manager@example.com \
+    --clientId client123 \
+    --privateKey ./server.key \
+    --manifest ./manifest/release-2026-04-08.xml
+```
+
+> `--manifest` cannot be combined with `--baseBranch` or `--targetBranch`.
+
 ---
 
 ## Command Options
 
-### Required Options
+### Required Options (for `deploy`, `quick-deploy`, and `auth:token`)
 
-| Flag | Description |
-|------|-------------|
-| `-u, --username <username>` | Salesforce username (required) |
-| `-c, --clientId <clientId>` | Connected App Client ID (required) |
-| `-k, --privateKey <path>` | Path to private key file (required) |
+| Flag | Environment Fallback | Description |
+|------|----------------------|-------------|
+| `-u, --username <username>` | `SF_USERNAME` | Salesforce username (not required for `package` or `--dry-run`) |
+| `-c, --clientId <clientId>` | `SF_CLIENT_ID` | Connected App Client ID (not required for `package` or `--dry-run`) |
+| `-k, --privateKey <key>` | `SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_PATH` | Path to private key file, raw PEM string, or base64-encoded PEM |
 
 ### Common Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-e, --env <environment>` | `SANDBOX` | Target environment (SANDBOX/SBX or PRODUCTION/PROD) |
-| `-s, --source <directory>` | `force-app/main/default` | SFDX source directory path |
-| `-x, --exclude <types>` | - | Comma-separated list of metadata types to exclude |
+| Flag | Default / Fallback | Description |
+|------|--------------------|-------------|
+| `-e, --env <environment>` | `SF_ENV` or `SANDBOX` | Target environment (SANDBOX/SBX or PRODUCTION/PROD) |
+| `-s, --source <directory>` | `SF_SOURCE`, `sfdx-project.json`, or `force-app/main/default` | SFDX source directory path |
+| `-x, --exclude <types...>` | `SF_EXCLUDE` | Comma- or space-separated list of metadata types to exclude |
 | `-t, --testLevel <level>` | `NoTestRun` | Test level: NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg |
+| `--tests <tests...>` | - | Comma- or space-separated Apex test classes to include (merged with auto-detected tests) |
 | `-v, --validateOnly` | `false` | Validate only, do not deploy |
+| `--dry-run`, `--dryRun` | `false` | Convert and package metadata locally without authenticating or deploying |
+| `--json` | `false` | Output structured JSON result to stdout |
+| `--apiVersion <version>` | `sfdx-project.json` or `v60.0` | Salesforce REST API version (e.g., `61.0` or `v61.0`) |
+| `--pollInterval <ms>` | `5000` | Status polling interval in milliseconds |
+| `--maxPollAttempts <count>` | `120` | Maximum number of deployment status polling attempts |
 
-### Deployment Options
+### Deployment & Subcommand Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
+| Flag / Command | Default | Description |
+|----------------|---------|-------------|
 | `-b, --baseBranch <branch>` | `HEAD~1` | Base branch for delta deployment |
 | `-r, --targetBranch <branch>` | `HEAD` | Target branch for delta deployment |
+| `package` | - | Convert SFDX metadata and create `deploy.zip` without credentials |
 | `quick-deploy -q, --quickDeployId <id>` | - | Use a validated deployment ID with the `quick-deploy` subcommand |
 | `auth:token --json` | - | Print token details as JSON |
 | `auth:token -o, --output <path>` | - | Write token details to a JSON file with `0600` permissions |
 
-Successful commands print an elapsed-time summary to stderr, for example `⏱️ Command completed in 1.23 seconds.`. This keeps `auth:token --json` stdout safe for scripts that parse JSON.
+Successful commands print an elapsed-time summary to stderr, for example `⏱️ Command completed in 1.23 seconds.`. This keeps `--json` stdout safe for scripts that parse JSON.
 
 ### Display Options
 
@@ -467,6 +553,23 @@ simpleSfCli \
 - `A`: Added files
 - `AM`: Added and modified files
 
+### Manifest Deployment
+
+Deploy exactly what is declared in a `package.xml` manifest:
+
+```bash
+simpleSfCli \
+    --username user@example.com \
+    --clientId client123 \
+    --privateKey ./server.key \
+    --manifest ./manifest/release-candidate.xml
+```
+
+**Release management examples:**
+- Promote a QA-approved manifest into UAT/Prod without recomputing git delta.
+- Re-run a failed release by reusing the same manifest artifact.
+- Ship hotfix-only members by committing a narrow release manifest.
+
 ---
 
 ## Configuration
@@ -480,41 +583,101 @@ simpleSfCli \
   env: 'SANDBOX',
   baseBranch: 'HEAD~1',
   targetBranch: 'HEAD',
-  sfVersion: 'v60.0',
-  cliVersion: '0.6.0',
+  sfVersion: 'v62.0',
+  cliVersion: '2.7.8',
   cliOuputFolder: '.simpleSfCli_out',
   testLevel: 'NoTestRun',
-  coverageJson: './ApexTestCoverage.json'
+  coverageJson: './ApexTestCoverage.json',
+  pollInterval: 5000,
+  maxPollAttempts: 120
 }
 ```
 
-### Environment Variables Override
+### Environment Variables & CI Auto-Detection
 
-The CLI does not currently read configuration directly from environment variables.
-Use shell variables and pass them to flags explicitly:
-
-```bash
-export SF_ENV="PRODUCTION"
-export SF_SOURCE="custom/src"
-export SF_TEST_LEVEL="RunLocalTests"
-
-simpleSfCli \
-  --username "$SF_USERNAME" \
-  --clientId "$SF_CLIENT_ID" \
-  --privateKey "$SF_PRIVATE_KEY_PATH" \
-  --env "$SF_ENV" \
-  --source "$SF_SOURCE" \
-  --testLevel "$SF_TEST_LEVEL"
-```
+- **Credentials & Options**: `SF_USERNAME`, `SF_CLIENT_ID`, `SF_PRIVATE_KEY` (or `SF_PRIVATE_KEY_PATH`), `SF_ENV`, `SF_SOURCE`, and `SF_EXCLUDE` are automatically used when the corresponding CLI flags are not passed.
+- **PR Branch Detection**: When `--baseBranch` is not explicitly overridden, `simpleSfCli` automatically detects PR target and source branches from:
+  - **GitHub Actions**: `GITHUB_BASE_REF` and `GITHUB_HEAD_REF`
+  - **Bitbucket Pipelines**: `BITBUCKET_PR_DESTINATION_BRANCH` and `BITBUCKET_PR_SOURCE_BRANCH` / `BITBUCKET_BRANCH`
+  - **GitLab CI**: `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` and `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`
+  - **Azure DevOps**: `SYSTEM_PULLREQUEST_TARGETBRANCH` and `SYSTEM_PULLREQUEST_SOURCEBRANCH` (`refs/heads/` prefixes are automatically stripped)
+- **GitHub Step Summary**: When `GITHUB_STEP_SUMMARY` is set in the environment, `deploy` and `quick-deploy` automatically append a Markdown summary table with deployment status, ID, component counts, and test counts.
 
 ---
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+### Official GitHub Action (`uses: thephani/SimpleSfCLI@v2`)
+
+The repository ships with a composite GitHub Action ([`action.yml`](action.yml)) so you can run PR validations, branch delta deployments, and quick deployments without manually writing temporary key files or invoking shell scripts. If `private-key` contains raw PEM content (`-----BEGIN...`), the action writes a `0600` temporary key file and deletes it automatically in an `always()` cleanup step.
 
 ```yaml
 name: Deploy to Salesforce
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Validate PR Delta on Sandbox
+        if: github.event_name == 'pull_request'
+        uses: thephani/SimpleSfCLI@v2
+        with:
+          username: ${{ secrets.SF_USERNAME }}
+          client-id: ${{ secrets.SF_CLIENT_ID }}
+          private-key: ${{ secrets.SF_PRIVATE_KEY }}
+          env: SANDBOX
+          validate-only: 'true'
+          test-level: RunLocalTests
+
+      - name: Deploy Delta to Production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: thephani/SimpleSfCLI@v2
+        with:
+          username: ${{ secrets.SF_PROD_USERNAME }}
+          client-id: ${{ secrets.SF_PROD_CLIENT_ID }}
+          private-key: ${{ secrets.SF_PROD_PRIVATE_KEY }}
+          env: PRODUCTION
+          test-level: RunLocalTests
+```
+
+#### GitHub Action Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `command` | No | `deploy` | CLI command (`deploy`, `quick-deploy`, or `auth:token`) |
+| `username` | Yes | - | Salesforce username |
+| `client-id` | Yes | - | Connected App Consumer Key (Client ID) |
+| `private-key` | Yes | - | Path to private key file or raw PEM content (`-----BEGIN...`) |
+| `env` | No | `SANDBOX` | Target environment (`SANDBOX`/`SBX` or `PRODUCTION`/`PROD`) |
+| `source` | No | `force-app/main/default` | Path to SFDX source directory |
+| `base-branch` | No | `''` | Base branch or git ref for delta comparison |
+| `target-branch` | No | `''` | Target branch or git ref for delta comparison |
+| `validate-only` | No | `'false'` | Validate deployment without saving (`'true'` or `'false'`) |
+| `test-level` | No | `NoTestRun` | Apex test level (`NoTestRun`, `RunSpecifiedTests`, `RunLocalTests`, `RunAllTestsInOrg`) |
+| `exclude` | No | `''` | Metadata types to exclude |
+| `quick-deploy-id` | No | `''` | Validated deployment ID for `quick-deploy` |
+| `version` | No | `latest` | NPM package version of `simple-sf-cli` to execute |
+
+### GitHub Actions CLI Example (Direct `npx`)
+
+```yaml
+name: Deploy to Salesforce (Direct CLI)
 
 on:
   push:
@@ -525,16 +688,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
+          node-version: '24'
       
       - name: Deploy to Sandbox
         env:
@@ -542,28 +703,15 @@ jobs:
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_PRIVATE_KEY: ${{ secrets.SF_PRIVATE_KEY }}
         run: |
-          echo "$SF_PRIVATE_KEY" > server.key
+          umask 077
+          printf '%s\n' "$SF_PRIVATE_KEY" > server.key
           npx simple-sf-cli \
             --username "$SF_USERNAME" \
             --clientId "$SF_CLIENT_ID" \
             --privateKey ./server.key \
             --env SANDBOX \
             --testLevel RunLocalTests
-      
-      - name: Deploy to Production
-        if: github.ref == 'refs/heads/main'
-        env:
-          SF_USERNAME: ${{ secrets.SF_PROD_USERNAME }}
-          SF_CLIENT_ID: ${{ secrets.SF_PROD_CLIENT_ID }}
-          SF_PRIVATE_KEY: ${{ secrets.SF_PROD_PRIVATE_KEY }}
-        run: |
-          echo "$SF_PRIVATE_KEY" > server.key
-          npx simple-sf-cli \
-            --username "$SF_PROD_USERNAME" \
-            --clientId "$SF_PROD_CLIENT_ID" \
-            --privateKey ./server.key \
-            --env PRODUCTION \
-            --testLevel RunLocalTests
+          rm -f server.key
 ```
 
 ### GitLab CI Example
@@ -574,29 +722,39 @@ stages:
 
 deploy_sandbox:
   stage: deploy
+  image: node:24-alpine
+  before_script:
+    - apk add --no-cache git
   script:
     - |
-      echo "$SF_PRIVATE_KEY" > server.key
-      npx simple-sf-cli \
+      umask 077
+      printf '%s\n' "$SF_PRIVATE_KEY" > server.key
+      npx --yes simple-sf-cli \
         --username "$SF_USERNAME" \
         --clientId "$SF_CLIENT_ID" \
         --privateKey ./server.key \
         --env SANDBOX \
         --testLevel RunLocalTests
+      rm -f server.key
   only:
     - develop
 
 deploy_production:
   stage: deploy
+  image: node:24-alpine
+  before_script:
+    - apk add --no-cache git
   script:
     - |
-      echo "$SF_PRIVATE_KEY" > server.key
-      npx simple-sf-cli \
+      umask 077
+      printf '%s\n' "$SF_PROD_PRIVATE_KEY" > server.key
+      npx --yes simple-sf-cli \
         --username "$SF_PROD_USERNAME" \
         --clientId "$SF_PROD_CLIENT_ID" \
         --privateKey ./server.key \
         --env PRODUCTION \
         --testLevel RunLocalTests
+      rm -f server.key
   when: manual
   only:
     - main
@@ -612,13 +770,15 @@ pipelines:
         deployment: sandbox
         script:
           - |
-            echo "$SF_PRIVATE_KEY" > server.key
-            npx simple-sf-cli \
+            umask 077
+            printf '%s\n' "$SF_PRIVATE_KEY" > server.key
+            npx --yes simple-sf-cli \
               --username "$SF_USERNAME" \
               --clientId "$SF_CLIENT_ID" \
               --privateKey ./server.key \
               --env SANDBOX \
               --testLevel RunLocalTests
+            rm -f server.key
         caches:
           - node
 
@@ -629,13 +789,15 @@ pipelines:
           deployment: production
           script:
             - |
-              echo "$SF_PRIVATE_KEY" > server.key
-              npx simple-sf-cli \
+              umask 077
+              printf '%s\n' "$SF_PROD_PRIVATE_KEY" > server.key
+              npx --yes simple-sf-cli \
                 --username "$SF_PROD_USERNAME" \
                 --clientId "$SF_PROD_CLIENT_ID" \
                 --privateKey ./server.key \
                 --env PRODUCTION \
                 --testLevel RunLocalTests
+              rm -f server.key
           caches:
             - node
 ```
@@ -670,6 +832,12 @@ npx simple-sf-cli \
 
 ```
 SimpleSfCLI/
+├── action.yml                 # Composite GitHub Action definition
+├── index.html                 # Static documentation landing page (GitHub Pages)
+├── docs/
+│   └── promotion/
+│       ├── launch-kit.md      # Community launch & adoption kit
+│       └── demo.tape          # Charmbracelet VHS benchmark recording script
 ├── src/
 │   ├── cli.ts                 # CLI entry point
 │   ├── config.ts              # Configuration
@@ -770,7 +938,8 @@ We welcome contributions! Please follow these steps:
 
 For complete documentation, visit:
 
-- **API Reference**: [SimpleSfCLI Documentation](https://thephani.github.io/SimpleSfCLI/)
+- **API Reference**: [SimpleSfCLI Documentation](https://thephani.github.io/SimpleSfCLI/) (automatically deployed from `index.html` via `.github/workflows/pages.yml`)
+- **Community Launch & Promotion Kit**: [Launch & Adoption Kit](docs/promotion/launch-kit.md) and [VHS Benchmark Tape](docs/promotion/demo.tape)
 - **Metadata Types**: [Salesforce Metadata API Reference](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/)
 - **Authentication Guide**: [Salesforce JWT Auth](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_auth_key_and_cert.htm)
 
@@ -780,11 +949,11 @@ For complete documentation, visit:
 
 | Metric | Value |
 |--------|-------|
-| Package Size | 19.1 KB |
+| Package Size | ~19 KB |
 | Unpacked Size | ~81 KB |
-| Dependencies | 4 (minimal footprint) |
+| Dependencies | 3 (minimal footprint) |
 | TypeScript | Yes |
-| Node.js Version | 16+ |
+| Node.js Version | 18+ |
 
 ---
 
@@ -816,7 +985,7 @@ Must specify a non-empty label for the CustomObject
 Not in package.xml
 The processing instruction target matching "[xX][mM][lL]" is not allowed.
 ```
-**Solution:** Upgrade to `2.7.4` or later, or the latest unreleased source build for object-plus-fields fixes, and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`. Generated `.simpleSfCli_out/objects/<Object>.object` files must contain `<fields>` nodes without nested `<?xml ...?>` declarations.
+**Solution:** Upgrade to `2.7.8` or later and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`. Generated `.simpleSfCli_out/objects/<Object>.object` files must contain `<fields>` nodes without nested `<?xml ...?>` declarations.
 
 **5. Certificate Issues**
 ```
@@ -906,7 +1075,7 @@ SOFTWARE.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the latest `2.7.4` deployment fixes.
+See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the latest `2.7.8` deployment fixes.
 
 ---
 
