@@ -1,4 +1,3 @@
-// src/SalesforceClient.ts
 import type { CommandArgsConfig } from './types/config.type.js';
 import { AuthService } from './services/AuthService.js';
 import { DeployService, NormalizedDeployResponse } from './services/DeployService.js';
@@ -76,6 +75,27 @@ export class SalesforceClient {
 
 	formatDeployResponse(result: DeployResult): NormalizedDeployResponse {
 		return this.deployService.formatDeployResponse(result);
+	}
+
+	async retrieve(options: RetrieveCommandOptions): Promise<{ id: string; status: string; outputDir: string }> {
+		if (options.targetLayout && options.targetLayout !== 'mdapi') {
+			throw new Error(`Unsupported target layout: ${options.targetLayout}. Only mdapi is currently supported.`);
+		}
+
+		await this.authService.authenticate();
+		const retrieveId = await this.retrieveService.initiateRetrieve(options);
+		const retrieveResult: RetrieveStatusResult = await this.retrieveService.pollRetrieveStatus(retrieveId);
+
+		if (retrieveResult.status !== 'Succeeded' || !retrieveResult.zipFile) {
+			throw new Error(retrieveResult.errorMessage || `Retrieve failed with status: ${retrieveResult.status}`);
+		}
+
+		await this.archiverService.extractBase64Zip(retrieveResult.zipFile, options.outputDir);
+		return { id: retrieveResult.id, status: retrieveResult.status, outputDir: options.outputDir };
+	}
+
+	private fileExists(filePath: string): boolean {
+		return fs.existsSync(filePath);
 	}
 }
 
