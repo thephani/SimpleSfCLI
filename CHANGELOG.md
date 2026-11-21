@@ -17,6 +17,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Accepts comma-separated and space-separated metadata-type exclusions consistently.
 - Handles missing test failure arrays without masking the deployment result.
 - Corrected the CLI version display to match the package version.
+- Updated `package.json` metadata (`description`, `license`, `author`, `engines`, and `keywords`), included `LICENSE` in NPM packages via `.npmignore` cleanup, fixed `.gitignore` entries, and synchronized `README.md` and `index.html` documentation.
 
 ## 2.7.7 - 2026-06-24
 
