@@ -29,7 +29,7 @@ const config: CommandArgsConfig = {
   appDescription: 'Deploy your metadata in seconds',
   
   // Salesforce API version
-  sfVersion: 'v60.0',
+  sfVersion: 'v62.0',
   
   // CLI information
   cliVersion: '2.7.8',
@@ -37,11 +37,15 @@ const config: CommandArgsConfig = {
   
   // Deployment options
   quickDeployId: undefined,
+  manifest: undefined,
   testLevel: 'NoTestRun',
   
   // Test coverage configuration
   coverageJson: './ApexTestCoverage.json',
-  runTests: []
+  runTests: [],
+  pollInterval: 5000,
+  maxPollAttempts: 120
 };
 
 export default config;
+

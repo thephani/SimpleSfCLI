@@ -12,7 +12,14 @@ export interface MetadataType {
    */
   export interface GroupedData {
 	[objectName: string]: {
-	  fields: string[];
+	  fields?: string[];
+	  validationRules?: string[];
+	  recordTypes?: string[];
+	  listViews?: string[];
+	  webLinks?: string[];
+	  compactLayouts?: string[];
+	  businessProcesses?: string[];
+	  fieldSets?: string[];
 	  [key: string]: unknown;  // For any additional object data
 	};
   }

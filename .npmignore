@@ -1,11 +1,9 @@
-
 node_modules
 .github
 .gitignore
 jest.*.js
 coverage
 src
-LICENSE
 package-lock.json
 **/__tests__/**
 **/tests/**
@@ -18,4 +16,3 @@ tests/
 *.ts
 !*.d.ts
 tsconfig.json
-.gitignore

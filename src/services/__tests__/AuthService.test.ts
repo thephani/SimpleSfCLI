@@ -112,7 +112,50 @@ describe('AuthService', () => {
 	
 		});
 
+		it('should authenticate using an inline PEM private key without reading from disk', async () => {
+			(global.fetch as jest.Mock).mockResolvedValue({
+				ok: true,
+				json: async () => ({
+					access_token: MOCK_ACCESS_TOKEN,
+					instance_url: MOCK_INSTANCE_URL,
+				}),
+			});
+
+			const inlineConfig: CommandArgsConfig = {
+				...mockConfig,
+				privateKey: MOCK_PRIVATE_KEY,
+			};
+			const inlineService = new AuthService(inlineConfig);
+			const result = await inlineService.authenticate();
+
+			expect(fs.readFileSync).not.toHaveBeenCalled();
+			expect(result.accessToken).toBe(MOCK_ACCESS_TOKEN);
+		});
+
+		it('should authenticate using a base64-encoded PEM private key when file does not exist', async () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(false);
+			(global.fetch as jest.Mock).mockResolvedValue({
+				ok: true,
+				json: async () => ({
+					access_token: MOCK_ACCESS_TOKEN,
+					instance_url: MOCK_INSTANCE_URL,
+				}),
+			});
+
+			const base64Key = Buffer.from(MOCK_PRIVATE_KEY, 'utf-8').toString('base64');
+			const base64Config: CommandArgsConfig = {
+				...mockConfig,
+				privateKey: base64Key,
+			};
+			const base64Service = new AuthService(base64Config);
+			const result = await base64Service.authenticate();
+
+			expect(fs.readFileSync).not.toHaveBeenCalled();
+			expect(result.accessToken).toBe(MOCK_ACCESS_TOKEN);
+		});
+
 		it('should handle file read errors', async () => {
+			(fs.existsSync as jest.Mock).mockReturnValue(true);
 			(fs.readFileSync as jest.Mock).mockImplementationOnce(() => {
 				throw new Error('File not found');
 			});

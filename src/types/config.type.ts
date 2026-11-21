@@ -1,3 +1,5 @@
+import type { ReportFormat } from './deployment.type.js';
+
 export interface CommandArgsConfig {
 	source: string;
 	output: string;
@@ -16,7 +18,15 @@ export interface CommandArgsConfig {
 	cliVersion: string;
 	cliOuputFolder: string;
 	quickDeployId?: string;
+	manifest?: string;
 	testLevel: 'NoTestRun' | 'RunLocalTests' | 'RunAllTestsInOrg' | 'RunSpecifiedTests';
 	coverageJson: string;
 	runTests: string[];
+	tests?: string[];
+	apiVersion?: string;
+	pollInterval?: number;
+	maxPollAttempts?: number;
+	dryRun?: boolean;
+	json?: boolean;
 }
+

@@ -4,10 +4,13 @@ All notable changes to `simple-sf-cli` are documented in this file.
 
 ## Unreleased
 
-- Added official composite GitHub Action (`action.yml`) with Marketplace branding (`icon: 'zap'`, `color: 'purple'`), full CLI input support (`command`, `username`, `client-id`, `private-key`, `env`, `source`, `base-branch`, `target-branch`, `validate-only`, `test-level`, `exclude`, `quick-deploy-id`, `version`), automatic `0600` temporary key file creation when `private-key` contains raw PEM content (`-----BEGIN`), and `always()` key cleanup.
-- Added "Why Simple SF CLI? (Benchmarks vs. Official Salesforce CLI)" comparison table and updated CI/CD integration recipes (`uses: thephani/SimpleSfCLI@v2`, GitLab CI, and Bitbucket Pipelines) in `README.md`.
-- Added automated GitHub Pages workflow (`.github/workflows/pages.yml`) to deploy `index.html` on pushes to `main` and manual `workflow_dispatch`.
-- Added Community Launch & Promotion Kit (`docs/promotion/launch-kit.md`) and Charmbracelet `vhs` terminal benchmark recording script (`docs/promotion/demo.tape`).
+- Removed duplicate `copyFiles` invocation during MDAPI conversion of modified metadata.
+- Preserved explicit `--testLevel` CLI flags during production deployments while defaulting to `RunLocalTests` in `PRODUCTION` and `NoTestRun` in `SANDBOX` when omitted.
+- Unified the default Salesforce Metadata API version to `v62.0` (`62.0`) across `config.ts`, `DeployService` SOAP/REST endpoints, and `XmlHelper` manifest generation.
+- Updated `quick-deploy` to poll deployment status until completion when the initial quick-deploy response is not yet terminal.
+- Logged component failure and test failure tables for both `Failed` and `SucceededPartial` deployments, including full test failure details (`name`, `methodName`, `message`, and `stackTrace`).
+- Replaced the placeholder `XmlHelper.isValidXml` check with well-formed XML tag and structure validation.
+- Standardized relative type imports across `SalesforceClient`, `BaseService`, `MDAPIService`, and `XmlHelper`.
 
 ## 2.7.8 - 2026-10-27
 
@@ -24,6 +27,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Accepts comma-separated and space-separated metadata-type exclusions consistently.
 - Handles missing test failure arrays without masking the deployment result.
 - Corrected the CLI version display to match the package version.
+- Updated `package.json` metadata (`description`, `license`, `author`, `engines`, and `keywords`), included `LICENSE` in NPM packages via `.npmignore` cleanup, fixed `.gitignore` entries, and synchronized `README.md` and `index.html` documentation.
 
 ## 2.7.7 - 2026-06-24
 
