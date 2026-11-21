@@ -56,6 +56,8 @@ export class CLI {
 		this.setupQuickDeployCommand();
 		this.setupPackageCommand();
 		this.setupDeployCommand();
+		this.setupStatusCommand();
+		this.setupCancelCommand();
 	}
 
 	private setupAuthTokenCommand(): void {
@@ -533,6 +535,20 @@ export class CLI {
 			console.error('Unknown error:', error);
 		}
 		process.exit(1);
+	}
+
+	private printReport(report: NormalizedDeployResponse, reportFormat?: string): void {
+		if (reportFormat?.toLowerCase() === 'json') {
+			console.log(JSON.stringify(report, null, 2));
+			return;
+		}
+		console.log(report.summary);
+	}
+
+	private failForTerminalError(status: string, message: string): void {
+		if (status === 'Failed' || status === 'Canceled') {
+			throw new Error(`${message}: ${status}`);
+		}
 	}
 }
 
