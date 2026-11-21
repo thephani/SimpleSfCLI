@@ -1,6 +1,6 @@
 {
 	"name": "simple-sf-cli",
-	"version": "2.7.8",
+	"version": "0.11.1",
 	"description": "Lightweight Salesforce SFDX delta deployment CLI via Metadata API — no Salesforce CLI required",
 	"license": "MIT",
 	"author": "Phani",
