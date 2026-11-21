@@ -405,15 +405,21 @@ export class CLI {
 		if (options.maxPollAttempts !== undefined && !Number.isNaN(Number(options.maxPollAttempts))) {
 			updatedConfig.maxPollAttempts = Number(options.maxPollAttempts);
 		}
+		const { logUsername = true } = logging;
+		updatedConfig.env = this.normalizeEnv(options.env ?? updatedConfig.env);
+		const isCliTestLevel =
+			typeof this.program.getOptionValueSource === 'function' &&
+			this.program.getOptionValueSource('testLevel') === 'cli';
+		const hasExplicitTestLevel = isCliTestLevel || (Boolean(options.testLevel) && options.testLevel !== 'NoTestRun');
 
-		const { logUsername = true, requireAuth = true } = settings;
-		const rawEnv = options.env ?? process.env.SF_ENV ?? updatedConfig.env ?? 'SANDBOX';
-		updatedConfig.env = this.normalizeEnv(rawEnv);
-
-		// Update instance URL and test level for production environment
+		// Update instance URL and default test level for environment
 		if (updatedConfig.env === 'PRODUCTION') {
 			updatedConfig.instanceUrl = 'https://login.salesforce.com';
-			updatedConfig.testLevel = 'RunLocalTests';
+			if (!hasExplicitTestLevel) {
+				updatedConfig.testLevel = 'RunLocalTests';
+			}
+		} else if (!hasExplicitTestLevel) {
+			updatedConfig.testLevel = 'NoTestRun';
 		}
 
 		// Validate required fields when authentication is required

@@ -1,8 +1,12 @@
 # Dependencies
 node_modules/
-converage/
 lib/
 AGENTS.md
+
+# Local agent and worktree directories
+.ori/
+toon/
+.kilo/
 
 # Build output
 dist/

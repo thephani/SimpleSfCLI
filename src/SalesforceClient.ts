@@ -4,7 +4,7 @@ import { AuthService } from './services/AuthService.js';
 import { DeployService } from './services/DeployService.js';
 import { MDAPIService } from './services/MDAPIService.js';
 import { ArchiverService } from './services/ArchiverService.js';
-import { DeployOptions, DeployResult } from 'types/deployment.type.js';
+import type { DeployOptions, DeployResult } from './types/deployment.type.js';
 import fs from 'fs';
 
 export class SalesforceClient {
@@ -54,7 +54,12 @@ export class SalesforceClient {
 
 	async quickDeploy(deploymentId: string): Promise<DeployResult> {
 		await this.authService.authenticate();
-		return this.deployService.quickDeploy(deploymentId);
+		const deployResult = await this.deployService.quickDeploy(deploymentId);
+		if (deployResult?.done && deployResult.status === 'Succeeded') {
+			return deployResult;
+		}
+		const quickDeployId = deployResult?.id || deploymentId;
+		return this.deployService.pollDeploymentStatus(quickDeployId);
 	}
 }
 

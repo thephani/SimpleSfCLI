@@ -4,14 +4,13 @@ All notable changes to `simple-sf-cli` are documented in this file.
 
 ## Unreleased
 
-- Added environment variable fallbacks (`SF_USERNAME`, `SF_CLIENT_ID`, `SF_PRIVATE_KEY` / `SF_PRIVATE_KEY_PATH`, `SF_ENV`, `SF_SOURCE`, `SF_EXCLUDE`) when corresponding CLI flags are omitted.
-- Added support for inline PEM strings (`-----BEGIN ...`) and base64-encoded PEM private keys in `AuthService` alongside file paths.
-- Added `--dry-run` (`--dryRun`) option and `package` subcommand to convert SFDX metadata and generate `deploy.zip` without requiring Salesforce credentials or calling Salesforce APIs.
-- Added `--json` output mode to `deploy` and `quick-deploy` commands for structured JSON output to stdout (`{ status, id, done, checkOnly, numberComponentsDeployed, numberComponentsTotal, numberTestsCompleted, numberTestsTotal, details }`).
-- Added `--tests <tests...>` (merged with auto-detected Apex test classes), `--apiVersion <version>`, `--pollInterval <ms>`, and `--maxPollAttempts <count>` CLI options.
-- Added automatic detection of `sfdx-project.json` in the working directory to resolve the default package directory (`packageDirectories`) when `--source` / `SF_SOURCE` is not provided, as well as `sourceApiVersion`.
-- Added GitLab CI (`CI_MERGE_REQUEST_TARGET_BRANCH_NAME` / `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`) and Azure DevOps (`SYSTEM_PULLREQUEST_TARGETBRANCH` / `SYSTEM_PULLREQUEST_SOURCEBRANCH`, stripping `refs/heads/`) PR branch detection.
-- Added automatic Markdown deployment summary output to `$GITHUB_STEP_SUMMARY` during `deploy` and `quick-deploy` runs in GitHub Actions.
+- Removed duplicate `copyFiles` invocation during MDAPI conversion of modified metadata.
+- Preserved explicit `--testLevel` CLI flags during production deployments while defaulting to `RunLocalTests` in `PRODUCTION` and `NoTestRun` in `SANDBOX` when omitted.
+- Unified the default Salesforce Metadata API version to `v62.0` (`62.0`) across `config.ts`, `DeployService` SOAP/REST endpoints, and `XmlHelper` manifest generation.
+- Updated `quick-deploy` to poll deployment status until completion when the initial quick-deploy response is not yet terminal.
+- Logged component failure and test failure tables for both `Failed` and `SucceededPartial` deployments, including full test failure details (`name`, `methodName`, `message`, and `stackTrace`).
+- Replaced the placeholder `XmlHelper.isValidXml` check with well-formed XML tag and structure validation.
+- Standardized relative type imports across `SalesforceClient`, `BaseService`, `MDAPIService`, and `XmlHelper`.
 
 ## 2.7.8 - 2026-10-27
 
@@ -28,6 +27,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Accepts comma-separated and space-separated metadata-type exclusions consistently.
 - Handles missing test failure arrays without masking the deployment result.
 - Corrected the CLI version display to match the package version.
+- Updated `package.json` metadata (`description`, `license`, `author`, `engines`, and `keywords`), included `LICENSE` in NPM packages via `.npmignore` cleanup, fixed `.gitignore` entries, and synchronized `README.md` and `index.html` documentation.
 
 ## 2.7.7 - 2026-06-24
 
