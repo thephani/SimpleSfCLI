@@ -1,17 +1,19 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { CommandArgsConfig } from "types/config.type.js";
-import { MetadataType } from "types/index.type.js";
-import { GroupedData } from "types/xml.type.js";
+import type { CommandArgsConfig } from "../types/config.type.js";
+import type { MetadataType } from "../types/index.type.js";
+import type { GroupedData } from "../types/xml.type.js";
 import {
-  MEMBERTYPE_REGEX,
+  CUSTOM_OBJECT_CHILDREN,
   METADATA_EXTENSIONS,
   METADATA_TYPES,
 } from "../helper/constants.js";
 import { ForceIgnoreHelper } from "../helper/forceignoreHelper.js";
 import { XmlHelper } from "../helper/xmlHelper.js";
 import { BaseService } from "./BaseService.js";
+
+const BUNDLE_DIRECTORIES = ["lwc", "aura", "experiences"] as const;
 
 export class MDAPIService extends BaseService {
   private xmlHelper: XmlHelper;
@@ -21,7 +23,7 @@ export class MDAPIService extends BaseService {
   constructor(config: CommandArgsConfig) {
     super(config);
     this.normalizedSource = this.normalizeRepoPath(config.source);
-    this.xmlHelper = new XmlHelper(config.cliOuputFolder, this.normalizedSource);
+    this.xmlHelper = new XmlHelper(config.cliOuputFolder, this.normalizedSource, config.sfVersion);
     this.forceIgnoreHelper = new ForceIgnoreHelper(this.normalizedSource);
   }
 
@@ -31,8 +33,8 @@ export class MDAPIService extends BaseService {
       await this.initializeDirectories();
 
       const runTests: string[] = [];
-      await this.processDeletedMetadata(excludeList);
-      await this.processModifiedMetadata(excludeList, runTests);
+      const survivingBundles = await this.processDeletedMetadata(excludeList);
+      await this.processModifiedMetadata(excludeList, runTests, survivingBundles);
 
       // console.log('✅ Conversion completed successfully.');
       return runTests;
@@ -40,6 +42,91 @@ export class MDAPIService extends BaseService {
       this.logError("MDAPI conversion failed", error);
       throw error;
     }
+  }
+
+  private async processManifestMetadata(
+    excludeList: string[],
+    runTests: string[],
+  ): Promise<void> {
+    const manifestPath = path.resolve(this.config.manifest as string);
+    const manifestContent = await fs.promises.readFile(manifestPath, "utf8");
+    const { metadataTypes, apiVersion } =
+      this.xmlHelper.parseManifestXml(manifestContent);
+    const metadataMap = new Map(
+      metadataTypes.map((metadataType) => [metadataType.name, metadataType]),
+    );
+
+    const sourceFiles = await this.getFilesRecursively(this.normalizedSource);
+    const copiedFiles = new Set<string>();
+    const missingMembers: string[] = [];
+    const excludedTypes: string[] = [];
+
+    for (const metadataType of metadataTypes) {
+      if (excludeList?.includes(metadataType.name)) {
+        excludedTypes.push(metadataType.name);
+        continue;
+      }
+
+      for (const member of metadataType.members) {
+        const matches = sourceFiles.filter((file) => {
+          const type = this.getMetadataType(file);
+          if (type !== metadataType.name) {
+            return false;
+          }
+
+          if (member === "*") {
+            return true;
+          }
+
+          const memberName = this.getMemberName(file);
+          const relativePath = this.toRelativeSourcePath(file);
+          const comparableMember = this.getManifestComparableMember(
+            metadataType.name,
+            memberName,
+            relativePath,
+          );
+
+          return comparableMember === member;
+        });
+
+        if (!matches.length) {
+          missingMembers.push(`${metadataType.name}:${member}`);
+          continue;
+        }
+
+        for (const file of matches) {
+          await this.copyFileWithMetadata(file);
+          copiedFiles.add(file);
+
+          if (metadataType.name === "ApexClass" && (await this.isTestClass(file))) {
+            const testClassName = path.basename(file, ".cls");
+            if (!runTests.includes(testClassName)) {
+              runTests.push(testClassName);
+            }
+          }
+        }
+      }
+    }
+
+    if (missingMembers.length) {
+      throw new Error(
+        `Manifest members not found in source: ${missingMembers.join(", ")}`,
+      );
+    }
+
+    if (copiedFiles.size === 0) {
+      throw new Error("Manifest resolved to zero deployable metadata.");
+    }
+
+    const filteredTypes = [...metadataMap.values()]
+      .filter((metadataType) => !excludeList?.includes(metadataType.name))
+      .map((metadataType) => ({
+        ...metadataType,
+        members: [...metadataType.members],
+      }));
+
+    await this.generatePackageXml(filteredTypes, apiVersion);
+    this.logExcludedComponents(excludedTypes);
   }
 
   private async initializeDirectories(): Promise<void> {
@@ -53,17 +140,52 @@ export class MDAPIService extends BaseService {
     }
 
     await fs.promises.mkdir(cliOuputFolder, { recursive: true });
-    await fs.promises.mkdir(path.join(cliOuputFolder, "destructiveChanges"), {
-      recursive: true,
-    });
     // console.log(`📁 Cleanedup directories`);
   }
 
-  private async processDeletedMetadata(excludeList: string[]): Promise<void> {
-    const deletedFiles = await this.getGitFiles("D");
+  private async processDeletedMetadata(excludeList: string[]): Promise<string[]> {
+    const survivingBundles: string[] = [];
+    const candidateDeletedFiles = (await this.getGitFiles("D")).filter((file) => {
+      // A committed/staged deletion can have been restored in the working tree.
+      if (fs.existsSync(file)) return false;
+      const relativePath = this.toRelativeSourcePath(file);
+      const bundleRoot = BUNDLE_DIRECTORIES.find((dir) =>
+        relativePath.startsWith(`${dir}/`),
+      );
+      if (bundleRoot) {
+        const bundle = relativePath.split("/")[1];
+        if (bundle && fs.existsSync(path.join(this.config.source, bundleRoot, bundle))) {
+          survivingBundles.push(file);
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const deletedObjects = new Set<string>();
+    for (const file of candidateDeletedFiles) {
+      const relativePath = this.toRelativeSourcePath(file);
+      const objectMatch = relativePath.match(/^objects\/([^/]+)\/([^/]+)\.object-meta\.xml$/);
+      if (objectMatch && objectMatch[1] === objectMatch[2]) {
+        const type = this.getMetadataType(file);
+        if (type && !excludeList?.includes(type)) {
+          deletedObjects.add(objectMatch[1]);
+        }
+      }
+    }
+
+    const deletedFiles = candidateDeletedFiles.filter((file) => {
+      const relativePath = this.toRelativeSourcePath(file);
+      const objectChildMatch = relativePath.match(/^objects\/([^/]+)\/(.+)$/);
+      if (objectChildMatch && deletedObjects.has(objectChildMatch[1])) {
+        return relativePath === `objects/${objectChildMatch[1]}/${objectChildMatch[1]}.object-meta.xml`;
+      }
+      return true;
+    });
+
     if (!deletedFiles.length) {
-      console.log("ℹ️  No deleted files detected");
-      return;
+      console.log("ℹ️  No deleted components detected");
+      return survivingBundles;
     }
 
     const metadataTypes: MetadataType[] = [];
@@ -80,44 +202,46 @@ export class MDAPIService extends BaseService {
     if (metadataTypes.length) {
       await this.generateDestructivePackages(metadataTypes);
     }
+    return survivingBundles;
   }
 
   private async processModifiedMetadata(
     excludeList: string[],
     runTests: string[],
+    survivingBundles: string[] = [],
   ): Promise<void> {
-    const changedFiles = await this.getGitFiles("AM");
+    const changedFiles = [...new Set([...(await this.getGitFiles("AM")), ...survivingBundles])];
     if (!changedFiles.length) {
-      console.log("if no deleted files detected, exit here");
       return;
     }
 
-    const { fieldData, otherFiles } = this.categorizeFiles(changedFiles);
+    const includedFiles = changedFiles.filter((file) => {
+      const type = this.getMetadataType(file);
+      return type !== null && !excludeList.includes(type);
+    });
+    const { fieldData, otherFiles } = this.categorizeFiles(includedFiles);
+
+    console.log(`Copying file: ${otherFiles}`);
+    await this.copyFiles(otherFiles);
 
     if (Object.keys(fieldData).length) {
       this.xmlHelper.generateCustomObjectForFields(fieldData);
     }
 
-    console.log(`Copying file: ${otherFiles}`);
-    await this.copyFiles(otherFiles);
-
     const metadataTypes: MetadataType[] = [];
     const excludedComponents: string[] = [];
 
-      await this.processMetadataFiles(
-        changedFiles,
-        excludeList,
-        metadataTypes,
-        excludedComponents,
-        runTests,
-      );
-
-    this.reconcileFieldMetadataWithGeneratedObjects(fieldData, metadataTypes);
+    await this.processMetadataFiles(
+      changedFiles,
+      excludeList,
+      metadataTypes,
+      excludedComponents,
+      runTests,
+    );
 
     if (!metadataTypes.length) {
-      throw new Error(
-        `No supported metadata found. Supported types: ${Object.values(METADATA_TYPES)}`,
-      );
+      this.logExcludedComponents(excludedComponents);
+      return;
     }
 
     await this.generatePackageXml(metadataTypes);
@@ -129,24 +253,11 @@ export class MDAPIService extends BaseService {
       const diffRange = this.getDiffRange();
       const files = new Set<string>();
 
-      this.collectFilesFromGitCommand(
-        `git diff --diff-filter=${filter} --name-only ${diffRange}`,
-        files,
-      );
-      this.collectFilesFromGitCommand(
-        `git diff --diff-filter=${filter} --name-only`,
-        files,
-      );
-      this.collectFilesFromGitCommand(
-        `git diff --cached --diff-filter=${filter} --name-only`,
-        files,
-      );
-
+      this.collectFilesFromGitCommand(['diff', `--diff-filter=${filter}`, '--name-only', '-z', diffRange, '--'], files);
+      this.collectFilesFromGitCommand(['diff', `--diff-filter=${filter}`, '--name-only', '-z', '--'], files);
+      this.collectFilesFromGitCommand(['diff', '--cached', `--diff-filter=${filter}`, '--name-only', '-z', '--'], files);
       if (filter.includes("A")) {
-        this.collectFilesFromGitCommand(
-          "git ls-files --others --exclude-standard",
-          files,
-        );
+        this.collectFilesFromGitCommand(['ls-files', '--others', '--exclude-standard', '-z'], files);
       }
 
       return [...files].filter(
@@ -154,7 +265,7 @@ export class MDAPIService extends BaseService {
       );
     } catch (error) {
       this.logError(`Failed to get git files with filter ${filter}`, error);
-      return [];
+      throw error;
     }
   }
 
@@ -165,20 +276,23 @@ export class MDAPIService extends BaseService {
     const fieldData: GroupedData = {};
     const otherFiles = files.filter((file) => {
       const normalizedFile = this.normalizeRepoPath(file);
-      if (!normalizedFile.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
+      const matchedChild = CUSTOM_OBJECT_CHILDREN.find((child) =>
+        normalizedFile.match(child.regex),
+      );
+      if (!matchedChild) {
         return true;
       }
 
-      const parts = normalizedFile.split("/");
-      const objectIndex = parts.indexOf("objects") + 1;
-      const fieldIndex = parts.indexOf("fields") + 1;
+      const match = normalizedFile.match(matchedChild.regex);
+      if (match) {
+        const objectName = match[1];
+        const childName = match[2];
 
-      if (objectIndex > 0 && fieldIndex > 0) {
-        const objectName = parts[objectIndex];
-        const fieldName = parts[fieldIndex].split(".")[0];
-
-        fieldData[objectName] = fieldData[objectName] || { fields: [] };
-        fieldData[objectName].fields.push(fieldName);
+        fieldData[objectName] = fieldData[objectName] || {};
+        const existing =
+          (fieldData[objectName][matchedChild.folder] as string[] | undefined) || [];
+        existing.push(childName);
+        fieldData[objectName][matchedChild.folder] = existing;
         return false;
       }
       return true;
@@ -201,28 +315,33 @@ export class MDAPIService extends BaseService {
       return;
     }
 
-    if (file.includes("/lwc/")) {
-      await this.copyLWCComponent(relativePath);
+    if (/^(lwc|aura|experiences)\/[^/]+\//.test(relativePath)) {
+      await this.copyBundleComponent(relativePath);
       return;
     }
 
     await this.copySingleFile(file, relativePath);
   }
 
-  private async copyLWCComponent(relativePath: string): Promise<void> {
-    const componentFolder = relativePath.split("/")[1];
-    const componentDir = `${this.config.source}/lwc/${componentFolder}`;
-    const files = await fs.promises.readdir(componentDir);
+  private async copyBundleComponent(relativePath: string): Promise<void> {
+    const [bundleType, componentFolder] = relativePath.split("/");
+    const componentDir = `${this.config.source}/${bundleType}/${componentFolder}`;
+    await this.copyBundleDirectory(componentDir, `${bundleType}/${componentFolder}`);
+  }
 
-    for (const file of files) {
-      const sourcePath = path.join(componentDir, file);
-      const targetPath = path.join(
-        this.config.cliOuputFolder,
-        path.relative(this.config.source, sourcePath),
-      );
-
-      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-      await fs.promises.copyFile(sourcePath, targetPath);
+  private async copyBundleDirectory(directory: string, relativeDirectory: string): Promise<void> {
+    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const relativePath = `${relativeDirectory}/${entry.name}`;
+      if (this.shouldIgnoreFile(relativePath)) continue;
+      const sourcePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await this.copyBundleDirectory(sourcePath, relativePath);
+      } else if (entry.isFile()) {
+        const targetPath = path.join(this.config.cliOuputFolder, relativePath);
+        await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+        await fs.promises.copyFile(sourcePath, targetPath);
+      }
     }
   }
 
@@ -245,35 +364,29 @@ export class MDAPIService extends BaseService {
     await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
     await fs.promises.copyFile(file, targetPath);
 
-    const metadataPath = `${file}-meta.xml`;
-    if (fs.existsSync(metadataPath)) {
-      await fs.promises.copyFile(metadataPath, `${targetPath}-meta.xml`);
+    if (file.endsWith("-meta.xml")) {
+      const primaryFile = file.replace(/-meta\.xml$/, "");
+      const primaryTargetPath = targetPath.replace(/-meta\.xml$/, "");
+      if (primaryTargetPath !== targetPath && fs.existsSync(primaryFile)) {
+        await fs.promises.copyFile(primaryFile, primaryTargetPath);
+      }
+    } else {
+      const metadataPath = `${file}-meta.xml`;
+      if (fs.existsSync(metadataPath)) {
+        await fs.promises.copyFile(metadataPath, `${targetPath}-meta.xml`);
+      }
     }
   }
 
-  private async generateDestructivePackages(
-    types: MetadataType[],
-  ): Promise<void> {
-    const destructiveDir = path.join(
-      this.config.cliOuputFolder,
-      "destructiveChanges",
-    );
-
-    const destructiveXml = this.xmlHelper.createPackageXml(types);
+  private async generateDestructivePackages(types: MetadataType[]): Promise<void> {
     await fs.promises.writeFile(
-      path.join(destructiveDir, "destructiveChanges.xml"),
-      destructiveXml,
+      path.join(this.config.cliOuputFolder, "destructiveChangesPost.xml"),
+      this.xmlHelper.createPackageXml(types),
     );
-
-    console.log("\n🗑️  Generated destructiveChanges.xml:");
-    console.log("----------------------------------");
-    console.log(destructiveXml);
-    console.log("----------------------------------\n");
-
-    const emptyXml = this.xmlHelper.createEmptyPackageXml();
+    // Modified metadata may replace this with a populated manifest afterward.
     await fs.promises.writeFile(
-      path.join(destructiveDir, "package.xml"),
-      emptyXml,
+      path.join(this.config.cliOuputFolder, "package.xml"),
+      this.xmlHelper.createEmptyPackageXml(),
     );
   }
 
@@ -317,8 +430,10 @@ export class MDAPIService extends BaseService {
       return null;
     }
 
-    if (relativePath.match(MEMBERTYPE_REGEX.CUSTOM_FIELD)) {
-      return "CustomField";
+    for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+      if (relativePath.match(childConfig.regex)) {
+        return childConfig.typeName;
+      }
     }
 
     // Prefer the most specific folder match so prefixes like "Bot" do not
@@ -338,6 +453,32 @@ export class MDAPIService extends BaseService {
   }
 
   private getMemberName(file: string): string | null {
+    const relativePath = this.toRelativeSourcePath(file);
+    if (/^(lwc|aura|experiences)\/[^/]+\//.test(relativePath)) {
+      return relativePath.split("/")[1] || null;
+    }
+
+    for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+      const match = relativePath.match(childConfig.regex);
+      if (match) {
+        const packageMember = this.xmlHelper.generatePackageMember(file);
+        return packageMember?.members?.[0] || `${match[1]}.${match[2]}`;
+      }
+    }
+
+    const folderedMatch = relativePath.match(
+      /^(reports|Report|dashboards|Dashboard|email|EmailTemplate|documents|Document)\/(.+)$/,
+    );
+    if (folderedMatch) {
+      const subPath = folderedMatch[2];
+      for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {
+        if (subPath.endsWith(ext)) {
+          return `${subPath.slice(0, -ext.length)}${replacement}`;
+        }
+      }
+      return subPath;
+    }
+
     const fileName = path.basename(file);
 
     for (const [ext, replacement] of Object.entries(METADATA_EXTENSIONS)) {
@@ -361,39 +502,6 @@ export class MDAPIService extends BaseService {
     }
   }
 
-  private reconcileFieldMetadataWithGeneratedObjects(
-    fieldData: GroupedData,
-    types: MetadataType[],
-  ): void {
-    const objectNames = Object.keys(fieldData);
-    if (!objectNames.length) {
-      return;
-    }
-
-    const customFieldType = types.find((type) => type.name === "CustomField");
-    if (customFieldType) {
-      const generatedFieldMembers = new Set(
-        objectNames.flatMap((objectName) =>
-          fieldData[objectName].fields.map((field) => `${objectName}.${field}`),
-        ),
-      );
-
-      customFieldType.members = customFieldType.members.filter(
-        (member) => !generatedFieldMembers.has(member),
-      );
-    }
-
-    objectNames.forEach((objectName) => {
-      this.addMember("CustomObject", objectName, types);
-    });
-
-    for (let index = types.length - 1; index >= 0; index -= 1) {
-      if (types[index].members.length === 0) {
-        types.splice(index, 1);
-      }
-    }
-  }
-
   private async isTestClass(file: string): Promise<boolean> {
     try {
       const content = await fs.promises.readFile(file, "utf8");
@@ -403,8 +511,11 @@ export class MDAPIService extends BaseService {
     }
   }
 
-  private async generatePackageXml(types: MetadataType[]): Promise<void> {
-    const packageXml = this.xmlHelper.createPackageXml(types);
+  private async generatePackageXml(
+    types: MetadataType[],
+    apiVersion?: string,
+  ): Promise<void> {
+    const packageXml = this.xmlHelper.createPackageXml(types, apiVersion);
     await fs.promises.writeFile(
       path.join(this.config.cliOuputFolder, "package.xml"),
       packageXml,
@@ -433,16 +544,13 @@ export class MDAPIService extends BaseService {
     }
   }
 
-  private collectFilesFromGitCommand(command: string, files: Set<string>): void {
+  private collectFilesFromGitCommand(args: string[], files: Set<string>): void {
     try {
-      const output = execSync(command, { encoding: "utf8" });
-      output
-        .split("\n")
-        .map((file) => this.normalizeRepoPath(file))
-        .filter(Boolean)
-        .forEach((file) => files.add(file));
+      const output = execFileSync('git', args, { encoding: "utf8" });
+      output.split("\0").filter(Boolean).map((file) => this.normalizeRepoPath(file)).forEach((file) => files.add(file));
     } catch (error) {
-      this.logError(`Failed to collect files from command: ${command}`, error);
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Git metadata discovery failed (${args.join(' ')}): ${detail}`);
     }
   }
 
@@ -467,13 +575,19 @@ export class MDAPIService extends BaseService {
     base: string;
     target: string;
   } | null {
-    const rawBaseRef =
+    const rawBaseRef = this.stripRefsHeads(
       process.env.GITHUB_BASE_REF ||
-      process.env.BITBUCKET_PR_DESTINATION_BRANCH;
-    const rawTargetRef =
+      process.env.BITBUCKET_PR_DESTINATION_BRANCH ||
+      process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME ||
+      process.env.SYSTEM_PULLREQUEST_TARGETBRANCH,
+    );
+    const rawTargetRef = this.stripRefsHeads(
       process.env.GITHUB_HEAD_REF ||
       process.env.BITBUCKET_PR_SOURCE_BRANCH ||
-      process.env.BITBUCKET_BRANCH;
+      process.env.BITBUCKET_BRANCH ||
+      process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME ||
+      process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH,
+    );
 
     const baseRef = this.resolveGitRef(rawBaseRef, { remoteOnly: true });
     if (!baseRef) {
@@ -484,13 +598,20 @@ export class MDAPIService extends BaseService {
     return { base: baseRef, target: targetRef };
   }
 
+  private stripRefsHeads(ref: string | undefined): string | undefined {
+    if (!ref) {
+      return undefined;
+    }
+    return ref.trim().replace(/^refs\/heads\//, "");
+  }
+
   private detectPullRequestBaseBranch(): string | null {
     try {
       const currentBranch = this.normalizeGitRef(
-        execSync("git branch --show-current", { encoding: "utf8" }),
+        execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }),
       );
       const originHeadRef = this.normalizeGitRef(
-        execSync("git symbolic-ref refs/remotes/origin/HEAD", {
+        execFileSync("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], {
           encoding: "utf8",
         }),
       );
@@ -508,7 +629,9 @@ export class MDAPIService extends BaseService {
   }
 
   private normalizeGitRef(value: string): string {
-    return value.trim();
+    const ref = value.trim();
+    if (ref.startsWith("-")) throw new Error(`Invalid Git ref: ${ref}`);
+    return ref;
   }
 
   private resolveGitRef(
@@ -526,7 +649,7 @@ export class MDAPIService extends BaseService {
 
     for (const candidate of candidates) {
       try {
-        execSync(`git rev-parse --verify --quiet ${candidate}`, {
+        execFileSync("git", ["rev-parse", "--verify", "--quiet", "--end-of-options", candidate], {
           encoding: "utf8",
           stdio: "ignore",
         });
@@ -550,5 +673,43 @@ export class MDAPIService extends BaseService {
 
   private normalizeRepoPath(value: string): string {
     return value.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
+  }
+
+  private async getFilesRecursively(directory: string): Promise<string[]> {
+    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    const files: string[] = [];
+
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await this.getFilesRecursively(fullPath)));
+      } else {
+        files.push(this.normalizeRepoPath(fullPath));
+      }
+    }
+
+    return files;
+  }
+
+  private getManifestComparableMember(
+    metadataType: string,
+    memberName: string | null,
+    relativePath: string,
+  ): string | null {
+    if (!memberName) {
+      return null;
+    }
+
+    if (metadataType === "LightningComponentBundle") {
+      const segments = relativePath.split("/");
+      return segments.length >= 2 ? segments[1] : memberName;
+    }
+
+    if (metadataType === "AuraDefinitionBundle") {
+      const segments = relativePath.split("/");
+      return segments.length >= 2 ? segments[1] : memberName;
+    }
+
+    return memberName;
   }
 }

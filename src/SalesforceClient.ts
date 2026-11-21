@@ -1,12 +1,9 @@
 import type { CommandArgsConfig } from './types/config.type.js';
 import { AuthService } from './services/AuthService.js';
-import { DeployService } from './services/DeployService.js';
+import { DeployService, NormalizedDeployResponse } from './services/DeployService.js';
 import { MDAPIService } from './services/MDAPIService.js';
 import { ArchiverService } from './services/ArchiverService.js';
-import { RetrieveService } from './services/RetrieveService.js';
-import type { DeployOptions, DeployResult } from 'types/deployment.type.js';
-import type { RetrieveCommandOptions, RetrieveStatusResult } from './types/retrieve.type.js';
-import path from 'path';
+import type { DeployOptions, DeployResult } from './types/deployment.type.js';
 import fs from 'fs';
 
 export class SalesforceClient {
@@ -15,7 +12,7 @@ export class SalesforceClient {
 	private deployService: DeployService;
 	private mdapiService: MDAPIService;
 	private archiverService: ArchiverService;
-	private retrieveService: RetrieveService;
+	private reportService: ReportService;
 
 	constructor(config: CommandArgsConfig) {
 		this.config = config;
@@ -23,77 +20,61 @@ export class SalesforceClient {
 		this.deployService = new DeployService(config);
 		this.mdapiService = new MDAPIService(config);
 		this.archiverService = new ArchiverService(config);
-		this.retrieveService = new RetrieveService(config);
+		this.reportService = new ReportService();
 	}
 
-	async deploy(options: Partial<DeployOptions> = {}): Promise<DeployResult> {
-		try {
-			console.log('🔐 Authenticating with Salesforce...');
-			await this.authService.authenticate();
-
-			const runTests = await this.mdapiService.convertToMDAPI(this.config.exclude);
-			const files = await fs.promises.readdir(this.config.cliOuputFolder);
-			const hasPackageXml = files.some((file) => file === 'package.xml');
-
-			const deploymentOptions = { ...options, runTests };
-			let mainDeployId: string;
-
-			if (hasPackageXml) {
-				console.log('📦 Preparing deployment package...', this.config.output);
-				await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
-
-				console.log('🚀 Initiating deployment...');
-				mainDeployId = await this.deployService.initiateDeployment(this.config.output, deploymentOptions);
-				console.log('📝 Main deployment initiated with ID:', mainDeployId);
-
-				console.log('⏳ Waiting for deployment completion...');
-				console.time('⏳⏳ Deployment time ⏳⏳');
-				const mainDeployResult = await this.deployService.pollDeploymentStatus(mainDeployId);
-				console.log('📊 Main deployment result:', mainDeployResult.status);
-				console.timeEnd('⏳⏳ Deployment time ⏳⏳');
-
-				return mainDeployResult;
-			}
-
-			const destructivePath = path.join(this.config.cliOuputFolder, 'destructiveChanges', 'destructiveChanges.xml');
-			let destructiveDeployId: string | undefined;
-
-			if (this.fileExists(destructivePath)) {
-				console.log('🗑️  Destructive changes found, preparing destructive changes deployment...');
-
-				try {
-					const destructiveZipPath = path.join(this.config.cliOuputFolder, 'destructive-package.zip');
-					await this.archiverService.zipDirectory(path.join(this.config.cliOuputFolder, 'destructiveChanges'), destructiveZipPath);
-
-					destructiveDeployId = await this.deployService.initiateDeployment(destructiveZipPath, deploymentOptions);
-					console.log('🚀 Destructive changes deployment initiated with ID:', destructiveDeployId);
-				} catch (error) {
-					console.error('❌ Error processing destructive changes:', error);
-				}
-			} else {
-				console.log('ℹ️  No destructive changes found');
-			}
-
-			if (destructiveDeployId) {
-				console.log('⏳ Waiting for destructive changes deployment...');
-				try {
-					const destructiveResult = await this.deployService.pollDeploymentStatus(destructiveDeployId);
-					return destructiveResult;
-				} catch (error) {
-					console.error('❌ Error in destructive changes deployment:', error);
-				}
-			}
-			throw new Error('Deployment failed: Missing required condition.');
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			console.error('❌ Deployment failed:', errorMessage);
-			throw new Error(`Deployment failed: ${errorMessage}`);
+	async package(): Promise<{ packaged: boolean; zipPath: string | null; runTests: string[] }> {
+		const detectedTests = await this.mdapiService.convertToMDAPI(this.config.exclude);
+		const configuredTests = this.config.tests ?? this.config.runTests ?? [];
+		const runTests = [...new Set([...detectedTests, ...configuredTests])];
+		const files = await fs.promises.readdir(this.config.cliOuputFolder);
+		if (!files.includes('package.xml')) {
+			console.log('No deployable metadata changes found.');
+			return { packaged: false, zipPath: null, runTests };
 		}
+		await this.archiverService.zipDirectory(this.config.cliOuputFolder, this.config.output);
+		return { packaged: true, zipPath: this.config.output, runTests };
+	}
+
+	async deploy(options: Partial<DeployOptions> = {}): Promise<DeployResult | null> {
+		if (this.config.dryRun) {
+			await this.package();
+			return null;
+		}
+		console.log('🔐 Authenticating with Salesforce...');
+		await this.authService.authenticate();
+		const { packaged, runTests: packagedTests } = await this.package();
+		if (!packaged) {
+			return null;
+		}
+		const runTests = [...new Set([...packagedTests, ...(options.runTests ?? [])])];
+		const deploymentId = await this.deployService.initiateDeployment(this.config.output, { ...options, runTests });
+		console.log('Deployment initiated with ID:', deploymentId);
+		return this.deployService.pollDeploymentStatus(deploymentId);
 	}
 
 	async quickDeploy(deploymentId: string): Promise<DeployResult> {
 		await this.authService.authenticate();
-		return this.deployService.quickDeploy(deploymentId);
+		const deployResult = await this.deployService.quickDeploy(deploymentId);
+		if (deployResult?.done && deployResult.status === 'Succeeded') {
+			return deployResult;
+		}
+		const quickDeployId = deployResult?.id || deploymentId;
+		return this.deployService.pollDeploymentStatus(quickDeployId);
+	}
+
+	async fetchDeploymentStatus(deploymentId: string): Promise<DeployResult> {
+		await this.authService.authenticate();
+		return this.deployService.fetchDeploymentStatus(deploymentId);
+	}
+
+	async cancelDeployment(deploymentId: string): Promise<DeployResult> {
+		await this.authService.authenticate();
+		return this.deployService.cancelDeployment(deploymentId);
+	}
+
+	formatDeployResponse(result: DeployResult): NormalizedDeployResponse {
+		return this.deployService.formatDeployResponse(result);
 	}
 
 	async retrieve(options: RetrieveCommandOptions): Promise<{ id: string; status: string; outputDir: string }> {
@@ -117,3 +98,4 @@ export class SalesforceClient {
 		return fs.existsSync(filePath);
 	}
 }
+

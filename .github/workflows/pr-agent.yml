@@ -1,0 +1,29 @@
+name: PR-Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  pr-agent:
+    if: ${{ github.event.sender.type != 'Bot' && (github.event_name != 'issue_comment' || github.event.issue.pull_request != null) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Run PR-Agent
+        uses: the-pr-agent/pr-agent@main
+        env:
+          # Repo settings load from the default branch, which may not have
+          # .pr_agent.toml yet when this setup PR runs. Keep these in sync with it.
+          CONFIG__MODEL: openrouter/qwen/qwen3.8-flash
+          CONFIG__FALLBACK_MODELS: '["openrouter/deepseek/deepseek-v4.1-flash"]'
+          CONFIG__CUSTOM_MODEL_MAX_TOKENS: "20000"
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          OPENROUTER__KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || secrets.OPENROUTER_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
