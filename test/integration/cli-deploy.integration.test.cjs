@@ -36,6 +36,34 @@ describe('built deploy CLI with simulated Salesforce transport', () => {
     expect(files.get('classes/Keep.cls').toString()).toContain('updated');
     expect(files.has('classes/Keep.cls-meta.xml')).toBe(true);
   }));
+  test.each(['metadata only', 'source and metadata'])('selects an Apex test once when a commit changes its %s', change => withProject('apex-test-metadata', async p => {
+    const testClass = `${source}/classes/KeepTest.cls`;
+    const metadata = `${testClass}-meta.xml`;
+    const apex = '@isTest private class KeepTest { @isTest static void checksValue() { System.assertEquals(\'baseline\', Keep.value()); } }';
+    await p.write(testClass, apex);
+    await p.write(metadata, fixture(`${cls}-meta.xml`));
+    p.git(['add', testClass, metadata]);
+    p.git(['commit', '-qm', 'add Apex test']);
+    p.git(['tag', '-f', 'fixture-base']);
+
+    const updatedMetadata = fixture(`${cls}-meta.xml`).replace('58.0', '59.0');
+    const updatedApex = change === 'source and metadata' ? apex + '\n// updated' : apex;
+    if (updatedApex !== apex) await p.write(testClass, updatedApex);
+    await p.write(metadata, updatedMetadata);
+    p.git(['add', testClass, metadata]);
+    p.git(['commit', '-qm', 'update Apex test']);
+
+    const result = await deploy(p, { args: ['--validateOnly', '--testLevel', 'RunSpecifiedTests'] });
+    success(result);
+    expect(result.capturedZips).toHaveLength(1);
+    const files = readZip(result.capturedZips[0]);
+    expect(members(files.get('package.xml'))).toEqual({ ApexClass: ['KeepTest'] });
+    expect(files.get('classes/KeepTest.cls').toString()).toBe(updatedApex);
+    expect(files.get('classes/KeepTest.cls-meta.xml').toString()).toBe(updatedMetadata);
+    const soap = result.requests[1].body;
+    expect(soap).toContain('<met:testLevel>RunSpecifiedTests</met:testLevel>');
+    expect(soap.match(/<met:runTests>.*?<\/met:runTests>/g) ?? []).toEqual(['<met:runTests>KeepTest</met:runTests>']);
+  }));
   test.each(['Failed', 'Canceled', 'SucceededPartial'])('exits nonzero for terminal %s', status => withProject(`cli-${status}`, async p => {
     await changed(p);
     const result = await deploy(p, { status });

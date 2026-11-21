@@ -103,11 +103,8 @@ export class MDAPIService extends BaseService {
           await this.copyFileWithMetadata(file);
           copiedFiles.add(file);
 
-          if (metadataType.name === "ApexClass" && (await this.isTestClass(file))) {
-            const testClassName = path.basename(file, ".cls");
-            if (!runTests.includes(testClassName)) {
-              runTests.push(testClassName);
-            }
+          if (metadataType.name === "ApexClass") {
+            await this.collectApexTest(file, runTests);
           }
         }
       }
@@ -425,8 +422,8 @@ export class MDAPIService extends BaseService {
         this.addMember(type, memberName, types);
       }
 
-      if (type === "ApexClass" && (await this.isTestClass(file))) {
-        runTests.push(path.basename(file, ".cls"));
+      if (type === "ApexClass") {
+        await this.collectApexTest(file, runTests);
       }
     }
   }
@@ -507,6 +504,16 @@ export class MDAPIService extends BaseService {
       }
     } else {
       types.push({ name: type, members: [name] });
+    }
+  }
+
+  private async collectApexTest(file: string, runTests: string[]): Promise<void> {
+    const classFile = file.replace(/\.cls-meta\.xml$/, ".cls");
+    if (!classFile.endsWith(".cls")) return;
+
+    const className = path.basename(classFile, ".cls");
+    if (!runTests.includes(className) && (await this.isTestClass(classFile))) {
+      runTests.push(className);
     }
   }
 
