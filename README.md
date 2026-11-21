@@ -63,15 +63,16 @@
 
 The tool supports extensive Salesforce metadata types including but not limited to:
 
-**Custom Metadata:**
-- ApexClasses, ApexComponents, ApexPages, ApexTriggers
-- CustomObjects, CustomFields, CustomLabels
-- Flows, FlowDefinitions
-- LWC Lightning Components, Aura Components
-- Profiles, PermissionSets, Queues
-- Reports, ReportsTypes
-- Visualforce Pages, Visualforce Components
-- CustomTabs, QuickActions, ActionLinkGroupTemplates
+**Custom Metadata & SFDX Folders:**
+- ApexClasses (`classes`), ApexComponents (`components`), ApexPages (`pages`), ApexTriggers (`triggers`), StaticResources (`staticresources`) — including automatic companion primary/metadata file pairing when either file changes
+- CustomObjects (`objects`) and decomposed CustomObject children: CustomFields (`fields`), ValidationRules (`validationRules`), RecordTypes (`recordTypes`), ListViews (`listViews`), WebLinks (`webLinks`), CompactLayouts (`compactLayouts`), BusinessProcesses (`businessProcesses`), and FieldSets (`fieldSets`)
+- CustomLabels (`labels`), CustomMetadata (`customMetadata`), CustomPermissions (`customPermissions`), CustomApplications (`applications` / `customApplications`), ConnectedApps (`connectedApps`)
+- Flows (`flow` / `flows`), FlowDefinitions (`flowDefinitions`), ApprovalProcesses (`ApprovalProcess` / `approvalProcesses`)
+- Bundle metadata with full directory copying and partial-deletion survival: LightningComponentBundle (`lwc`), AuraDefinitionBundle (`aura`), and ExperienceBundle (`experiences`)
+- Profiles (`profiles`), PermissionSets (`permissionSet` / `permissionsets`), Queues (`queue` / `queues`), Roles (`Role` / `roles`), Groups (`Group` / `groups`)
+- SharingRules (`sharingRules`), DuplicateRules (`duplicateRules`), MatchingRules (`matchingRules`), AssignmentRules (`assignmentRules`), AutoResponseRules (`autoResponseRules`), EscalationRules (`escalationRules`)
+- Reports (`Report` / `reports`), ReportTypes (`ReportType` / `reportTypes`), Dashboards (`Dashboard` / `dashboards`), EmailTemplates (`EmailTemplate` / `email`)
+- CustomTabs (`tab` / `tabs`), QuickActions (`quickAction` / `quickActions`), CustomPageWebLinks (`weblinks`), NamedCredentials (`namedCredentials`), ExternalCredentials (`externalCredentials`), GlobalValueSets (`globalValueSets`), PlatformCachePartitions (`cachePartitions`)
 - And 50+ more metadata types
 
 See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_tab.htm) for full details.
