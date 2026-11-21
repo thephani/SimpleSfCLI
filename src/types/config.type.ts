@@ -18,9 +18,15 @@ export interface CommandArgsConfig {
 	cliVersion: string;
 	cliOuputFolder: string;
 	quickDeployId?: string;
+	manifest?: string;
 	testLevel: 'NoTestRun' | 'RunLocalTests' | 'RunAllTestsInOrg' | 'RunSpecifiedTests';
 	coverageJson: string;
 	runTests: string[];
-	reportFormat?: ReportFormat;
-	reportPath?: string;
+	tests?: string[];
+	apiVersion?: string;
+	pollInterval?: number;
+	maxPollAttempts?: number;
+	dryRun?: boolean;
+	json?: boolean;
 }
+

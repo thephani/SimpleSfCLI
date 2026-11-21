@@ -1,0 +1,45 @@
+[config]
+model = "openrouter/qwen/qwen3.8-flash"
+fallback_models = ["openrouter/deepseek/deepseek-v4.1-flash"]
+custom_model_max_tokens = 20000
+
+[github_action_config]
+auto_review = true
+auto_describe = true
+auto_improve = false
+pr_actions = ["opened", "reopened", "ready_for_review", "synchronize"]
+
+[pr_reviewer]
+ask_and_reflect = true # Legacy setting; current upstream does not consume it.
+inline_code_comments = true # Legacy setting; current upstream uses inline_key_issues.
+inline_key_issues = true
+persistent_comment = true
+enable_review_labels_security = true
+extra_instructions = """
+Review SimpleSfCLI as a Node.js and TypeScript CLI built with Commander.
+Focus on Salesforce OAuth and access-token handling, Metadata API response and
+deployment status handling, polling timeouts, and correctness of Git-based
+metadata selection, package.xml, destructive changes, and deployment ZIPs.
+Look for CLI regressions in argument validation, check-only behavior, and exit
+status. Services should propagate actionable errors with operation context;
+the CLI should report failures to stderr and exit nonzero. Flag leaked secrets,
+swallowed errors, false success messages, and missing Jest coverage for changed
+behavior, especially when mocked Salesforce responses hide error paths.
+Report concrete findings tied to the diff and explain the user impact.
+Ignore superficial linting, formatting, and style issues.
+"""
+
+[pr_description]
+generate_ai_title = false
+publish_labels = true
+add_original_user_description = true
+extra_instructions = """
+Explain why the change is needed and what behavior changes for CLI users.
+Include a concise walkthrough organized by file or related groups of files.
+Call out changes to Salesforce authentication, deployment safety, or CLI
+compatibility when relevant. Do not invent test results or deployment outcomes.
+"""
+
+[pr_code_suggestions]
+committable_code_suggestions = true
+suggestions_score_threshold = 7

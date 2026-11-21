@@ -1,24 +1,37 @@
 import fs from 'fs';
 import path from 'path';
-import { MetadataType } from 'types/index.type';
-import { FieldProperties, GroupedData } from 'types/xml.type';
+import defaultConfig from '../config.js';
+import type { MetadataType } from '../types/index.type.js';
+import type { GroupedData } from '../types/xml.type.js';
 
 import xmlbuilder from 'xmlbuilder';
+import { CUSTOM_OBJECT_CHILDREN } from './constants.js';
 
 export class XmlHelper {
 	private sourceDirectory: string;
 	private outputDirectory: string;
+	private apiVersion: string;
 
-	constructor(outputDirectory: string = './.simpleSfCli_out', sourceDirectory: string = 'force-app/main/default') {
+	constructor(
+		outputDirectory: string = './.simpleSfCli_out',
+		sourceDirectory: string = 'force-app/main/default',
+		apiVersion: string = defaultConfig.sfVersion,
+	) {
 		this.sourceDirectory = sourceDirectory;
 		this.outputDirectory = outputDirectory;
+		this.apiVersion = this.normalizeVersion(apiVersion);
 	}
 
-	public createEmptyPackageXml(version: string = '62.0'): string {
+	private normalizeVersion(version?: string): string {
+		const rawVersion = (version || defaultConfig.sfVersion || '62.0').trim();
+		return rawVersion.replace(/^v/i, '');
+	}
+
+	public createEmptyPackageXml(version: string = this.apiVersion): string {
 		try {
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
 
-			packageXml.ele('version', version);
+			packageXml.ele('version', this.normalizeVersion(version));
 
 			return packageXml.end({ pretty: true });
 		} catch (error) {
@@ -30,7 +43,7 @@ export class XmlHelper {
 	/**
 	 * Generates a package.xml file based on the provided metadata types and their members.
 	 */
-	public createPackageXml(metadataTypes: MetadataType[]): string {
+	public createPackageXml(metadataTypes: MetadataType[], version: string = this.apiVersion): string {
 		try {
 			// console.log('Creating package.xml with metadata types:', metadataTypes);
 			const packageXml = xmlbuilder.create('Package', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
@@ -53,7 +66,7 @@ export class XmlHelper {
 				types.ele('name', name);
 			});
 
-			packageXml.ele('version', '58.0');
+			packageXml.ele('version', this.normalizeVersion(version));
 			return packageXml.end({ pretty: true });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -65,64 +78,55 @@ export class XmlHelper {
 	 * Generates package member details from a given file path.
 	 */
 	public generatePackageMember(filePath: string): MetadataType | null {
-		const customFieldRegEx = /objects\/([^/]+)\/fields\/([^/]+)\.field-meta\.xml$/;
-		const match = filePath.match(customFieldRegEx);
+		for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+			const match = filePath.match(childConfig.regex);
+			if (match) {
+				const objectName = match[1];
+				const childName = this.getFieldFullName(filePath) ?? match[2];
 
-		if (!match) {
-			console.error('File path does not match the expected pattern:', filePath);
-			return null;
+				return {
+					name: childConfig.typeName,
+					members: [childName.includes('.') ? childName : `${objectName}.${childName}`],
+				};
+			}
 		}
 
-		//1. first captured group (object name) 2. second captured group (field name)
-
-		return {
-			name: 'CustomField',
-			members: [`${match[1]}.${match[2]}`],
-		};
+		console.error('File path does not match the expected pattern:', filePath);
+		return null;
 	}
 
 	/**
-	 * Transforms XML structure to rename root node to `<CustomObject>` and nests content under `<fields>`.
+	 * Transforms XML structure to rename root node to `<CustomObject>` and nests child content under its respective child elements.
 	 */
 	public generateCustomObjectForFields(groupedData: GroupedData): void {
 		try {
-			Object.keys(groupedData).forEach((objectName) => {
-				console.log(`Processing object: ${objectName}`);
-
-					const fields = groupedData[objectName].fields;
-					// console.log(`Fields for ${objectName}: ${fields}`);
-					const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' }).att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
-
-					fields.forEach((field) => {
-						const sourceFilePath = path.join(this.sourceDirectory, 'objects', objectName, 'fields', `${field}.field-meta.xml`);
-						const existingXmlContent = fs.readFileSync(sourceFilePath, 'utf-8');
-
-					const match = existingXmlContent.match(/<CustomField[^>]*>([\s\S]*?)<\/CustomField>/);
-					if (!match) {
-						throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
-						// return;
+			for (const [objectName, objectData] of Object.entries(groupedData)) {
+				const customObjectXml = xmlbuilder.create('CustomObject', { encoding: 'UTF-8' })
+					.att('xmlns', 'http://soap.sforce.com/2006/04/metadata');
+				for (const childConfig of CUSTOM_OBJECT_CHILDREN) {
+					const items = objectData[childConfig.folder];
+					if (!Array.isArray(items)) continue;
+					for (const itemName of items) {
+						const sourceFilePath = path.join(
+							this.sourceDirectory,
+							'objects',
+							objectName,
+							childConfig.folder,
+							`${itemName}${childConfig.extension}`,
+						);
+						const content = fs.readFileSync(sourceFilePath, 'utf-8');
+						const tagRegex = new RegExp(`<${childConfig.typeName}[^>]*>([\\s\\S]*?)<\\/${childConfig.typeName}>`);
+						const match = content.match(tagRegex);
+						if (!match) throw new Error(`Invalid XML structure in file: ${sourceFilePath}`);
+						// Preserve repeated elements, attributes and encoded XML content.
+						customObjectXml.ele(childConfig.folder).raw(match[1].trim());
 					}
-
-					// console.log(`Processing field: ${field}`, match);
-					const customFieldContent = match[1];
-					const fieldProperties = this.extractFieldProperties(customFieldContent);
-
-					const fieldsNode = customObjectXml.ele('fields');
-					Object.entries(fieldProperties).forEach(([key, value]) => {
-						// console.log(`Adding field property: ${key} = ${value}`);
-						fieldsNode
-							.ele(key)
-							.raw(value as string)
-							.up();
-					});
-				});
-
-				const updatedXml = customObjectXml.end({ pretty: true });
-				this.saveUpdatedXml(objectName, updatedXml);
-			});
+				}
+				this.saveUpdatedXml(objectName, customObjectXml.end({ pretty: true }));
+			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-			throw new Error(`Error transforming XML files: ${errorMessage}`);
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			throw new Error(`Error transforming XML files: ${message}`);
 		}
 	}
 
@@ -151,17 +155,155 @@ export class XmlHelper {
 	 * Validates if a string is valid XML.
 	 */
 	public isValidXml(xml: string): boolean {
-		try {
-			// Parse out the root element name and use that for creation
-			const rootMatch = xml.match(/<([^\s>/?]+)[\s>]/);
-			if (!rootMatch) return false;
-			
-			const rootElement = rootMatch[1];
-			xmlbuilder.create(rootElement);
-			return true;
-		} catch {
+		if (!xml || typeof xml !== 'string') {
 			return false;
 		}
+
+		let working = xml.trim();
+		if (!working.startsWith('<') || !working.endsWith('>')) {
+			return false;
+		}
+
+		// Handle optional XML declaration at the beginning
+		if (working.startsWith('<?xml')) {
+			const declMatch = working.match(/^<\?xml(?:\s+[A-Za-z_][\w:.-]*\s*=\s*(?:"[^"]*"|'[^']*'))+\s*\?>\s*/);
+			if (!declMatch) {
+				return false;
+			}
+			working = working.slice(declMatch[0].length);
+		}
+
+		// Disallow any subsequent XML declarations
+		if (/<\?xml\b/i.test(working)) {
+			return false;
+		}
+
+		// Check for unclosed comments or CDATA sections, then strip valid ones
+		const commentStarts = (working.match(/<!--/g) || []).length;
+		const commentEnds = (working.match(/-->/g) || []).length;
+		if (commentStarts !== commentEnds) {
+			return false;
+		}
+		working = working.replace(/<!--[\s\S]*?-->/g, '');
+
+		const cdataStarts = (working.match(/<!\[CDATA\[/g) || []).length;
+		const cdataEnds = (working.match(/\]\]>/g) || []).length;
+		if (cdataStarts !== cdataEnds) {
+			return false;
+		}
+		working = working.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
+
+		const stack: string[] = [];
+		let hasRoot = false;
+		let lastIndex = 0;
+		const tagRegex = /<[^>]*>/g;
+		const closingTagPattern = /^<\/([A-Za-z_][\w:.-]*)\s*>$/;
+		const openTagPattern = /^<([A-Za-z_][\w:.-]*)((?:\s+[A-Za-z_][\w:.-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*)\s*(\/?)>$/;
+
+		let match: RegExpExecArray | null;
+		while ((match = tagRegex.exec(working)) !== null) {
+			const betweenText = working.slice(lastIndex, match.index);
+			if (betweenText.includes('<') || betweenText.includes(']]>')) {
+				return false;
+			}
+			if (stack.length === 0 && betweenText.trim().length > 0) {
+				return false;
+			}
+
+			const token = match[0];
+			lastIndex = tagRegex.lastIndex;
+
+			const closeMatch = token.match(closingTagPattern);
+			if (closeMatch) {
+				const tagName = closeMatch[1];
+				if (stack.length === 0 || stack[stack.length - 1] !== tagName) {
+					return false;
+				}
+				stack.pop();
+				continue;
+			}
+
+			const openMatch = token.match(openTagPattern);
+			if (!openMatch) {
+				return false;
+			}
+
+			if (hasRoot && stack.length === 0) {
+				// Extra root-level element after root closed
+				return false;
+			}
+
+			const tagName = openMatch[1];
+			const selfClosing = openMatch[3] === '/';
+			hasRoot = true;
+
+			if (!selfClosing) {
+				stack.push(tagName);
+			}
+		}
+
+		const trailingText = working.slice(lastIndex);
+		if (trailingText.includes('<') || trailingText.includes('>') || trailingText.trim().length > 0) {
+			return false;
+		}
+
+		return hasRoot && stack.length === 0;
+	}
+
+	public validateManifestXml(manifestXml: string): void {
+		if (!manifestXml.includes('<Package')) {
+			throw new Error('Invalid manifest: missing Package root element.');
+		}
+
+		const versionMatch = manifestXml.match(/<version>\s*([^<\s]+)\s*<\/version>/);
+		if (!versionMatch?.[1]) {
+			throw new Error('Invalid manifest: missing API version.');
+		}
+
+		const typeSections = manifestXml.match(/<types>[\s\S]*?<\/types>/g) ?? [];
+		if (typeSections.length === 0) {
+			throw new Error('Invalid manifest: at least one <types> block is required.');
+		}
+
+		typeSections.forEach((section) => {
+			const memberMatches = [...section.matchAll(/<members>\s*([^<]+?)\s*<\/members>/g)].map((match) => match[1].trim());
+			const typeName = section.match(/<name>\s*([^<\s]+)\s*<\/name>/)?.[1]?.trim();
+
+			if (!typeName) {
+				throw new Error('Invalid manifest: each <types> block must contain a <name>.');
+			}
+
+			const nonEmptyMembers = memberMatches.filter(Boolean);
+			if (nonEmptyMembers.length === 0) {
+				throw new Error(`Invalid manifest: ${typeName} must include at least one member.`);
+			}
+		});
+	}
+
+	public parseManifestXml(manifestXml: string): { metadataTypes: MetadataType[]; apiVersion: string } {
+		this.validateManifestXml(manifestXml);
+
+		const apiVersion = manifestXml.match(/<version>\s*([^<\s]+)\s*<\/version>/)?.[1]?.trim();
+		if (!apiVersion) {
+			throw new Error('Invalid manifest: missing API version.');
+		}
+
+		const metadataTypes: MetadataType[] = [];
+		const typeSections = manifestXml.match(/<types>[\s\S]*?<\/types>/g) ?? [];
+		typeSections.forEach((section) => {
+			const name = section.match(/<name>\s*([^<\s]+)\s*<\/name>/)?.[1]?.trim();
+			if (!name) {
+				return;
+			}
+
+			const members = [...section.matchAll(/<members>\s*([^<]+?)\s*<\/members>/g)]
+				.map((match) => match[1].trim())
+				.filter(Boolean);
+
+			metadataTypes.push({ name, members });
+		});
+
+		return { metadataTypes, apiVersion };
 	}
 
 	/**
@@ -178,20 +320,16 @@ export class XmlHelper {
 		this.outputDirectory = directory;
 	}
 
-	/**
-	 * Extracts field properties from the given XML content.
-	 */
-	private extractFieldProperties(xmlContent: string): FieldProperties {
-		const fieldProperties: FieldProperties = {};
-		const propertyRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
-		let match;
-
-		while ((match = propertyRegex.exec(xmlContent)) !== null) {
-			const [, key, value] = match;
-			fieldProperties[key] = value.trim();
+	private getFieldFullName(filePath: string): string | null {
+		if (!fs.existsSync(filePath)) {
+			return null;
 		}
 
-		return fieldProperties;
+		const xmlContent = fs.readFileSync(filePath, 'utf-8');
+		const fullNameMatch = xmlContent.match(/<fullName>\s*([\s\S]*?)\s*<\/fullName>/);
+		const fullName = fullNameMatch?.[1]?.trim();
+
+		return fullName || null;
 	}
 
 	/**
@@ -206,6 +344,14 @@ export class XmlHelper {
 			}
 
 			const outputPath = path.join(outputDir, `${objectName}.object`);
+			if (fs.existsSync(outputPath)) {
+				const objectXml = fs.readFileSync(outputPath, 'utf-8');
+				const fieldsContent = updatedXml.match(/<CustomObject[^>]*>([\s\S]*)<\/CustomObject>/)?.[1];
+				if (!fieldsContent || !/<\/CustomObject>\s*$/.test(objectXml)) {
+					throw new Error(`Invalid CustomObject payload: ${outputPath}`);
+				}
+				updatedXml = objectXml.replace(/<\/CustomObject>\s*$/, `${fieldsContent}\n</CustomObject>`);
+			}
 			fs.writeFileSync(outputPath, updatedXml, 'utf-8');
 			// console.log(`Saved updated XML for ${objectName} to: ${outputPath}`);
 		} catch (error) {
