@@ -28,5 +28,6 @@ export interface CommandArgsConfig {
 	maxPollAttempts?: number;
 	dryRun?: boolean;
 	json?: boolean;
+	reportFormat?: ReportFormat;
+	reportPath?: string;
 }
-

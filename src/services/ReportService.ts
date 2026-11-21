@@ -89,8 +89,8 @@ export class ReportService {
 		}
 	}
 
-	private escapeXml(value: string): string {
-		return value
+	private escapeXml(value: string | null | undefined): string {
+		return String(value ?? '')
 			.replace(/&/g, '&amp;')
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;')

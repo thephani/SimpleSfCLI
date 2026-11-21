@@ -1,4 +1,5 @@
 import { SalesforceClient } from '../../SalesforceClient';
+import { DeploymentFailedError } from '../../errors/DeploymentFailedError';
 import type { CommandArgsConfig } from '../../types/config.type';
 import type { DeployResult } from '../../types/deployment.type';
 
@@ -57,5 +58,48 @@ describe('SalesforceClient report generation', () => {
 		expect(warnSpy).toHaveBeenCalledWith('⚠️ Failed to generate deployment report:', 'disk full');
 
 		warnSpy.mockRestore();
+	});
+
+	it('writes a deployment report even when the deployment fails with DeploymentFailedError', async () => {
+		const client = new SalesforceClient(config);
+		const failedResult = {
+			id: '0Afxx0000006666',
+			done: true,
+			status: 'Failed',
+			numberComponentsDeployed: 1,
+			numberComponentsTotal: 2,
+			numberComponentErrors: 1,
+			numberTestsCompleted: 0,
+			numberTestsTotal: 0,
+			numberTestErrors: 0,
+			details: {
+				componentFailures: [
+					{
+						componentType: 'ApexClass',
+						fileName: 'classes/Broken.cls',
+						fullName: 'Broken',
+						problem: 'Compile error',
+						problemType: 'Error',
+						success: false,
+					},
+				],
+			},
+		} as DeployResult;
+
+		const writeSpy = jest.spyOn((client as any).reportService, 'writeDeploymentReport').mockResolvedValueOnce(['./reports/failed.json']);
+
+		await expect(
+			(client as any).withReport(async () => {
+				throw new DeploymentFailedError(failedResult.id, failedResult);
+			}),
+		).rejects.toThrow(`Deployment ${failedResult.id} ended with status Failed`);
+
+		expect(writeSpy).toHaveBeenCalledTimes(1);
+		expect(writeSpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				summary: expect.objectContaining({ deploymentId: '0Afxx0000006666', status: 'Failed' }),
+			}),
+			expect.objectContaining({ reportFormat: 'both' }),
+		);
 	});
 });

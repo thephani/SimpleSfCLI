@@ -6,6 +6,8 @@ import { AuthService } from '../services/AuthService';
 import { MDAPIService } from '../services/MDAPIService';
 import { ArchiverService } from '../services/ArchiverService';
 import { DeployService } from '../services/DeployService';
+import { RetrieveService } from '../services/RetrieveService';
+import { ReportService } from '../services/ReportService';
 
 describe('CLI Features & DX Enhancements (F13-F18)', () => {
 	const originalArgv = process.argv;
@@ -469,6 +471,208 @@ describe('CLI Features & DX Enhancements (F13-F18)', () => {
 
 			expect(updated.source).toBe('explicit-source/main/default');
 			expect(updated.sfVersion).toBe('v63.0');
+		});
+	});
+
+	describe('Manifest, Report, Status, Cancel, and Retrieve CLI wiring', () => {
+		it('propagates --manifest into config and rejects combining --manifest with --baseBranch or --targetBranch', async () => {
+			const cli = await getCliInstance();
+			const updated = (cli as any).getUpdatedConfig(
+				{
+					manifest: './manifest/package.xml',
+					dryRun: true,
+				},
+				{ requireAuth: false, logUsername: false },
+			);
+			expect(updated.manifest).toBe('./manifest/package.xml');
+
+			expect(() =>
+				(cli as any).getUpdatedConfig(
+					{
+						manifest: './manifest/package.xml',
+						baseBranch: 'origin/main',
+						dryRun: true,
+					},
+					{ requireAuth: false, logUsername: false },
+				),
+			).toThrow('--manifest cannot be combined with --baseBranch or --targetBranch.');
+		});
+
+		it('validates --reportFormat and writes deployment report when configured', async () => {
+			const cli = await getCliInstance();
+			expect(() =>
+				(cli as any).getUpdatedConfig(
+					{
+						reportFormat: 'invalid-format',
+						dryRun: true,
+					},
+					{ requireAuth: false, logUsername: false },
+				),
+			).toThrow('Invalid report format: invalid-format');
+
+			const outDir = path.join(tempDir, '.simpleSfCli_out');
+			fs.mkdirSync(outDir, { recursive: true });
+			fs.writeFileSync(path.join(outDir, 'package.xml'), '<Package />', 'utf-8');
+			process.chdir(tempDir);
+
+			jest.spyOn(AuthService.prototype, 'authenticate').mockResolvedValue({
+				accessToken: 'token-123',
+				instanceUrl: 'https://test.salesforce.com',
+				issuedAt: '2026-04-08T00:00:00.000Z',
+			});
+			jest.spyOn(MDAPIService.prototype, 'convertToMDAPI').mockResolvedValue([]);
+			jest.spyOn(ArchiverService.prototype, 'zipDirectory').mockResolvedValue(undefined);
+			jest.spyOn(DeployService.prototype, 'initiateDeployment').mockResolvedValue('0Af000000000123AAA');
+			jest.spyOn(DeployService.prototype, 'pollDeploymentStatus').mockResolvedValue({
+				id: '0Af000000000123AAA',
+				done: true,
+				status: 'Succeeded',
+				numberComponentsDeployed: 1,
+				numberComponentsTotal: 1,
+				numberComponentErrors: 0,
+				numberTestsCompleted: 0,
+				numberTestsTotal: 0,
+				numberTestErrors: 0,
+				details: { componentFailures: [] },
+			});
+			const reportSpy = jest.spyOn(ReportService.prototype, 'writeDeploymentReport').mockResolvedValue(['./reports/out.json']);
+
+			await (cli as any).program.parseAsync([
+				'node',
+				'simpleSfCli',
+				'deploy',
+				'--username',
+				'user@example.com',
+				'--clientId',
+				'client-id',
+				'--privateKey',
+				TEST_PRIVATE_KEY,
+				'--reportFormat',
+				'both',
+				'--reportPath',
+				path.join(tempDir, 'reports'),
+			]);
+
+			expect(reportSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					summary: expect.objectContaining({ deploymentId: '0Af000000000123AAA', status: 'Succeeded' }),
+				}),
+				expect.objectContaining({
+					reportFormat: 'both',
+					reportPath: path.join(tempDir, 'reports'),
+				}),
+			);
+		});
+
+		it('executes status and cancel subcommands and prints normalized summaries', async () => {
+			jest.spyOn(AuthService.prototype, 'authenticate').mockResolvedValue({
+				accessToken: 'token-123',
+				instanceUrl: 'https://test.salesforce.com',
+				issuedAt: '2026-04-08T00:00:00.000Z',
+			});
+			const statusSpy = jest.spyOn(DeployService.prototype, 'fetchDeploymentStatus').mockResolvedValue({
+				id: '0Af000000000123AAA',
+				done: true,
+				status: 'Succeeded',
+				numberComponentsDeployed: 3,
+				numberComponentsTotal: 3,
+				numberComponentErrors: 0,
+				numberTestsCompleted: 1,
+				numberTestsTotal: 1,
+				numberTestErrors: 0,
+				details: { componentFailures: [] },
+			});
+			const cancelSpy = jest.spyOn(DeployService.prototype, 'cancelDeployment').mockResolvedValue({
+				id: '0Af000000000123AAA',
+				done: false,
+				status: 'InProgress',
+				numberComponentsDeployed: 1,
+				numberComponentsTotal: 3,
+				numberComponentErrors: 0,
+				numberTestsCompleted: 0,
+				numberTestsTotal: 1,
+				numberTestErrors: 0,
+				details: { componentFailures: [] },
+			});
+
+			const cli = await getCliInstance();
+			await (cli as any).program.parseAsync([
+				'node',
+				'simpleSfCli',
+				'status',
+				'--deployId',
+				'0Af000000000123AAA',
+				'--username',
+				'user@example.com',
+				'--clientId',
+				'client-id',
+				'--privateKey',
+				TEST_PRIVATE_KEY,
+				'--json',
+			]);
+			expect(statusSpy).toHaveBeenCalledWith('0Af000000000123AAA');
+			const statusJson = JSON.parse(consoleLogSpy.mock.calls[0][0]);
+			expect(statusJson.status).toBe('Succeeded');
+			expect(statusJson.success).toBe(true);
+
+			consoleLogSpy.mockClear();
+			const cliCancel = await getCliInstance();
+			await (cliCancel as any).program.parseAsync([
+				'node',
+				'simpleSfCli',
+				'cancel',
+				'--deployId',
+				'0Af000000000123AAA',
+				'--username',
+				'user@example.com',
+				'--clientId',
+				'client-id',
+				'--privateKey',
+				TEST_PRIVATE_KEY,
+			]);
+			expect(cancelSpy).toHaveBeenCalledWith('0Af000000000123AAA');
+		});
+
+		it('executes retrieve subcommand with --metadata and extracts retrieved archive', async () => {
+			jest.spyOn(AuthService.prototype, 'authenticate').mockResolvedValue({
+				accessToken: 'token-123',
+				instanceUrl: 'https://test.salesforce.com',
+				issuedAt: '2026-04-08T00:00:00.000Z',
+			});
+			const initiateSpy = jest.spyOn(RetrieveService.prototype, 'initiateRetrieve').mockResolvedValue('09Sxx0000000001');
+			jest.spyOn(RetrieveService.prototype, 'pollRetrieveStatus').mockResolvedValue({
+				id: '09Sxx0000000001',
+				done: true,
+				status: 'Succeeded',
+				zipFile: 'UEsDBAoAAAAAA...',
+			});
+			const extractSpy = jest.spyOn(ArchiverService.prototype, 'extractBase64Zip').mockResolvedValue(undefined);
+
+			const cli = await getCliInstance();
+			await (cli as any).program.parseAsync([
+				'node',
+				'simpleSfCli',
+				'retrieve',
+				'--metadata',
+				'ApexClass:MyClass',
+				'--outputDir',
+				path.join(tempDir, 'retrieved'),
+				'--username',
+				'user@example.com',
+				'--clientId',
+				'client-id',
+				'--privateKey',
+				TEST_PRIVATE_KEY,
+				'--json',
+			]);
+
+			expect(initiateSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					metadataFilter: 'ApexClass:MyClass',
+					outputDir: path.join(tempDir, 'retrieved'),
+				}),
+			);
+			expect(extractSpy).toHaveBeenCalledWith('UEsDBAoAAAAAA...', path.join(tempDir, 'retrieved'));
 		});
 	});
 });

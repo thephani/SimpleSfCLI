@@ -6,8 +6,10 @@ import path from 'path';
 import config from './config.js';
 import { SalesforceClient } from './SalesforceClient.js';
 import { AuthService } from './services/AuthService.js';
+import type { NormalizedDeployResponse } from './services/DeployService.js';
 import type { CommandArgsConfig } from './types/config.type.js';
-import type { DeployOptions, DeployResult } from './types/deployment.type.js';
+import type { DeployOptions, DeployResult, ReportFormat } from './types/deployment.type.js';
+import type { RetrieveCommandOptions } from './types/retrieve.type.js';
 
 export class CLI {
 	private program: Command;
@@ -48,7 +50,9 @@ export class CLI {
 			.option('--tests <tests...>', 'List of Apex tests to run when testLevel is RunSpecifiedTests')
 			.option('--apiVersion <version>', 'Salesforce API version (e.g., 60.0 or v60.0)')
 			.option('--pollInterval <ms>', 'Polling interval in milliseconds', (val) => parseInt(val, 10))
-			.option('--maxPollAttempts <count>', 'Maximum number of status polling attempts', (val) => parseInt(val, 10));
+			.option('--maxPollAttempts <count>', 'Maximum number of status polling attempts', (val) => parseInt(val, 10))
+			.option('--reportFormat <json|junit|both>', 'Deployment report format (json, junit, or both)')
+			.option('--reportPath <path>', 'Directory path for generated deployment reports');
 	}
 
 	private setupCommands(): void {
@@ -58,6 +62,7 @@ export class CLI {
 		this.setupDeployCommand();
 		this.setupStatusCommand();
 		this.setupCancelCommand();
+		this.setupRetrieveCommand();
 	}
 
 	private setupAuthTokenCommand(): void {
@@ -150,6 +155,7 @@ export class CLI {
 			.option('-s, --source <sourceDir>', 'Path to the SFDX source directory')
 			.option('-b, --baseBranch <baseBranch>', 'Base branch or git ref for delta comparison')
 			.option('-r, --targetBranch <targetBranch>', 'Target branch or git ref for delta comparison')
+			.option('-m, --manifest <path>', 'Path to package.xml manifest for manifest-based packaging')
 			.option('-x, --exclude <types...>', 'List of metadata types to exclude')
 			.option('--apiVersion <version>', 'Salesforce API version (e.g., 60.0 or v60.0)')
 			.action(async (cmdOptions) => {
@@ -248,6 +254,120 @@ export class CLI {
 					this.logCommandDuration(timer);
 				} catch (error) {
 					this.handleError('Deployment failed', error);
+				}
+			});
+	}
+
+	private setupStatusCommand(): void {
+		this.program
+			.command('status')
+			.description('Get one-shot deployment status')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
+			.option('--json', 'Print deployment status as JSON to stdout')
+			.option('--reportFormat <format>', 'Output format (summary|json)', 'summary')
+			.requiredOption('--deployId <id>', 'Deployment ID')
+			.action(async (cmdOptions) => {
+				const timer = this.startCommandTimer();
+				try {
+					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
+					const isJson = Boolean(options.json) || options.reportFormat?.toLowerCase() === 'json';
+					const updatedConfig = this.getUpdatedConfig(options, {
+						logUsername: !isJson,
+					});
+					const client = new SalesforceClient(updatedConfig);
+					const result = await this.runWithQuietStdout(isJson, () =>
+						client.fetchDeploymentStatus(options.deployId),
+					);
+					this.printReport(client.formatDeployResponse(result), isJson ? 'json' : options.reportFormat);
+					this.failForTerminalError(result.status, 'Deployment status indicates terminal failure');
+					this.logCommandDuration(timer);
+				} catch (error) {
+					this.handleError('Status command failed', error);
+				}
+			});
+	}
+
+	private setupCancelCommand(): void {
+		this.program
+			.command('cancel')
+			.description('Cancel deployment by ID')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
+			.option('--json', 'Print cancel result as JSON to stdout')
+			.option('--reportFormat <format>', 'Output format (summary|json)', 'summary')
+			.requiredOption('--deployId <id>', 'Deployment ID')
+			.action(async (cmdOptions) => {
+				const timer = this.startCommandTimer();
+				try {
+					const options = { ...this.program.opts(), ...this.getCommandOptions(cmdOptions) };
+					const isJson = Boolean(options.json) || options.reportFormat?.toLowerCase() === 'json';
+					const updatedConfig = this.getUpdatedConfig(options, {
+						logUsername: !isJson,
+					});
+					const client = new SalesforceClient(updatedConfig);
+					const result = await this.runWithQuietStdout(isJson, () =>
+						client.cancelDeployment(options.deployId),
+					);
+					this.printReport(client.formatDeployResponse(result), isJson ? 'json' : options.reportFormat);
+					this.failForTerminalError(result.status, 'Deployment cancel command failed');
+					this.logCommandDuration(timer);
+				} catch (error) {
+					this.handleError('Cancel command failed', error);
+				}
+			});
+	}
+
+	private setupRetrieveCommand(): void {
+		this.program
+			.command('retrieve')
+			.description('Retrieve metadata package from Salesforce')
+			.option('-u, --username <username>', 'Salesforce username')
+			.option('-c, --clientId <clientId>', 'Salesforce client ID')
+			.option('-k, --privateKey <privateKey>', 'Salesforce private key')
+			.option('-e, --env <environment>', 'Production or Sandbox [Default]')
+			.option('-m, --manifest <manifestPath>', 'Path to package.xml manifest')
+			.option('-f, --metadata <metadataFilter>', 'Inline metadata filter (ex: ApexClass:MyClass,OtherClass;CustomObject:*)')
+			.option('-o, --outputDir <outputDir>', 'Directory where retrieved metadata is extracted', '.simpleSfCli_retrieve')
+			.option('-l, --targetLayout <targetLayout>', 'Conversion target layout (currently mdapi only)', 'mdapi')
+			.option('--json', 'Print retrieve result as JSON to stdout')
+			.action(async (cmdOptions) => {
+				const timer = this.startCommandTimer();
+				try {
+					const commandOpts = this.getCommandOptions(cmdOptions);
+					const options = { ...this.program.opts(), ...commandOpts };
+					if (!options.manifest && !options.metadata) {
+						throw new Error('Provide either --manifest or --metadata');
+					}
+					const isJson = Boolean(options.json);
+					const updatedConfig = this.getUpdatedConfig(
+						{ ...options, manifest: undefined },
+						{ logUsername: !isJson },
+					);
+					const client = new SalesforceClient(updatedConfig);
+					const retrieveOptions: RetrieveCommandOptions = {
+						manifestPath: options.manifest,
+						metadataFilter: options.metadata,
+						outputDir: options.outputDir ?? '.simpleSfCli_retrieve',
+						targetLayout: options.targetLayout ?? 'mdapi',
+					};
+
+					if (!isJson) {
+						console.log('Initiating retrieve...');
+					}
+					const result = await this.runWithQuietStdout(isJson, () => client.retrieve(retrieveOptions));
+					if (isJson) {
+						console.log(JSON.stringify(result, null, 2));
+					} else {
+						console.log('Retrieve completed:', result);
+					}
+					this.logCommandDuration(timer);
+				} catch (error) {
+					this.handleError('Retrieve failed', error);
 				}
 			});
 	}
@@ -370,11 +490,22 @@ export class CLI {
 		if (options.quickDeployId !== undefined) {
 			updatedConfig.quickDeployId = options.quickDeployId;
 		}
+		if (options.manifest !== undefined) {
+			updatedConfig.manifest = options.manifest;
+		}
 		if (options.dryRun !== undefined) {
 			updatedConfig.dryRun = Boolean(options.dryRun);
 		}
 		if (options.json !== undefined) {
 			updatedConfig.json = Boolean(options.json);
+		}
+		if (options.reportPath !== undefined) {
+			updatedConfig.reportPath = options.reportPath;
+		}
+		if (options.reportFormat !== undefined && String(options.reportFormat).toLowerCase() !== 'summary') {
+			updatedConfig.reportFormat = this.parseReportFormat(options.reportFormat);
+		} else if (options.reportPath !== undefined && !updatedConfig.reportFormat) {
+			updatedConfig.reportFormat = 'json';
 		}
 
 		const rawExclude = options.exclude ?? (process.env.SF_EXCLUDE ? [process.env.SF_EXCLUDE] : undefined);
@@ -408,8 +539,8 @@ export class CLI {
 		if (options.maxPollAttempts !== undefined && !Number.isNaN(Number(options.maxPollAttempts))) {
 			updatedConfig.maxPollAttempts = Number(options.maxPollAttempts);
 		}
-		const { logUsername = true } = logging;
-		updatedConfig.env = this.normalizeEnv(options.env ?? updatedConfig.env);
+		const { logUsername = true, requireAuth = true } = settings;
+		updatedConfig.env = this.normalizeEnv(options.env ?? process.env.SF_ENV ?? updatedConfig.env);
 		const isCliTestLevel =
 			typeof this.program.getOptionValueSource === 'function' &&
 			this.program.getOptionValueSource('testLevel') === 'cli';
@@ -423,6 +554,11 @@ export class CLI {
 			}
 		} else if (!hasExplicitTestLevel) {
 			updatedConfig.testLevel = 'NoTestRun';
+		}
+
+		// Validate manifest compatibility regardless of auth requirement
+		if (updatedConfig.manifest) {
+			this.validateManifestConfig(updatedConfig);
 		}
 
 		// Validate required fields when authentication is required
@@ -518,12 +654,30 @@ export class CLI {
 		}
 
 		if (config.manifest) {
-			const isCustomBase = config.baseBranch !== this.config.baseBranch;
-			const isCustomTarget = config.targetBranch !== this.config.targetBranch;
-			if (isCustomBase || isCustomTarget) {
-				throw new Error('--manifest cannot be combined with --baseBranch or --targetBranch.');
-			}
+			this.validateManifestConfig(config);
 		}
+	}
+
+	private validateManifestConfig(config: CommandArgsConfig): void {
+		if (!config.manifest) {
+			return;
+		}
+		const isCustomBase = config.baseBranch !== this.config.baseBranch;
+		const isCustomTarget = config.targetBranch !== this.config.targetBranch;
+		if (isCustomBase || isCustomTarget) {
+			throw new Error('--manifest cannot be combined with --baseBranch or --targetBranch.');
+		}
+	}
+
+	private parseReportFormat(value?: string): ReportFormat {
+		const allowedFormats: ReportFormat[] = ['json', 'junit', 'both'];
+		const normalizedValue = (value ?? 'json').toLowerCase() as ReportFormat;
+
+		if (!allowedFormats.includes(normalizedValue)) {
+			throw new Error(`Invalid report format: ${value}. Allowed values: ${allowedFormats.join(', ')}`);
+		}
+
+		return normalizedValue;
 	}
 
 	private handleError(message: string, error: unknown): never {
@@ -546,7 +700,7 @@ export class CLI {
 	}
 
 	private failForTerminalError(status: string, message: string): void {
-		if (status === 'Failed' || status === 'Canceled') {
+		if (status === 'Failed' || status === 'Canceled' || status === 'SucceededPartial') {
 			throw new Error(`${message}: ${status}`);
 		}
 	}

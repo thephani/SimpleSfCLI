@@ -33,6 +33,11 @@ export class MDAPIService extends BaseService {
       await this.initializeDirectories();
 
       const runTests: string[] = [];
+      if (this.config.manifest) {
+        await this.processManifestMetadata(excludeList, runTests);
+        return runTests;
+      }
+
       const survivingBundles = await this.processDeletedMetadata(excludeList);
       await this.processModifiedMetadata(excludeList, runTests, survivingBundles);
 
@@ -330,14 +335,17 @@ export class MDAPIService extends BaseService {
   }
 
   private async copyBundleDirectory(directory: string, relativeDirectory: string): Promise<void> {
-    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    const entries = (await fs.promises.readdir(directory, { withFileTypes: true })) as Array<fs.Dirent | string>;
     for (const entry of entries) {
-      const relativePath = `${relativeDirectory}/${entry.name}`;
+      const entryName = typeof entry === "string" ? entry : entry.name;
+      const relativePath = `${relativeDirectory}/${entryName}`;
       if (this.shouldIgnoreFile(relativePath)) continue;
-      const sourcePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
+      const sourcePath = path.join(directory, entryName);
+      const isDir = typeof entry !== "string" && typeof entry.isDirectory === "function" && entry.isDirectory();
+      const isFile = typeof entry === "string" || (typeof entry.isFile === "function" ? entry.isFile() : !isDir);
+      if (isDir) {
         await this.copyBundleDirectory(sourcePath, relativePath);
-      } else if (entry.isFile()) {
+      } else if (isFile) {
         const targetPath = path.join(this.config.cliOuputFolder, relativePath);
         await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
         await fs.promises.copyFile(sourcePath, targetPath);
@@ -515,7 +523,10 @@ export class MDAPIService extends BaseService {
     types: MetadataType[],
     apiVersion?: string,
   ): Promise<void> {
-    const packageXml = this.xmlHelper.createPackageXml(types, apiVersion);
+    const packageXml =
+      apiVersion !== undefined
+        ? this.xmlHelper.createPackageXml(types, apiVersion)
+        : this.xmlHelper.createPackageXml(types);
     await fs.promises.writeFile(
       path.join(this.config.cliOuputFolder, "package.xml"),
       packageXml,
