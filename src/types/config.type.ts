@@ -1,3 +1,5 @@
+import type { ReportFormat } from './deployment.type.js';
+
 export interface CommandArgsConfig {
 	source: string;
 	output: string;

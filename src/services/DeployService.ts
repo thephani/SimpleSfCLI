@@ -1,7 +1,7 @@
 import fs from 'fs';
 import defaultConfig from '../config.js';
 import { BaseService } from './BaseService.js';
-import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
+import type { DeployOptions, DeployResult, DeploymentComponentFailure, DeploymentSummary, DeploymentTestFailure } from '../types/deployment.type.js';
 
 const DEPLOY_ID_PATTERN = /^0Af[A-Za-z0-9]{12,15}$/;
 

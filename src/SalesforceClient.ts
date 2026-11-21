@@ -13,6 +13,7 @@ export class SalesforceClient {
 	private deployService: DeployService;
 	private mdapiService: MDAPIService;
 	private archiverService: ArchiverService;
+	private reportService: ReportService;
 
 	constructor(config: CommandArgsConfig) {
 		this.config = config;
@@ -20,6 +21,7 @@ export class SalesforceClient {
 		this.deployService = new DeployService(config);
 		this.mdapiService = new MDAPIService(config);
 		this.archiverService = new ArchiverService(config);
+		this.reportService = new ReportService();
 	}
 
 	async package(): Promise<{ packaged: boolean; zipPath: string | null; runTests: string[] }> {
