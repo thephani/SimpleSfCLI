@@ -654,5 +654,22 @@ describe('MDAPIService', () => {
 				},
 			]);
 		});
+
+		it('should call copyFiles only once during processModifiedMetadata and pass sfVersion to XmlHelper', async () => {
+			expect(XmlHelper).toHaveBeenCalledWith(
+				mockConfig.cliOuputFolder,
+				'force-app/main/default',
+				mockConfig.sfVersion,
+			);
+			const copyFilesSpy = jest.spyOn(service as any, 'copyFiles');
+			(service as any).getGitFiles = jest.fn().mockResolvedValue([
+				'force-app/main/default/classes/SingleCopy.cls',
+			]);
+
+			await (service as any).processModifiedMetadata([], []);
+
+			expect(copyFilesSpy).toHaveBeenCalledTimes(1);
+			expect(copyFilesSpy).toHaveBeenCalledWith(['force-app/main/default/classes/SingleCopy.cls']);
+		});
 	});
 });

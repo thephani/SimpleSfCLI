@@ -29,7 +29,7 @@ const config: CommandArgsConfig = {
   appDescription: 'Deploy your metadata in seconds',
   
   // Salesforce API version
-  sfVersion: 'v60.0',
+  sfVersion: 'v62.0',
   
   // CLI information
   cliVersion: '2.7.8',

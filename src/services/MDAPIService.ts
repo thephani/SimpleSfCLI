@@ -1,9 +1,9 @@
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { CommandArgsConfig } from "types/config.type.js";
-import { MetadataType } from "types/index.type.js";
-import { GroupedData } from "types/xml.type.js";
+import type { CommandArgsConfig } from "../types/config.type.js";
+import type { MetadataType } from "../types/index.type.js";
+import type { GroupedData } from "../types/xml.type.js";
 import {
   MEMBERTYPE_REGEX,
   METADATA_EXTENSIONS,
@@ -21,7 +21,7 @@ export class MDAPIService extends BaseService {
   constructor(config: CommandArgsConfig) {
     super(config);
     this.normalizedSource = this.normalizeRepoPath(config.source);
-    this.xmlHelper = new XmlHelper(config.cliOuputFolder, this.normalizedSource);
+    this.xmlHelper = new XmlHelper(config.cliOuputFolder, this.normalizedSource, config.sfVersion);
     this.forceIgnoreHelper = new ForceIgnoreHelper(this.normalizedSource);
   }
 
@@ -108,8 +108,6 @@ export class MDAPIService extends BaseService {
       return type !== null && !excludeList.includes(type);
     });
     const { fieldData, otherFiles } = this.categorizeFiles(includedFiles);
-
-    await this.copyFiles(otherFiles);
 
     console.log(`Copying file: ${otherFiles}`);
     await this.copyFiles(otherFiles);

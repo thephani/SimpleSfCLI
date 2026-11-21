@@ -1,4 +1,5 @@
 import fs from 'fs';
+import defaultConfig from '../config.js';
 import { BaseService } from './BaseService.js';
 import type { DeployOptions, DeployResult } from '../types/deployment.type.js';
 
@@ -14,7 +15,12 @@ export class DeployService extends BaseService {
       });
 
       const deployResult = (await response.json()) as DeployResult;
-      return deployResult;
+      if (deployResult?.done && deployResult.status === 'Succeeded') {
+        return deployResult;
+      }
+
+      const targetDeployId = deployResult?.id || deploymentId;
+      return await this.pollDeploymentStatus(targetDeployId);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Quick deploy failed';
       throw new Error(`Quick deploy error: ${errorMessage}`);
@@ -23,8 +29,9 @@ export class DeployService extends BaseService {
 
   async initiateDeployment(zipPath: string, options: Partial<DeployOptions> = {}): Promise<string> {
     const soapRequest = await this.createDeployRequest(zipPath, options);
+    const soapVersion = (this.config.sfVersion || defaultConfig.sfVersion).replace(/^v/i, '');
 
-    const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/62.0`, {
+    const response = await fetch(`${this.config.instanceUrl}/services/Soap/m/${soapVersion}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml',
@@ -62,16 +69,25 @@ export class DeployService extends BaseService {
         console.log(`Running Test Status: ${status.numberTestsCompleted} / ${status.numberTestsTotal}`);
       }
       // if (status.numberTestErrors > 0 || status.numberComponentErrors > 0) { // status.details?.componentFailures.length > 0
-      if(status.status === 'Failed') {
+      if (status.status === 'Failed' || status.status === 'SucceededPartial') {
         console.log('🚨📢🔔 DEPLOYMENT FAILED 🚨📢🔔');
         // Create a new array with only the selected properties
-        const failedTests = status.details?.runTestResult?.failures?.map(({ stackTrace }) => ({ stackTrace }));
+        const failedTests = status.details?.runTestResult?.failures?.map(({ name, methodName, message, stackTrace }) => ({
+          name,
+          methodName,
+          message,
+          stackTrace,
+        }));
         if (failedTests?.length) {
           console.table(failedTests);
         }
-        if (status.details?.componentFailures) {
-          const failedComponenets = status.details?.componentFailures.map(({ fileName, fullName, problem }) => ({ fileName, fullName, problem }));
-          console.table(failedComponenets);
+        const failedComponents = status.details?.componentFailures?.map(({ fileName, fullName, problem }) => ({
+          fileName,
+          fullName,
+          problem,
+        }));
+        if (failedComponents?.length) {
+          console.table(failedComponents);
           // console.log('Failed Components:', status.details.componentFailures);
         }
       }
