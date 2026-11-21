@@ -16,13 +16,34 @@ interface SalesforceAuthError {
 export class AuthService extends BaseService {
 	async authenticate(): Promise<AuthResult> {
 		try {
-			const privateKeyContents = fs.readFileSync(this.config.privateKey!, 'utf-8');
+			const privateKeyContents = this.resolvePrivateKey(this.config.privateKey!);
 			const jwtToken = this.createJwtToken(privateKeyContents);
 			return await this.getAccessToken(jwtToken);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
 			throw new Error(`Authentication error: ${errorMessage}`);
 		}
+	}
+
+	private resolvePrivateKey(key: string): string {
+		if (!key) {
+			throw new Error('Private key is required');
+		}
+		if (key.includes('-----BEGIN')) {
+			return key;
+		}
+		const fileExists = typeof fs.existsSync === 'function' ? fs.existsSync(key) : true;
+		if (!fileExists) {
+			try {
+				const decoded = Buffer.from(key.trim(), 'base64').toString('utf-8');
+				if (decoded.includes('-----BEGIN')) {
+					return decoded;
+				}
+			} catch {
+				// Fall through to fs.readFileSync
+			}
+		}
+		return fs.readFileSync(key, 'utf-8');
 	}
 
 	private createJwtToken(privateKey: string): string {

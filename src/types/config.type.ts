@@ -19,4 +19,11 @@ export interface CommandArgsConfig {
 	testLevel: 'NoTestRun' | 'RunLocalTests' | 'RunAllTestsInOrg' | 'RunSpecifiedTests';
 	coverageJson: string;
 	runTests: string[];
+	tests?: string[];
+	apiVersion?: string;
+	pollInterval?: number;
+	maxPollAttempts?: number;
+	dryRun?: boolean;
+	json?: boolean;
 }
+

@@ -43,6 +43,10 @@ describe('MDAPIService', () => {
 		delete testEnv.BITBUCKET_PR_DESTINATION_BRANCH;
 		delete testEnv.BITBUCKET_PR_SOURCE_BRANCH;
 		delete testEnv.BITBUCKET_BRANCH;
+		delete testEnv.CI_MERGE_REQUEST_TARGET_BRANCH_NAME;
+		delete testEnv.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+		delete testEnv.SYSTEM_PULLREQUEST_TARGETBRANCH;
+		delete testEnv.SYSTEM_PULLREQUEST_SOURCEBRANCH;
 		process.env = { ...testEnv };
 		(ForceIgnoreHelper as jest.MockedClass<typeof ForceIgnoreHelper>).prototype.shouldIgnore = jest.fn().mockReturnValue(false);
 		service = new MDAPIService(mockConfig);
@@ -517,6 +521,76 @@ describe('MDAPIService', () => {
 				3,
 				'git',
 				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/develop...origin/feature/bitbucket-pr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use GitLab CI merge request target and source branches when available', async () => {
+			process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME = 'main';
+			process.env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME = 'feature/gitlab-mr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/main'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/gitlab-mr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/main...origin/feature/gitlab-mr', '--'],
+				{ encoding: 'utf8' },
+			);
+		});
+
+		it('should use Azure DevOps PR target and source branches and strip refs/heads/ prefix', async () => {
+			process.env.SYSTEM_PULLREQUEST_TARGETBRANCH = 'refs/heads/release/v1';
+			process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH = 'refs/heads/feature/ado-pr';
+
+			(execFileSync as jest.Mock)
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('force-app/main/default/classes/TestClass.cls\0')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('')
+				.mockReturnValueOnce('');
+
+			const result = await (service as any).getGitFiles('AM');
+
+			expect(result).toEqual(['force-app/main/default/classes/TestClass.cls']);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				1,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/release/v1'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				2,
+				'git',
+				['rev-parse', '--verify', '--quiet', '--end-of-options', 'origin/feature/ado-pr'],
+				{ encoding: 'utf8', stdio: 'ignore' },
+			);
+			expect(execFileSync).toHaveBeenNthCalledWith(
+				3,
+				'git',
+				['diff', '--diff-filter=AM', '--name-only', '-z', 'origin/release/v1...origin/feature/ado-pr', '--'],
 				{ encoding: 'utf8' },
 			);
 		});
