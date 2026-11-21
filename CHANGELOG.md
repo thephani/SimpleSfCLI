@@ -4,11 +4,13 @@ All notable changes to `simple-sf-cli` are documented in this file.
 
 ## Unreleased
 
-- Added corrected `METADATA_TYPES` spellings (`ApprovalProcess`, `AssessmentQuestion`, `AssessmentQuestionSet`, `ActionableListDefinition`, `MessagingChannel`) while preserving existing keys for backward compatibility, and added standard SFDX plural folder mappings (`permissionsets`, `flows`, `queues`, `quickActions`, `customPermissions`, `staticresources`, `aura`, `experiences`, `roles`, `reports`, `reportTypes`, `dashboards`, `email`, `weblinks`, `tabs`, `namedCredentials`, `externalCredentials`, `globalValueSets`, `customApplications`, `applications`, `connectedApps`, `cachePartitions`, `sharingRules`, `duplicateRules`, `matchingRules`, `assignmentRules`, `autoResponseRules`, `escalationRules`).
-- Expanded `METADATA_EXTENSIONS` coverage (including `.permissionset-meta.xml`, `.queue-meta.xml`, `.quickAction-meta.xml`, `.customPermission-meta.xml`, `.role-meta.xml`, `.report-meta.xml`, `.reportType-meta.xml`, `.dashboard-meta.xml`, `.email-meta.xml`, `.email`, `.resource-meta.xml`, `.resource`, `.weblink-meta.xml`, `.approvalProcess-meta.xml`, `.globalValueSet-meta.xml`, `.app-meta.xml`, `.connectedApp-meta.xml`, `.namedCredential-meta.xml`, `.externalCredential-meta.xml`, `.cachePartition-meta.xml`, `.sharingRules-meta.xml`, `.duplicateRule-meta.xml`, `.matchingRule-meta.xml`, `.assignmentRules-meta.xml`, `.autoResponseRules-meta.xml`, `.escalationRules-meta.xml`, `.flowDefinition-meta.xml`, Aura bundle extensions, and companion `-meta.xml` suffixes) so `getMemberName` resolves package members directly without falling through to `generatePackageMember`.
-- Added support for decomposed SFDX `CustomObject` child directories beyond `fields/` (`validationRules`, `recordTypes`, `listViews`, `webLinks`, `compactLayouts`, `businessProcesses`, `fieldSets`), merging their inner XML into `.simpleSfCli_out/objects/<Object>.object` and adding `<Object>.<ChildFullName>` members under their respective metadata types (`ValidationRule`, `RecordType`, `ListView`, `WebLink`, `CompactLayout`, `BusinessProcess`, `FieldSet`) in `package.xml`.
-- Added bundle copying, member extraction, and partial deletion survival handling for `aura/<bundle>/...` (`AuraDefinitionBundle`) and `experiences/<bundle>/...` (`ExperienceBundle`) alongside `lwc/<bundle>/...`, plus primary file copying when companion `*-meta.xml` files (`.cls-meta.xml`, `.trigger-meta.xml`, `.page-meta.xml`, `.component-meta.xml`, `.resource-meta.xml`, `.email-meta.xml`) are modified directly.
-- Deduplicated destructive changes when an entire `CustomObject` (`objects/<Obj>/<Obj>.object-meta.xml`) is deleted so deleted child metadata under `objects/<Obj>/` is omitted from `destructiveChangesPost.xml`.
+- Removed duplicate `copyFiles` invocation during MDAPI conversion of modified metadata.
+- Preserved explicit `--testLevel` CLI flags during production deployments while defaulting to `RunLocalTests` in `PRODUCTION` and `NoTestRun` in `SANDBOX` when omitted.
+- Unified the default Salesforce Metadata API version to `v62.0` (`62.0`) across `config.ts`, `DeployService` SOAP/REST endpoints, and `XmlHelper` manifest generation.
+- Updated `quick-deploy` to poll deployment status until completion when the initial quick-deploy response is not yet terminal.
+- Logged component failure and test failure tables for both `Failed` and `SucceededPartial` deployments, including full test failure details (`name`, `methodName`, `message`, and `stackTrace`).
+- Replaced the placeholder `XmlHelper.isValidXml` check with well-formed XML tag and structure validation.
+- Standardized relative type imports across `SalesforceClient`, `BaseService`, `MDAPIService`, and `XmlHelper`.
 
 ## 2.7.8 - 2026-10-27
 
@@ -25,6 +27,7 @@ All notable changes to `simple-sf-cli` are documented in this file.
 - Accepts comma-separated and space-separated metadata-type exclusions consistently.
 - Handles missing test failure arrays without masking the deployment result.
 - Corrected the CLI version display to match the package version.
+- Updated `package.json` metadata (`description`, `license`, `author`, `engines`, and `keywords`), included `LICENSE` in NPM packages via `.npmignore` cleanup, fixed `.gitignore` entries, and synchronized `README.md` and `index.html` documentation.
 
 ## 2.7.7 - 2026-06-24
 

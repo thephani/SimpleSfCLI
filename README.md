@@ -81,12 +81,18 @@ See the [Complete Metadata Reference](https://developer.salesforce.com/docs/atla
 
 ## What's New
 
-### Unreleased
+### 2.7.8 - 2026-10-27
 
-- Expanded SFDX folder mappings (`permissionsets`, `flows`, `queues`, `quickActions`, `customPermissions`, `staticresources`, `aura`, `experiences`, `roles`, `reports`, `reportTypes`, `dashboards`, `email`, `weblinks`, `tabs`, `namedCredentials`, `externalCredentials`, `globalValueSets`, `customApplications`, `applications`, `connectedApps`, `cachePartitions`, `sharingRules`, `duplicateRules`, `matchingRules`, `assignmentRules`, `autoResponseRules`, `escalationRules`), corrected typo keys (`ApprovalProcess`, `AssessmentQuestion`, `AssessmentQuestionSet`, `ActionableListDefinition`, `MessagingChannel`), and expanded `METADATA_EXTENSIONS` coverage.
-- Added full support for decomposed SFDX `CustomObject` child directories (`validationRules`, `recordTypes`, `listViews`, `webLinks`, `compactLayouts`, `businessProcesses`, `fieldSets`) alongside `fields`, merging their XML into `.simpleSfCli_out/objects/<Object>.object` and declaring `<Object>.<ChildFullName>` in `package.xml`.
-- Extended bundle copying and partial-deletion handling to `aura/<bundle>/...` and `experiences/<bundle>/...`, and ensured direct changes to `*-meta.xml` companion files also package their primary source file.
-- Deduplicated destructive changes when an entire `CustomObject` is deleted so child metadata under `objects/<Obj>/` is filtered out of `destructiveChangesPost.xml`.
+- Added real-file integration tests using disposable Git repositories, built CLI processes, parsed XML, and inspected ZIP archives with simulated Salesforce HTTP responses.
+- Added a separate credential-free PR/push/manual/daily integration workflow at 07:23 UTC, seven-day diagnostics, and an integration gate before NPM publishing.
+- Fixed object-plus-field deltas losing field payloads when object settings were copied afterward; preserves repeated field XML nodes and encoded content without nested XML declarations.
+- Applied `.forceignore` and metadata-type exclusions before writing payloads, including ignored files inside LWC bundles.
+- Used argument-array Git execution and failed explicitly on invalid comparison refs instead of silently packaging a partial delta.
+- Updated failed, canceled, and partially successful deployments to exit nonzero, while deltas with no deployable changes return success without submitting a deployment request.
+- Unified mixed updates/deletions and deletion-only deltas into a single ZIP with root `package.xml` and `destructiveChangesPost.xml` so deletions run after additions and updates.
+- Handled partial LWC file deletions by redeploying the surviving bundle and avoided destructive entries for files restored in the working tree.
+- Accepted comma-separated and space-separated `--exclude` metadata-type exclusions consistently, and corrected the CLI version display to match the package version.
+- Updated `package.json`, `.npmignore`, `.gitignore`, `README.md`, and `index.html` to synchronize package metadata, license packaging, repository ignore rules, and documentation.
 
 ### 2.7.7 - 2026-06-24
 
@@ -306,7 +312,7 @@ simpleSfCli \
 ### Production Deployment
 
 Deploy to production (requires authentication and permissions).
-When `--env PRODUCTION` is used, the CLI forces `RunLocalTests`:
+When `--env PRODUCTION` is used, the CLI defaults `--testLevel` to `RunLocalTests` unless you explicitly pass `-t, --testLevel`:
 
 ```bash
 simpleSfCli \
@@ -488,8 +494,8 @@ simpleSfCli \
   env: 'SANDBOX',
   baseBranch: 'HEAD~1',
   targetBranch: 'HEAD',
-  sfVersion: 'v60.0',
-  cliVersion: '0.6.0',
+  sfVersion: 'v62.0',
+  cliVersion: '2.7.8',
   cliOuputFolder: '.simpleSfCli_out',
   testLevel: 'NoTestRun',
   coverageJson: './ApexTestCoverage.json'
@@ -790,9 +796,9 @@ For complete documentation, visit:
 |--------|-------|
 | Package Size | 19.1 KB |
 | Unpacked Size | ~81 KB |
-| Dependencies | 4 (minimal footprint) |
+| Dependencies | 3 (minimal footprint) |
 | TypeScript | Yes |
-| Node.js Version | 16+ |
+| Node.js Version | 18+ |
 
 ---
 
@@ -824,7 +830,7 @@ Must specify a non-empty label for the CustomObject
 Not in package.xml
 The processing instruction target matching "[xX][mM][lL]" is not allowed.
 ```
-**Solution:** Upgrade to `2.7.4` or later, or the latest unreleased source build for object-plus-fields fixes, and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`. Generated `.simpleSfCli_out/objects/<Object>.object` files must contain `<fields>` nodes without nested `<?xml ...?>` declarations.
+**Solution:** Upgrade to `2.7.8` or later and rebuild local `dist` output if running from source. Field-only changes must appear in `.simpleSfCli_out/package.xml` as `CustomField` members, for example `Program__c.Partner_Status__c`, and the member must match the field XML `<fullName>`. Generated `.simpleSfCli_out/objects/<Object>.object` files must contain `<fields>` nodes without nested `<?xml ...?>` declarations.
 
 **5. Certificate Issues**
 ```
@@ -914,7 +920,7 @@ SOFTWARE.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the latest `2.7.4` deployment fixes.
+See [CHANGELOG.md](CHANGELOG.md) for versioned release notes, including the latest `2.7.8` deployment fixes.
 
 ---
 
