@@ -16,7 +16,7 @@ export interface CommandArgsConfig {
 	cliVersion: string;
 	cliOuputFolder: string;
 	quickDeployId?: string;
-	reportFormat?: 'summary' | 'json';
+	manifest?: string;
 	testLevel: 'NoTestRun' | 'RunLocalTests' | 'RunAllTestsInOrg' | 'RunSpecifiedTests';
 	coverageJson: string;
 	runTests: string[];
